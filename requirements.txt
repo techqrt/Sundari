@@ -1,0 +1,15 @@
+Django
+djangorestframework
+djangorestframework-simplejwt
+drf-spectacular
+python-decouple
+psycopg2-binary
+django-cors-headers
+Pillow
+pandas
+PyJWT
+celery
+redis
+django-celery-beat
+sib-api-v3-sdk
+google-auth
