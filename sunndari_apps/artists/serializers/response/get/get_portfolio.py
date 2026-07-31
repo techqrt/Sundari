@@ -4,7 +4,7 @@ from rest_framework import serializers
 class PortfolioSerializer(serializers.Serializer):
     portfolioId = serializers.IntegerField()
     artistId = serializers.IntegerField()
-    fileUrl = serializers.CharField()
+    fileUrl = serializers.CharField(allow_blank=True)
     mediaType = serializers.CharField()
     subCategoryId = serializers.IntegerField()
     caption = serializers.CharField(allow_null=True)

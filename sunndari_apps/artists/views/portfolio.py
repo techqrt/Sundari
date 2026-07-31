@@ -31,6 +31,8 @@ class PortfolioView:
 
     @Common().exception_handler
     def create_extract(self, params, file):
+        if not file:
+            raise ValueError(Constants.file_required)
         with transaction.atomic():
             profile = self._get_profile(user_id=params.user_id)
             if Portfolio.count_active(artist_id=profile.artist_id) >= 20:

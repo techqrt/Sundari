@@ -51,6 +51,7 @@ class Constants:
 
     # Portfolio
     portfolio_limit_exceeded = 'Maximum 20 active portfolio items allowed'
+    file_required = 'A file is required to create a portfolio item'
 
     # Address
     address_limit_exceeded = 'Maximum 5 saved addresses allowed'
