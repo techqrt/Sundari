@@ -7,7 +7,7 @@ class PortfolioSerializer(serializers.Serializer):
     fileUrl = serializers.CharField(allow_blank=True)
     mediaType = serializers.CharField()
     subCategoryId = serializers.IntegerField()
-    caption = serializers.CharField(allow_null=True)
+    caption = serializers.CharField(allow_null=True, allow_blank=True)
     approvalStatusId = serializers.IntegerField(allow_null=True)
     isActive = serializers.BooleanField()
     createdAt = serializers.DateTimeField()

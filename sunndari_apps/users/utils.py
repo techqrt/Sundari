@@ -46,6 +46,11 @@ class UsersUtils:
         for _, row in df.iterrows():
             row_dict = {}
             for col, val in row.items():
+                # pandas upcasts an int column to float64 the moment any row in the same
+                # frame has a null in it (needs float to hold NaN) — undo that per value,
+                # since a plain dict (unlike a DataFrame column) has no dtype to preserve.
+                if isinstance(val, float) and not pandas.isna(val) and val.is_integer():
+                    val = int(val)
                 if '.' in col:
                     parts = col.split('.')
                     current = row_dict

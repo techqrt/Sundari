@@ -90,8 +90,8 @@ class TokenRefreshSerializer(serializers.Serializer):
 class AuthResponseSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     name = serializers.CharField()
-    email = serializers.EmailField(allow_null=True)
-    phone_number = serializers.CharField(allow_null=True)
-    role = serializers.CharField(allow_null=True)
+    email = serializers.EmailField(allow_null=True, allow_blank=True)
+    phone_number = serializers.CharField(allow_null=True, allow_blank=True)
+    role = serializers.CharField(allow_null=True, allow_blank=True)
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()

@@ -14,7 +14,7 @@ class PackageSerializer(serializers.Serializer):
     name = serializers.CharField()
     price = serializers.DecimalField(max_digits=10, decimal_places=2)
     durationMinutes = serializers.IntegerField()
-    description = serializers.CharField(allow_null=True)
+    description = serializers.CharField(allow_null=True, allow_blank=True)
     isActive = serializers.BooleanField()
     inclusions = serializers.ListField(child=InclusionSerializer())
     createdAt = serializers.DateTimeField()
