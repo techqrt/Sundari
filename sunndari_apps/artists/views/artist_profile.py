@@ -48,18 +48,13 @@ class ArtistProfileView:
     @Common().exception_handler
     def update_extract(self, params):
         with transaction.atomic():
-            profile = self._get_artist_profile(user_id=params.user_id)
-            critical_changed = (
-                (params.city and params.city != profile.city) or
-                (params.service_radius_km and params.service_radius_km != profile.service_radius_km)
-            )
+            self._get_artist_profile(user_id=params.user_id)
             ArtistProfile.update(
                 user_id=params.user_id,
                 bio=params.bio,
                 years_experience=params.years_experience,
                 city=params.city,
                 service_radius_km=params.service_radius_km,
-                reset_approval=critical_changed,
             )
         return Response(
             status=status.HTTP_200_OK,

@@ -33,7 +33,7 @@ class ArtistProfileController:
         return ArtistProfileView().get_extract(params=request.params)
 
     @extend_schema(
-        description='Update own artist profile. City/radius changes trigger re-approval.',
+        description='Update own artist profile. Does not affect approval status.',
         request=ArtistProfileUpdateSerializer,
         responses=SwaggerPage.response(description='Profile updated successfully'),
         tags=['Artists - Profile'],

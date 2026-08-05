@@ -151,9 +151,9 @@ class ArtistProfileUpdateTest(TestCase):
         profile = get_artist_profile(user)
         self.assertEqual(profile.bio, 'Expert in bridal makeup')
 
-    def test_update_city_triggers_re_approval(self):
+    def test_update_city_does_not_reset_approval(self):
         ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
-        pending, _ = ApprovalStatus.objects.get_or_create(name='pending', defaults={'description': 'Pending'})
+        ApprovalStatus.objects.get_or_create(name='pending', defaults={'description': 'Pending'})
         client, user = make_authenticated_client()
         profile = get_artist_profile(user)
         approved = ApprovalStatus.objects.get(name='approved')
@@ -163,7 +163,7 @@ class ArtistProfileUpdateTest(TestCase):
         resp = client.put(self.url, {'city': 'Mumbai'})
         self.assertEqual(resp.status_code, 200)
         profile.refresh_from_db()
-        self.assertEqual(profile.approval_status_id, pending.status_id)
+        self.assertEqual(profile.approval_status_id, approved.status_id)
 
     def test_update_bio_no_re_approval(self):
         ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
@@ -177,6 +177,26 @@ class ArtistProfileUpdateTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         profile.refresh_from_db()
         self.assertEqual(profile.approval_status_id, approved.status_id)
+
+    def test_update_multiple_fields_no_re_approval(self):
+        ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
+        client, user = make_authenticated_client()
+        profile = get_artist_profile(user)
+        approved = ApprovalStatus.objects.get(name='approved')
+        profile.approval_status = approved
+        profile.save()
+
+        resp = client.put(self.url, {
+            'bio': 'I am a professional makeup artist',
+            'years_experience': 3,
+            'city': 'Bhiwani',
+        })
+        self.assertEqual(resp.status_code, 200)
+        profile.refresh_from_db()
+        self.assertEqual(profile.approval_status_id, approved.status_id)
+        self.assertEqual(profile.bio, 'I am a professional makeup artist')
+        self.assertEqual(profile.years_experience, 3)
+        self.assertEqual(profile.city, 'Bhiwani')
 
     def test_update_unauthenticated_returns_401(self):
         client = APIClient()
