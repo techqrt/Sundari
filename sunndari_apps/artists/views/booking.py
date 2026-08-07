@@ -15,6 +15,7 @@ from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.customers.models.payment import Payment
 from sunndari_apps.customers.utils import CustomersUtils
 from sunndari_apps.notifications.utils import NotificationService
+from sunndari_apps.chat.services import ChatService
 from sunndari_apps.customers.serializers.response.get.get_booking import BookingResponseSerializer
 from sunndari_apps.customers.serializers.response.get_all.get_all_booking import BookingResponseGetAllSerializer
 from sunndari.constants import Constants
@@ -106,6 +107,8 @@ class ArtistBookingView:
                 type='booking_confirmed',
                 booking_id=params.booking_id,
             )
+        if params.status == 'completed':
+            ChatService.close_conversation(booking_id=params.booking_id)
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message='Booking status updated successfully')

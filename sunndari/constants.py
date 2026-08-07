@@ -55,3 +55,9 @@ class Constants:
 
     # Address
     address_limit_exceeded = 'Maximum 5 saved addresses allowed'
+
+    # Chat
+    conversation_not_found = 'Conversation not found'
+    conversation_closed = 'This conversation is closed and no longer accepts new messages'
+    chat_not_eligible = 'Chat is only available for confirmed or in-progress bookings'
+    message_empty = 'Message content cannot be empty'

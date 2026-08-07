@@ -13,3 +13,6 @@ redis
 django-celery-beat
 sib-api-v3-sdk
 google-auth
+channels
+channels-redis
+daphne

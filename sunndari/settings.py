@@ -17,6 +17,13 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+
+    # Must precede 'django.contrib.staticfiles' — 'daphne' overrides the
+    # `runserver` command to serve ASGI (HTTP + WebSocket) instead of plain
+    # WSGI, and Django only applies that override for apps listed earlier.
+    'daphne',
+    'channels',
+
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
@@ -33,6 +40,7 @@ INSTALLED_APPS = [
     'sunndari_apps.customers',
     'sunndari_apps.notifications',
     'sunndari_apps.admin_panel',
+    'sunndari_apps.chat',
 ]
 
 AUTH_USER_MODEL = 'auth.User'
@@ -73,6 +81,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'sunndari.wsgi.application'
+ASGI_APPLICATION = 'sunndari.asgi.application'
+
+# Chat realtime channel layer — same Redis instance as Celery, separate logical DB.
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': ['redis://localhost:6379/1'],
+        },
+    },
+}
 
 # DATABASES = {
 #     'default': {

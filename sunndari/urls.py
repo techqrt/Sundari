@@ -24,6 +24,7 @@ urlpatterns = [
     path('artists/', include('sunndari_apps.artists.urls')),
     path('customers/', include('sunndari_apps.customers.urls')),
     path('notifications/', include('sunndari_apps.notifications.urls')),
+    path('chat/', include('sunndari_apps.chat.urls')),
 
     # Admin Panel
     path('admin-panel/', include('sunndari_apps.admin_panel.urls')),
