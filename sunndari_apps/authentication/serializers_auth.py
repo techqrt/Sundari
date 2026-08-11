@@ -57,6 +57,7 @@ class RegisterWithPasswordSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=20, required=False)
     password = serializers.CharField(min_length=8, write_only=True)
     role = serializers.ChoiceField(choices=[c[0] for c in User.ROLE_CHOICES])
+    fcm_token = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, data):
         if not data.get('email') and not data.get('phone_number'):
@@ -93,5 +94,6 @@ class AuthResponseSerializer(serializers.Serializer):
     email = serializers.EmailField(allow_null=True, allow_blank=True)
     phone_number = serializers.CharField(allow_null=True, allow_blank=True)
     role = serializers.CharField(allow_null=True, allow_blank=True)
+    fcm_token = serializers.CharField(allow_null=True, allow_blank=True)
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()

@@ -48,6 +48,7 @@ def _issue_token(user: User) -> Response:
                 'email': user.email,
                 'phone_number': user.phone_number,
                 'role': user.role,
+                'fcm_token': user.fcm_token,
                 'access_token': access_token,
                 'refresh_token': refresh_token,
             }
@@ -241,6 +242,7 @@ class PasswordAuthView:
                 email=email,
                 phone_number=phone_number,
                 role=data['role'],
+                fcm_token=data.get('fcm_token'),
             )
             user.set_password(data['password'])
             user.save()

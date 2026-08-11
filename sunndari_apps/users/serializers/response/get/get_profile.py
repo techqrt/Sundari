@@ -8,6 +8,7 @@ class UserProfileGetSerializer(serializers.Serializer):
     phoneNumber = serializers.CharField(allow_null=True, allow_blank=True)
     role = serializers.CharField(allow_null=True, allow_blank=True)
     isActive = serializers.BooleanField()
+    fcmToken = serializers.CharField(allow_null=True, allow_blank=True)
     createdAt = serializers.DateTimeField()
 
 

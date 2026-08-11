@@ -36,6 +36,7 @@ class User(AbstractBaseUser):
     otp_attempts = models.IntegerField(default=0)
     lockout_until = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    fcm_token = models.TextField(null=True, blank=True)
     created_date_time = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = 'phone_number'
@@ -85,7 +86,7 @@ class User(AbstractBaseUser):
     def get(user_id: int) -> dict:
         return User.objects.filter(user_id=user_id).values(
             'user_id', 'phone_number', 'name', 'email', 'role',
-            'access_token', 'is_active', 'created_date_time'
+            'access_token', 'is_active', 'fcm_token', 'created_date_time'
         ).first()
 
     @staticmethod
@@ -95,6 +96,7 @@ class User(AbstractBaseUser):
         email: str = None,
         phone_number: str = None,
         role: str = None,
+        fcm_token: str = None,
     ) -> int:
         user = User.objects.get(user_id=user_id)
         if name is not None:
@@ -105,5 +107,7 @@ class User(AbstractBaseUser):
             user.phone_number = phone_number
         if role is not None:
             user.role = role
+        if fcm_token is not None:
+            user.fcm_token = fcm_token
         user.save()
         return user.user_id

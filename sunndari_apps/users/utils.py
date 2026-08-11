@@ -28,6 +28,7 @@ class UsersUtils:
             'email': 'email',
             'role': 'role',
             'is_active': 'isActive',
+            'fcm_token': 'fcmToken',
             'created_date_time': 'createdAt',
         }
 

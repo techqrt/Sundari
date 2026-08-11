@@ -45,6 +45,7 @@ class UserProfileView:
                 name=params.name,
                 email=params.email,
                 phone_number=params.phone_number,
+                fcm_token=params.fcm_token,
             )
         return Response(
             status=status.HTTP_200_OK,

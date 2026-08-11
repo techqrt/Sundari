@@ -6,6 +6,7 @@ class UserProfileUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100, required=False, allow_null=True)
     email = serializers.EmailField(required=False, allow_null=True)
     phone_number = serializers.CharField(max_length=20, required=False, allow_null=True)
+    fcm_token = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     def create(self, validated_data) -> UserProfileUpdateRequest:
         return UserProfileUpdateRequest(**validated_data)
