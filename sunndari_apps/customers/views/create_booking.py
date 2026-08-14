@@ -15,6 +15,7 @@ from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.users.models.customer_address import CustomerAddress
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.customers.dataclasses.request.create.create_booking import CreateBookingRequest
+from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari.constants import Constants
 
@@ -96,6 +97,7 @@ class CreateBookingView:
             type='new_booking_alert',
             booking_id=booking_id,
         )
+        BookingFirebaseUtils.sync_booking(booking_id=booking_id)
         return Response(
             status=status.HTTP_201_CREATED,
             data=Utils.success_response_data(

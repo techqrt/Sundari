@@ -25,3 +25,4 @@ class Configurations:
     default_from_email = config('DEFAULT_FROM_EMAIL', default='noreply@sunndari.in')
     google_client_id = config('GOOGLE_CLIENT_ID', default='')
     chat_message_max_length = 2000
+    firebase_credentials_path = config('FIREBASE_CREDENTIALS_PATH', default='')

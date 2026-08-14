@@ -6,11 +6,14 @@ from rest_framework.response import Response
 from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.common.dataclasses.request.get_all import GetAll
+from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.customers.models.payment import Payment
 from sunndari_apps.customers.utils import CustomersUtils
+from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
+from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.customers.dataclasses.request.get.get_booking import GetBookingRequest
 from sunndari_apps.customers.dataclasses.request.update.cancel_booking import CancelBookingRequest
 from sunndari_apps.customers.serializers.response.get.get_booking import BookingResponseSerializer
@@ -83,6 +86,16 @@ class BookingView:
         refunded_status = PaymentStatus.objects.filter(name='refunded').first()
         if refunded_status:
             Payment.mark_refunded(booking_id=params.booking_id, status_id=refunded_status.status_id)
+        artist = ArtistProfile.get(artist_id=booking['artist_id'])
+        if artist:
+            NotificationService.notify(
+                user_id=artist['user_id'],
+                title='Booking cancelled',
+                message=f"Your booking for {booking['booking_date']} was cancelled by the customer.",
+                type='booking_cancelled',
+                booking_id=params.booking_id,
+            )
+        BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message='Booking cancelled successfully')

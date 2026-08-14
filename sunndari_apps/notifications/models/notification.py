@@ -10,6 +10,9 @@ class Notification(models.Model):
         ('booking_reminder_2h', 'Booking Reminder — 2hr'),
         ('payment_status', 'Payment Status Change'),
         ('new_booking_alert', 'New Booking Alert'),
+        ('booking_cancelled', 'Booking Cancelled'),
+        ('booking_completed', 'Booking Completed'),
+        ('booking_no_show', 'Booking No-Show'),
         ('generic', 'Generic'),
     ]
     DELIVERY_STATUS_CHOICES = [('pending', 'Pending'), ('sent', 'Sent'), ('failed', 'Failed')]

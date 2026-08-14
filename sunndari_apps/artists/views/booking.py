@@ -14,6 +14,7 @@ from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.customers.models.payment import Payment
 from sunndari_apps.customers.utils import CustomersUtils
+from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.chat.services import ChatService
 from sunndari_apps.customers.serializers.response.get.get_booking import BookingResponseSerializer
@@ -107,8 +108,32 @@ class ArtistBookingView:
                 type='booking_confirmed',
                 booking_id=params.booking_id,
             )
+        if params.status == 'cancelled':
+            NotificationService.notify(
+                user_id=booking['customer_id'],
+                title='Booking cancelled',
+                message=f"Your booking for {booking['booking_date']} was cancelled by the artist.",
+                type='booking_cancelled',
+                booking_id=params.booking_id,
+            )
         if params.status == 'completed':
             ChatService.close_conversation(booking_id=params.booking_id)
+            NotificationService.notify(
+                user_id=booking['customer_id'],
+                title='Booking completed',
+                message=f"Your booking for {booking['booking_date']} is complete.",
+                type='booking_completed',
+                booking_id=params.booking_id,
+            )
+        if params.status == 'no_show':
+            NotificationService.notify(
+                user_id=booking['customer_id'],
+                title='Marked as no-show',
+                message=f"You were marked as a no-show for your booking on {booking['booking_date']}.",
+                type='booking_no_show',
+                booking_id=params.booking_id,
+            )
+        BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message='Booking status updated successfully')

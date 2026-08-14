@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+import sys
 from sunndari.config import Configurations
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -8,6 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-change-this-in-production'
 
 DEBUG = Configurations.debug
+
+# True under `manage.py test` / pytest — guards external side effects (Firebase
+# writes, etc.) that must never fire against real third-party services from
+# the test suite, since Django's transaction rollback only protects the DB.
+TESTING = 'test' in sys.argv or 'pytest' in sys.modules
 
 ALLOWED_HOSTS = ["*"]
 

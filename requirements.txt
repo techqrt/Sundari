@@ -16,3 +16,4 @@ google-auth
 channels
 channels-redis
 daphne
+firebase-admin

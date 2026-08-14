@@ -3,6 +3,7 @@ import pandas
 import numpy as np
 from sunndari_apps.common.common import Common
 from sunndari_apps.notifications.models.notification import Notification
+from sunndari_apps.notifications.firebase_utils import NotificationFirebaseUtils
 
 
 class NotificationGateway:
@@ -24,6 +25,10 @@ class NotificationService:
     def notify(user_id: int, title: str, message: str, type: str = 'generic', booking_id: int = None) -> int:
         notification_id = Notification().create(
             user_id=user_id, title=title, message=message, type=type, booking_id=booking_id,
+        )
+        NotificationFirebaseUtils.sync_notification(
+            notification_id=notification_id, user_id=user_id, type=type,
+            title=title, message=message, booking_id=booking_id,
         )
         result = NotificationGateway.send(user_id=user_id, title=title, message=message)
         if result['success']:
