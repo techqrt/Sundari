@@ -10,6 +10,7 @@ CATEGORIES = [
         'description': 'Complete bridal beauty packages for weddings and ceremonies',
         'services': [
             ('Bridal Makeup', 'Full bridal makeup with setting spray, includes skin prep and final look'),
+            ('Pre-Bridal Makeup', 'Trial or event-adjacent makeup session ahead of the wedding day'),
             ('Engagement Makeup', 'Elegant makeup look for engagement ceremonies'),
             ('Reception Makeup', 'Glamorous makeup for wedding reception events'),
             ('Bridal Mehendi', 'Intricate full-hand and leg mehendi designs for brides'),
@@ -105,20 +106,26 @@ CATEGORIES = [
             ('Party Makeup', 'Glamorous party-ready makeup using MAC / KRYOLAN products'),
             ('HD Makeup', 'High-definition makeup that looks flawless on camera'),
             ('Airbrush Makeup', 'Airbrush foundation makeup for a seamless, long-lasting finish'),
-            ('Eye Makeup Only', 'Focused eye makeup: eyeshadow, liner, and lashes'),
             ('Natural / Dewy Makeup', 'Light, skin-like makeup for everyday or daytime events'),
         ],
     },
     {
         'name': 'Eyebrow & Lash',
-        'description': 'Eyebrow shaping and eyelash enhancement services',
+        'description': 'Eyelash enhancement services',
         'services': [
-            ('Eyebrow Shaping', 'Eyebrow shaping using threading or waxing technique'),
-            ('Eyebrow Tinting', 'Henna or dye tint to fill and define eyebrows'),
             ('Eyelash Extension (Classic)', 'One-to-one lash extension application for natural volume'),
             ('Eyelash Extension (Volume)', 'Multi-lash fan extension for dramatic, full volume look'),
             ('Lash Lift & Tint', 'Semi-permanent lash curl with tint for no-mascara look'),
             ('Henna Brows (Microblading)', 'Semi-permanent henna brow tattoo for defined, filled arches'),
+        ],
+    },
+    {
+        'name': 'Additional Services',
+        'description': 'Focused add-on services that complement a core makeup booking',
+        'services': [
+            ('Eye Makeup Only', 'Focused eye makeup: eyeshadow, liner, and lashes'),
+            ('Eyebrow Shaping', 'Eyebrow shaping using threading or waxing technique'),
+            ('Eyebrow Tinting', 'Henna or dye tint to fill and define eyebrows'),
         ],
     },
     {
