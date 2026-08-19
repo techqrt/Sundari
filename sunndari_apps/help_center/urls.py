@@ -3,6 +3,7 @@ from sunndari_apps.help_center.controllers.conversation import ConversationContr
 from sunndari_apps.help_center.controllers.message import MessageController
 from sunndari_apps.help_center.controllers.admin_conversation import AdminConversationController
 from sunndari_apps.help_center.controllers.admin_message import AdminMessageController
+from sunndari_apps.help_center.views.admin_page import admin_chat_page
 
 urlpatterns = [
     path('conversation/get/', ConversationController.get_conversation, name='help_center_get_conversation'),
@@ -14,4 +15,6 @@ urlpatterns = [
     path('admin/conversation/close/', AdminConversationController.close_conversation, name='help_center_admin_close_conversation'),
     path('admin/messages/get_all/', AdminMessageController.get_all_messages, name='help_center_admin_get_all_messages'),
     path('admin/messages/create/', AdminMessageController.create_message, name='help_center_admin_create_message'),
+
+    path('admin/chat/', admin_chat_page, name='help_center_admin_chat_page'),
 ]
