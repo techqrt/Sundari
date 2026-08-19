@@ -13,6 +13,8 @@ class Notification(models.Model):
         ('booking_cancelled', 'Booking Cancelled'),
         ('booking_completed', 'Booking Completed'),
         ('booking_no_show', 'Booking No-Show'),
+        ('help_center_customer_message', 'Help Center — Customer Message'),
+        ('help_center_admin_reply', 'Help Center — Admin Reply'),
         ('generic', 'Generic'),
     ]
     DELIVERY_STATUS_CHOICES = [('pending', 'Pending'), ('sent', 'Sent'), ('failed', 'Failed')]

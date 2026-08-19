@@ -1,5 +1,6 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from redis.exceptions import RedisError
 from django.db import transaction
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.chat.models.conversation import Conversation
@@ -95,7 +96,12 @@ class ChatService:
         channel_layer = get_channel_layer()
         if channel_layer is None:
             return
-        async_to_sync(channel_layer.group_send)(
-            f'chat_{booking_id}',
-            {'type': 'chat.closed', 'reason': 'appointment_completed'},
-        )
+        try:
+            async_to_sync(channel_layer.group_send)(
+                f'chat_{booking_id}',
+                {'type': 'chat.closed', 'reason': 'appointment_completed'},
+            )
+        except RedisError:
+            # Pure UX signal to already-connected WS clients — a Redis hiccup here
+            # must not fail the booking-completion request that triggered this.
+            pass

@@ -1,4 +1,5 @@
 from asgiref.sync import async_to_sync
+from redis.exceptions import RedisError
 from channels.generic.websocket import JsonWebsocketConsumer
 from sunndari_apps.chat.services import ChatService
 from sunndari.constants import Constants
@@ -27,16 +28,25 @@ class ChatConsumer(JsonWebsocketConsumer):
             self.close(code=4403)
             return
 
+        try:
+            async_to_sync(self.channel_layer.group_add)(self.group_name(booking_id), self.channel_name)
+        except RedisError:
+            # The channel layer (Redis) being unreachable must not surface as an
+            # unhandled 500 on the handshake — reject cleanly so the client can retry.
+            self.close(code=4503)
+            return
         self.booking_id = booking_id
         self.user_id = user.user_id
-        async_to_sync(self.channel_layer.group_add)(self.group_name(booking_id), self.channel_name)
         self.accept()
 
     def disconnect(self, close_code):
         if hasattr(self, 'booking_id'):
-            async_to_sync(self.channel_layer.group_discard)(
-                self.group_name(self.booking_id), self.channel_name,
-            )
+            try:
+                async_to_sync(self.channel_layer.group_discard)(
+                    self.group_name(self.booking_id), self.channel_name,
+                )
+            except RedisError:
+                pass
 
     def receive_json(self, content, **kwargs):
         if content.get('type') != 'message.send':
@@ -52,18 +62,22 @@ class ChatConsumer(JsonWebsocketConsumer):
             self.send_json({'type': 'message.rejected', 'reason': reason})
             return
 
-        async_to_sync(self.channel_layer.group_send)(
-            self.group_name(self.booking_id),
-            {
-                'type': 'chat.message',
-                'message': {
-                    'id': message['message_id'],
-                    'senderId': message['sender_id'],
-                    'content': message['content'],
-                    'createdAt': message['created_at'].isoformat(),
-                },
-            },
-        )
+        message_payload = {
+            'id': message['message_id'],
+            'senderId': message['sender_id'],
+            'content': message['content'],
+            'createdAt': message['created_at'].isoformat(),
+        }
+        try:
+            async_to_sync(self.channel_layer.group_send)(
+                self.group_name(self.booking_id),
+                {'type': 'chat.message', 'message': message_payload},
+            )
+        except RedisError:
+            # Already persisted by ChatService.send_message — only the realtime
+            # broadcast failed. Echo to the sender directly so their own UI still
+            # reflects it; the other party picks it up on next fetch/reconnect.
+            self.send_json({'type': 'message.created', 'message': message_payload})
 
     # ── Group event handlers (dispatched by Channels via the "type" key) ──
 
