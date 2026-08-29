@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 from sunndari_apps.help_center.models import SupportConversation, SupportMessage
 from sunndari_apps.notifications.models.notification import Notification
 
-from tests.test_customers import make_user, make_client, make_customer
+from tests.test_customers import make_user, make_client, make_customer, make_artist
 
 
 def make_admin(phone_number='+919400000001', name='Test Admin'):
@@ -232,3 +232,93 @@ class NotificationIntegrationTest(TestCase):
         self.assertTrue(
             Notification.objects.filter(user_id=customer.user_id, type='help_center_admin_reply').exists()
         )
+
+
+# ─── HTTP: Artist support endpoints (same model, separate routes) ─────────────
+
+class ArtistSupportEndpointTest(TestCase):
+
+    def test_artist_can_create_and_read_own_conversation(self):
+        client, artist, _ = make_artist(phone_number='+919300000601')
+        resp = client.post('/help_center/artist/messages/create/', {'content': 'payout question'}, format='json')
+        self.assertEqual(resp.status_code, 201)
+        conversation = SupportConversation.objects.get(customer_id=artist.user_id)
+        self.assertEqual(conversation.status, 'open')
+
+        get_resp = client.get('/help_center/artist/conversation/get/')
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertEqual(get_resp.data['data']['role'], 'artist')
+
+    def test_artist_message_history_via_artist_route(self):
+        client, artist, _ = make_artist(phone_number='+919300000602')
+        admin_client, _ = make_admin(phone_number='+919300000603')
+        client.post('/help_center/artist/messages/create/', {'content': 'first'}, format='json')
+        conversation = SupportConversation.objects.get(customer_id=artist.user_id)
+        admin_client.post(
+            '/help_center/admin/messages/create/',
+            {'conversation_id': conversation.conversation_id, 'content': 'second'}, format='json',
+        )
+        resp = client.get(
+            '/help_center/artist/messages/get_all/', {'conversation_id': conversation.conversation_id},
+        )
+        self.assertEqual(resp.status_code, 200)
+        contents = [m['content'] for m in resp.data['data']['data']]
+        self.assertEqual(contents, ['first', 'second'])
+
+    def test_artist_message_notifies_admin_with_artist_type(self):
+        client, artist, _ = make_artist(phone_number='+919300000604')
+        _, admin_user = make_admin(phone_number='+919300000605')
+        client.post('/help_center/artist/messages/create/', {'content': 'payout question'}, format='json')
+        self.assertTrue(
+            Notification.objects.filter(user_id=admin_user.user_id, type='help_center_artist_message').exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(user_id=admin_user.user_id, type='help_center_customer_message').exists()
+        )
+
+    def test_customer_cannot_read_artist_conversation_by_id(self):
+        artist_client, artist, _ = make_artist(phone_number='+919300000606')
+        artist_client.post('/help_center/artist/messages/create/', {'content': 'payout question'}, format='json')
+        conversation = SupportConversation.objects.get(customer_id=artist.user_id)
+        customer_client, _ = make_customer(phone_number='+919300000607')
+        resp = customer_client.get(
+            '/help_center/messages/get_all/', {'conversation_id': conversation.conversation_id},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+
+# ─── HTTP: Admin role visibility & filtering ──────────────────────────────────
+
+class AdminRoleFilterTest(TestCase):
+
+    def test_conversation_list_reports_role_per_conversation(self):
+        customer_client, _ = make_customer(phone_number='+919300000701')
+        artist_client, _, _ = make_artist(phone_number='+919300000702')
+        admin_client, _ = make_admin(phone_number='+919300000703')
+        customer_client.post('/help_center/messages/create/', {'content': 'hi'}, format='json')
+        artist_client.post('/help_center/artist/messages/create/', {'content': 'hi'}, format='json')
+
+        resp = admin_client.get('/help_center/admin/conversations/get_all/', {'status': 'open'})
+        self.assertEqual(resp.status_code, 200)
+        roles = sorted(c['role'] for c in resp.data['data']['data'])
+        self.assertEqual(roles, ['artist', 'customer'])
+
+    def test_admin_can_filter_conversations_by_role(self):
+        customer_client, _ = make_customer(phone_number='+919300000704')
+        artist_client, _, _ = make_artist(phone_number='+919300000705')
+        admin_client, _ = make_admin(phone_number='+919300000706')
+        customer_client.post('/help_center/messages/create/', {'content': 'hi'}, format='json')
+        artist_client.post('/help_center/artist/messages/create/', {'content': 'hi'}, format='json')
+
+        artist_only = admin_client.get(
+            '/help_center/admin/conversations/get_all/', {'status': 'open', 'role': 'artist'},
+        )
+        self.assertEqual(artist_only.status_code, 200)
+        self.assertEqual(len(artist_only.data['data']['data']), 1)
+        self.assertEqual(artist_only.data['data']['data'][0]['role'], 'artist')
+
+        no_filter = admin_client.get(
+            '/help_center/admin/conversations/get_all/', {'status': 'open', 'role': ''},
+        )
+        self.assertEqual(no_filter.status_code, 200)
+        self.assertEqual(len(no_filter.data['data']['data']), 2)

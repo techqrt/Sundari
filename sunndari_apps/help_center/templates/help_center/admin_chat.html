@@ -156,6 +156,19 @@
   .tabs button.active { color: var(--ink); border-bottom-color: var(--accent); }
   .tabs button:hover:not(.active) { color: var(--ink-soft); }
 
+  .role-filter { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .role-filter button {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .role-filter button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .role-filter button:hover:not(.active) { border-color: var(--ink-faint); color: var(--ink); }
+
   .conv-list { flex: 1; overflow-y: auto; }
   .conv-item {
     display: flex;
@@ -185,6 +198,14 @@
   .pill.open { background: var(--open-soft); color: var(--open); }
   .pill.running { background: var(--running-soft); color: var(--running); }
   .pill.closed { background: var(--closed-soft); color: var(--closed); }
+
+  .role-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+  }
 
   /* ── Thread pane ──────────────────────────────────────── */
   main.thread { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -321,6 +342,11 @@
           <button data-status="running">Running</button>
           <button data-status="closed">Closed</button>
         </div>
+        <div class="role-filter">
+          <button data-role="" class="active">All</button>
+          <button data-role="customer">Customers</button>
+          <button data-role="artist">Artists</button>
+        </div>
         <div class="conv-list" id="conv-list">
           <div class="empty-state">Loading…</div>
         </div>
@@ -343,6 +369,7 @@
   var state = {
     token: localStorage.getItem(TOKEN_KEY) || null,
     status: 'open',
+    role: '',
     conversations: [],
     selectedId: null,
     messages: [],
@@ -432,6 +459,10 @@
 
   // ── Conversations list ──────────────────────────────────
 
+  function roleLabel(role) {
+    return role === 'artist' ? 'Artist' : 'Customer';
+  }
+
   var tabButtons = document.querySelectorAll('.tabs button');
   tabButtons.forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -444,8 +475,21 @@
     });
   });
 
+  var roleButtons = document.querySelectorAll('.role-filter button');
+  roleButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      roleButtons.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.role = btn.dataset.role;
+      state.selectedId = null;
+      renderThread();
+      loadConversations();
+    });
+  });
+
   function loadConversations() {
-    api('/help_center/admin/conversations/get_all/?status=' + state.status + '&limit=50&sort_by=created_at&sort_order=desc')
+    api('/help_center/admin/conversations/get_all/?status=' + state.status +
+        '&role=' + state.role + '&limit=50&sort_by=created_at&sort_order=desc')
       .then(function (data) {
         state.conversations = data.data || [];
         renderConvList();
@@ -465,9 +509,9 @@
       item.className = 'conv-item' + (c.conversationId === state.selectedId ? ' selected' : '');
       var when = new Date(c.createdAt);
       item.innerHTML =
-        '<div class="row1"><span class="customer">Customer #' + c.customerId + '</span>' +
+        '<div class="row1"><span class="customer">' + roleLabel(c.role) + ' #' + c.customerId + '</span>' +
         '<span class="pill ' + c.status + '">' + c.status + '</span></div>' +
-        '<span class="meta">#' + c.conversationId + ' · ' + when.toLocaleString() + '</span>';
+        '<span class="meta"><span class="role-tag">' + roleLabel(c.role) + '</span> · #' + c.conversationId + ' · ' + when.toLocaleString() + '</span>';
       item.addEventListener('click', function () { selectConversation(c); });
       el.appendChild(item);
     });
@@ -477,6 +521,7 @@
     state.selectedId = c.conversationId;
     state.selectedStatus = c.status;
     state.selectedCustomerId = c.customerId;
+    state.selectedRole = c.role;
     renderConvList();
     renderThread();
     loadMessages(true);
@@ -494,13 +539,13 @@
     }
     pane.innerHTML =
       '<div class="thread-head">' +
-        '<span class="title">Customer #' + state.selectedCustomerId + ' — #' + state.selectedId + '</span>' +
+        '<span class="title">' + roleLabel(state.selectedRole) + ' #' + state.selectedCustomerId + ' — #' + state.selectedId + '</span>' +
         '<button class="close-btn" id="close-conv-btn"' + (state.selectedStatus === 'closed' ? ' disabled' : '') + '>Close conversation</button>' +
       '</div>' +
       '<div class="messages" id="messages"></div>' +
       (state.selectedStatus === 'closed'
         ? '<div class="closed-banner">This conversation is closed — read-only.</div>'
-        : '<div class="composer"><textarea id="reply-box" placeholder="Reply to customer…"></textarea><button class="send" id="send-btn">Send</button></div>');
+        : '<div class="composer"><textarea id="reply-box" placeholder="Reply to ' + roleLabel(state.selectedRole).toLowerCase() + '…"></textarea><button class="send" id="send-btn">Send</button></div>');
 
     var closeBtn = document.getElementById('close-conv-btn');
     if (closeBtn) closeBtn.addEventListener('click', closeConversation);

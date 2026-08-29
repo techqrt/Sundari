@@ -14,6 +14,7 @@ class Notification(models.Model):
         ('booking_completed', 'Booking Completed'),
         ('booking_no_show', 'Booking No-Show'),
         ('help_center_customer_message', 'Help Center — Customer Message'),
+        ('help_center_artist_message', 'Help Center — Artist Message'),
         ('help_center_admin_reply', 'Help Center — Admin Reply'),
         ('generic', 'Generic'),
     ]

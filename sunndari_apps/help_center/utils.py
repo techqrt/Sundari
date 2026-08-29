@@ -12,6 +12,7 @@ class HelpCenterUtils:
             'status': 'status',
             'created_at': 'createdAt',
             'closed_at': 'closedAt',
+            'customer__role': 'role',
         },
         'message': {
             'message_id': 'messageId',

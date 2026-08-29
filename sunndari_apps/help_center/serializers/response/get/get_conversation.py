@@ -4,6 +4,7 @@ from rest_framework import serializers
 class SupportConversationSerializer(serializers.Serializer):
     conversationId = serializers.IntegerField()
     customerId = serializers.IntegerField()
+    role = serializers.CharField(help_text="The other participant's role — 'customer' or 'artist'")
     status = serializers.CharField()
     createdAt = serializers.DateTimeField()
     closedAt = serializers.DateTimeField(allow_null=True)

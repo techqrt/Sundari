@@ -29,7 +29,7 @@ class SupportConversation(models.Model):
     def __str__(self):
         return f"Support Conversation #{self.conversation_id} (Customer #{self.customer_id})"
 
-    VALUES_FIELDS = ('conversation_id', 'customer_id', 'status', 'created_at', 'closed_at')
+    VALUES_FIELDS = ('conversation_id', 'customer_id', 'status', 'created_at', 'closed_at', 'customer__role')
 
     def create(self, customer_id: int) -> int:
         self.customer_id = customer_id
@@ -59,6 +59,7 @@ class SupportConversation(models.Model):
     @staticmethod
     def get_all(
         status: str = '',
+        role: str = '',
         sort_by: str = '',
         sort_order: str = 'desc',
         search_key: str = '',
@@ -66,6 +67,8 @@ class SupportConversation(models.Model):
         data = SupportConversation.objects.all()
         if status:
             data = data.filter(status=status)
+        if role:
+            data = data.filter(customer__role=role)
         if search_key:
             data = data.filter(
                 Q(customer__name__icontains=search_key) | Q(customer__phone_number__icontains=search_key)

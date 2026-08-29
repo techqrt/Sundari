@@ -60,6 +60,10 @@ class SupportChatService:
             )
         message = SupportMessage.objects.filter(message_id=message_id).values(*SupportMessage.VALUES_FIELDS).first()
 
+        notification_type = (
+            'help_center_artist_message' if conversation.get('customer__role') == 'artist'
+            else 'help_center_customer_message'
+        )
         admin_ids = User.objects.filter(
             role=SupportChatService.ADMIN_ROLE, is_active=True,
         ).values_list('user_id', flat=True)
@@ -68,7 +72,7 @@ class SupportChatService:
                 user_id=admin_id,
                 title='New Help Center message',
                 message=content[:150],
-                type='help_center_customer_message',
+                type=notification_type,
             )
         return message
 

@@ -36,7 +36,8 @@ class AdminConversationView:
     def get_all_extract(self, params: AdminGetConversationsRequest):
         SupportChatService.assert_admin(user_id=params.user_id)
         raw = SupportConversation.get_all(
-            status=params.status, sort_by=params.sort_by, sort_order=params.sort_order, search_key=params.search_key,
+            status=params.status, role=params.role, sort_by=params.sort_by,
+            sort_order=params.sort_order, search_key=params.search_key,
         )
         pages = Paginator(raw, per_page=params.limit)
         if pages.num_pages < params.page_num:

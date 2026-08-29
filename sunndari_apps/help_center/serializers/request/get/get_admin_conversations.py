@@ -12,6 +12,7 @@ class AdminGetConversationsSerializer(GetAllSerializer):
     status = serializers.ChoiceField(
         choices=[choice[0] for choice in SupportConversation.STATUS_CHOICES], required=False, default='',
     )
+    role = serializers.ChoiceField(choices=['customer', 'artist'], required=False, default='', allow_blank=True)
 
     def create(self, validated_data) -> AdminGetConversationsRequest:
         from_date = validated_data.get('from_date', None)
@@ -31,6 +32,10 @@ class AdminGetConversationsSerializer(GetAllSerializer):
         params = SwaggerPage.get_all_parameters()
         params.append(OpenApiParameter(
             name='status', description='Filter by conversation status: open, running or closed',
+            required=False, type=str,
+        ))
+        params.append(OpenApiParameter(
+            name='role', description="Filter by the other participant's role: customer or artist",
             required=False, type=str,
         ))
         return params
