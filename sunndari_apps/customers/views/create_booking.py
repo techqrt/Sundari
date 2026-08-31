@@ -17,6 +17,7 @@ from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.customers.dataclasses.request.create.create_booking import CreateBookingRequest
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
+from sunndari_apps.authentication.utils import send_otp_sms, send_otp_email
 from sunndari.constants import Constants
 
 
@@ -90,6 +91,9 @@ class CreateBookingView:
                 notes=params.notes or None,
                 lock_minutes=Configurations.slot_lock_minutes,
             )
+            booking_otp = Booking.generate_booking_otp(
+                booking_id=booking_id, booking_date=params.booking_date, end_time=end_time,
+            )
         NotificationService.notify(
             user_id=artist.user_id,
             title='New booking request',
@@ -97,6 +101,17 @@ class CreateBookingView:
             type='new_booking_alert',
             booking_id=booking_id,
         )
+        NotificationService.notify(
+            user_id=artist.user_id,
+            title='Booking verification code',
+            message=f'Your booking OTP is {booking_otp}. Share it with the customer to verify arrival.',
+            type='booking_otp_issued',
+            booking_id=booking_id,
+        )
+        if artist.user.phone_number:
+            send_otp_sms(artist.user.phone_number, booking_otp)
+        elif artist.user.email:
+            send_otp_email(artist.user.email, booking_otp)
         BookingFirebaseUtils.sync_booking(booking_id=booking_id)
         return Response(
             status=status.HTTP_201_CREATED,

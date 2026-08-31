@@ -1,14 +1,21 @@
 import json
+from datetime import datetime, timedelta
 from django.core.paginator import Paginator
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
+from sunndari.config import Configurations
 from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.common.dataclasses.request.get_all import GetAll
 from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.artists.dataclasses.request.get.get_booking import GetArtistBookingRequest
 from sunndari_apps.artists.dataclasses.request.update.update_booking_status import UpdateBookingStatusRequest
+from sunndari_apps.artists.dataclasses.request.update.on_my_way import OnMyWayRequest
+from sunndari_apps.artists.dataclasses.request.update.arrived import ArrivedRequest
+from sunndari_apps.artists.dataclasses.request.update.verify_start_pin import VerifyStartPinRequest
+from sunndari_apps.artists.dataclasses.request.update.verify_completion_pin import VerifyCompletionPinRequest
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
@@ -137,4 +144,182 @@ class ArtistBookingView:
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message='Booking status updated successfully')
+        )
+
+    @Common().exception_handler
+    def on_my_way_extract(self, params: OnMyWayRequest):
+        artist_id = self._get_artist_id(user_id=params.user_id)
+        booking = Booking.get_lifecycle_state(booking_id=params.booking_id)
+        if not booking or booking['artist_id'] != artist_id:
+            raise ValueError(Constants.booking_not_found)
+
+        current_status = BookingStatus.objects.filter(
+            status_id=booking['status_id'],
+        ).values_list('name', flat=True).first()
+        if current_status != 'confirmed' or booking['on_my_way_at'] is not None:
+            raise ValueError(Constants.on_my_way_not_allowed)
+
+        booking_start = timezone.make_aware(
+            datetime.combine(booking['booking_date'], booking['start_time'])
+        )
+        window_opens_at = booking_start - timedelta(hours=Configurations.on_my_way_window_hours)
+        if timezone.now() < window_opens_at:
+            raise ValueError(Constants.on_my_way_too_early)
+
+        Booking.mark_on_my_way(booking_id=params.booking_id)
+        NotificationService.notify(
+            user_id=booking['customer_id'],
+            title='Your artist is on the way',
+            message=f"Your artist is on the way for your booking on {booking['booking_date']}.",
+            type='artist_on_the_way',
+            booking_id=params.booking_id,
+        )
+        BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Marked as on the way')
+        )
+
+    @Common().exception_handler
+    def arrived_extract(self, params: ArrivedRequest):
+        artist_id = self._get_artist_id(user_id=params.user_id)
+        booking = Booking.get_lifecycle_state(booking_id=params.booking_id)
+        if not booking or booking['artist_id'] != artist_id:
+            raise ValueError(Constants.booking_not_found)
+
+        current_status = BookingStatus.objects.filter(
+            status_id=booking['status_id'],
+        ).values_list('name', flat=True).first()
+        if current_status != 'confirmed' or booking['on_my_way_at'] is None or booking['arrived_at'] is not None:
+            raise ValueError(Constants.arrived_not_allowed)
+
+        if Booking.is_booking_otp_locked(booking_id=params.booking_id):
+            raise ValueError(Constants.account_locked)
+
+        otp_valid = (
+            booking['booking_otp'] is not None
+            and booking['booking_otp'] == params.booking_otp
+            and booking['booking_otp_expiry'] is not None
+            and timezone.now() <= booking['booking_otp_expiry']
+        )
+        if not otp_valid:
+            Booking.record_booking_otp_failure(booking_id=params.booking_id)
+            raise ValueError(Constants.otp_invalid)
+
+        Booking.confirm_arrival(
+            booking_id=params.booking_id, booking_date=booking['booking_date'], end_time=booking['end_time'],
+        )
+        NotificationService.notify(
+            user_id=booking['customer_id'],
+            title='Your artist has arrived',
+            message=f"Your artist has arrived for your booking on {booking['booking_date']}.",
+            type='artist_arrived',
+            booking_id=params.booking_id,
+        )
+        NotificationService.notify(
+            user_id=booking['customer_id'],
+            title='Start Service PIN ready',
+            message='Share your Start Service PIN with the artist to begin the service.',
+            type='start_pin_ready',
+            booking_id=params.booking_id,
+        )
+        BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Arrival confirmed')
+        )
+
+    @Common().exception_handler
+    def verify_start_pin_extract(self, params: VerifyStartPinRequest):
+        artist_id = self._get_artist_id(user_id=params.user_id)
+        booking = Booking.get_lifecycle_state(booking_id=params.booking_id)
+        if not booking or booking['artist_id'] != artist_id:
+            raise ValueError(Constants.booking_not_found)
+
+        current_status = BookingStatus.objects.filter(
+            status_id=booking['status_id'],
+        ).values_list('name', flat=True).first()
+        if current_status != 'confirmed' or booking['arrived_at'] is None:
+            raise ValueError(Constants.start_pin_verify_not_allowed)
+
+        if Booking.is_start_pin_locked(booking_id=params.booking_id):
+            raise ValueError(Constants.account_locked)
+
+        pin_valid = (
+            booking['start_service_pin'] is not None
+            and booking['start_service_pin'] == params.start_service_pin
+            and booking['start_pin_expiry'] is not None
+            and timezone.now() <= booking['start_pin_expiry']
+        )
+        if not pin_valid:
+            Booking.record_start_pin_failure(booking_id=params.booking_id)
+            raise ValueError(Constants.start_pin_invalid)
+
+        in_progress_status = BookingStatus.objects.filter(name='in_progress').first()
+        Booking.start_service(
+            booking_id=params.booking_id,
+            in_progress_status_id=in_progress_status.status_id,
+            booking_date=booking['booking_date'],
+            end_time=booking['end_time'],
+        )
+        NotificationService.notify(
+            user_id=booking['customer_id'],
+            title='Service started',
+            message=f"Your service for the booking on {booking['booking_date']} has started.",
+            type='service_started',
+            booking_id=params.booking_id,
+        )
+        NotificationService.notify(
+            user_id=booking['customer_id'],
+            title='Completion PIN ready',
+            message='Share your Completion PIN with the artist once the service is finished.',
+            type='completion_pin_ready',
+            booking_id=params.booking_id,
+        )
+        BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Service started')
+        )
+
+    @Common().exception_handler
+    def verify_completion_pin_extract(self, params: VerifyCompletionPinRequest):
+        artist_id = self._get_artist_id(user_id=params.user_id)
+        booking = Booking.get_lifecycle_state(booking_id=params.booking_id)
+        if not booking or booking['artist_id'] != artist_id:
+            raise ValueError(Constants.booking_not_found)
+
+        current_status = BookingStatus.objects.filter(
+            status_id=booking['status_id'],
+        ).values_list('name', flat=True).first()
+        if current_status != 'in_progress':
+            raise ValueError(Constants.completion_pin_verify_not_allowed)
+
+        if Booking.is_completion_pin_locked(booking_id=params.booking_id):
+            raise ValueError(Constants.account_locked)
+
+        pin_valid = (
+            booking['completion_pin'] is not None
+            and booking['completion_pin'] == params.completion_pin
+            and booking['completion_pin_expiry'] is not None
+            and timezone.now() <= booking['completion_pin_expiry']
+        )
+        if not pin_valid:
+            Booking.record_completion_pin_failure(booking_id=params.booking_id)
+            raise ValueError(Constants.completion_pin_invalid)
+
+        completed_status = BookingStatus.objects.filter(name='completed').first()
+        Booking.complete_service(booking_id=params.booking_id, completed_status_id=completed_status.status_id)
+        ChatService.close_conversation(booking_id=params.booking_id)
+        NotificationService.notify(
+            user_id=booking['customer_id'],
+            title='Booking completed',
+            message=f"Your booking for {booking['booking_date']} is complete.",
+            type='booking_completed',
+            booking_id=params.booking_id,
+        )
+        BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Service completed')
         )

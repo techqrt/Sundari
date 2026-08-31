@@ -48,4 +48,8 @@ urlpatterns = [
     path('bookings/get/', ArtistBookingController.get_booking, name='artist_get_booking'),
     path('bookings/get_all/', ArtistBookingController.get_all_bookings, name='artist_get_all_bookings'),
     path('bookings/update_status/', ArtistBookingController.update_booking_status, name='artist_update_booking_status'),
+    path('bookings/on_my_way/', ArtistBookingController.on_my_way, name='artist_on_my_way'),
+    path('bookings/arrived/', ArtistBookingController.arrived, name='artist_arrived'),
+    path('bookings/start_pin/verify/', ArtistBookingController.verify_start_pin, name='artist_verify_start_pin'),
+    path('bookings/completion_pin/verify/', ArtistBookingController.verify_completion_pin, name='artist_verify_completion_pin'),
 ]

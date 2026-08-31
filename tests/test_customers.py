@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from sunndari_apps.authentication.models import User
@@ -12,6 +13,7 @@ from sunndari_apps.core.models import (
 )
 from sunndari_apps.users.models.customer_address import CustomerAddress
 from sunndari_apps.customers.models import Booking, Payment, Review
+from sunndari_apps.notifications.models.notification import Notification
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -248,6 +250,32 @@ class CreateBookingTest(TestCase):
         self.assertEqual(str(booking.total_amount), '1500.00')
         self.assertIsNotNone(booking.expires_at)
 
+    def test_create_booking_generates_and_delivers_booking_otp(self):
+        client, _ = make_customer()
+        profile, package, location_type, booking_date = self._setup_bookable_artist(phone_number='+919000000233')
+        resp = client.post(self.url, {
+            'artist_id': profile.artist_id,
+            'package_id': package.package_id,
+            'location_type_id': location_type.location_type_id,
+            'booking_date': booking_date.strftime('%d-%m-%y'),
+            'start_time': '10:00:00',
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        booking = Booking.objects.get(booking_id=resp.data['data']['booking_id'])
+
+        self.assertIsNotNone(booking.booking_otp)
+        self.assertEqual(len(str(booking.booking_otp)), 6)
+        self.assertIsNotNone(booking.booking_otp_expiry)
+        self.assertGreater(booking.booking_otp_expiry, booking.created_at)
+        self.assertEqual(booking.booking_otp_attempts, 0)
+        self.assertIsNone(booking.booking_otp_verified_at)
+
+        otp_notification = Notification.objects.filter(
+            booking_id=booking.booking_id, type='booking_otp_issued', user_id=profile.user_id,
+        ).first()
+        self.assertIsNotNone(otp_notification)
+        self.assertIn(str(booking.booking_otp), otp_notification.message)
+
     def test_create_booking_outside_schedule_returns_400(self):
         client, _ = make_customer()
         profile, package, location_type, booking_date = self._setup_bookable_artist(phone_number='+919000000231')
@@ -361,6 +389,20 @@ class CustomerBookingTest(TestCase):
         self.assertEqual(booking.status.name, 'cancelled')
         self.assertEqual(booking.cancelled_by, 'customer')
 
+    def test_cancel_booking_invalidates_booking_otp(self):
+        client, customer = make_customer(phone_number='+919000000260')
+        booking = self._make_booking(customer, artist_phone='+919000000261')
+        booking.booking_otp = 654321
+        booking.booking_otp_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        resp = client.put(self.cancel_url, {'booking_id': booking.booking_id, 'reason': 'Change of plans'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'cancelled')
+        self.assertEqual(booking.cancelled_by, 'customer')
+        self.assertIsNone(booking.booking_otp)
+        self.assertIsNone(booking.booking_otp_expiry)
+
     def test_cancel_completed_booking_returns_400(self):
         client, customer = make_customer(phone_number='+919000000260')
         booking = self._make_booking(customer, artist_phone='+919000000261', status_name='completed')
@@ -405,6 +447,20 @@ class ArtistBookingTest(TestCase):
         booking.refresh_from_db()
         self.assertEqual(booking.status.name, 'confirmed')
 
+    def test_reject_pending_booking_invalidates_booking_otp(self):
+        client, _, profile = make_artist(phone_number='+919000000280')
+        booking = self._make_booking(profile, customer_phone='+919000000281')
+        booking.booking_otp = 123456
+        booking.booking_otp_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'cancelled'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'cancelled')
+        self.assertEqual(booking.cancelled_by, 'artist')
+        self.assertIsNone(booking.booking_otp)
+        self.assertIsNone(booking.booking_otp_expiry)
+
     def test_invalid_transition_returns_400(self):
         client, _, profile = make_artist(phone_number='+919000000275')
         booking = self._make_booking(profile, customer_phone='+919000000276', status_name='completed')
@@ -417,6 +473,484 @@ class ArtistBookingTest(TestCase):
         booking = self._make_booking(other_profile, customer_phone='+919000000279')
         resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'confirmed'}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+
+# ─── Artist On My Way ──────────────────────────────────────────────────────────
+
+class OnMyWayTest(TestCase):
+    url = '/artists/bookings/on_my_way/'
+
+    def _make_confirmed_booking(self, profile, customer_phone, booking_date, start_time='10:00:00', end_time='11:00:00'):
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        _, customer = make_customer(phone_number=customer_phone)
+        return make_booking(
+            customer, profile, package, location_type,
+            booking_date=booking_date, start_time=start_time, end_time=end_time,
+            status_name='confirmed',
+        )
+
+    def test_on_my_way_within_2h_window_returns_200(self):
+        client, _, profile = make_artist(phone_number='+919000000290')
+        now = timezone.now()
+        booking_dt = now + timedelta(hours=1)
+        booking = self._make_confirmed_booking(
+            profile, '+919000000291', booking_dt.date(),
+            start_time=booking_dt.time().strftime('%H:%M:%S'),
+            end_time=(booking_dt + timedelta(hours=1)).time().strftime('%H:%M:%S'),
+        )
+        resp = client.put(self.url, {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.on_my_way_at)
+
+    def test_on_my_way_more_than_2h_before_returns_400(self):
+        client, _, profile = make_artist(phone_number='+919000000292')
+        now = timezone.now()
+        booking_dt = now + timedelta(hours=5)
+        booking = self._make_confirmed_booking(
+            profile, '+919000000293', booking_dt.date(),
+            start_time=booking_dt.time().strftime('%H:%M:%S'),
+            end_time=(booking_dt + timedelta(hours=1)).time().strftime('%H:%M:%S'),
+        )
+        resp = client.put(self.url, {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.on_my_way_at)
+
+    def test_on_my_way_already_marked_returns_400(self):
+        client, _, profile = make_artist(phone_number='+919000000294')
+        now = timezone.now()
+        booking_dt = now + timedelta(hours=1)
+        booking = self._make_confirmed_booking(
+            profile, '+919000000295', booking_dt.date(),
+            start_time=booking_dt.time().strftime('%H:%M:%S'),
+            end_time=(booking_dt + timedelta(hours=1)).time().strftime('%H:%M:%S'),
+        )
+        first = client.put(self.url, {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(first.status_code, 200)
+        second = client.put(self.url, {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(second.status_code, 400)
+
+    def test_on_my_way_on_pending_booking_returns_400(self):
+        client, _, profile = make_artist(phone_number='+919000000296')
+        booking = self._make_confirmed_booking(profile, '+919000000297', next_weekday(2))
+        booking.status = BookingStatus.objects.get(name='pending')
+        booking.save()
+        resp = client.put(self.url, {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_on_my_way_on_another_artists_booking_returns_400(self):
+        client, _, _ = make_artist(phone_number='+919000000298')
+        _, _, other_profile = make_artist(phone_number='+919000000299')
+        now = timezone.now()
+        booking_dt = now + timedelta(hours=1)
+        booking = self._make_confirmed_booking(
+            other_profile, '+919000000209', booking_dt.date(),
+            start_time=booking_dt.time().strftime('%H:%M:%S'),
+            end_time=(booking_dt + timedelta(hours=1)).time().strftime('%H:%M:%S'),
+        )
+        resp = client.put(self.url, {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+
+# ─── Artist Arrived (Booking OTP verification) ─────────────────────────────────
+
+class ArrivedTest(TestCase):
+    url = '/artists/bookings/arrived/'
+
+    def _make_on_my_way_booking(self, artist_phone, customer_phone, otp=111111):
+        artist_client, artist_user, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        customer_client, customer = make_customer(phone_number=customer_phone)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        booking.on_my_way_at = timezone.now()
+        booking.booking_otp = otp
+        booking.booking_otp_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        return artist_client, customer_client, booking
+
+    def test_arrived_with_correct_otp_returns_200_and_generates_start_pin(self):
+        artist_client, _, booking = self._make_on_my_way_booking('+919000000300', '+919000000301')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.arrived_at)
+        self.assertIsNotNone(booking.booking_otp_verified_at)
+        self.assertIsNone(booking.booking_otp)
+        self.assertIsNone(booking.booking_otp_expiry)
+        self.assertIsNotNone(booking.start_service_pin)
+        self.assertEqual(len(str(booking.start_service_pin)), 4)
+
+    def test_arrived_with_incorrect_otp_returns_400_and_does_not_arrive(self):
+        artist_client, _, booking = self._make_on_my_way_booking('+919000000302', '+919000000303')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 999999}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.arrived_at)
+        self.assertIsNone(booking.start_service_pin)
+        self.assertEqual(booking.booking_otp_attempts, 1)
+
+    def test_arrived_with_expired_otp_returns_400(self):
+        artist_client, _, booking = self._make_on_my_way_booking('+919000000304', '+919000000305')
+        booking.booking_otp_expiry = timezone.now() - timedelta(minutes=1)
+        booking.save()
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.arrived_at)
+
+    def test_arrived_locks_out_after_5_failed_attempts(self):
+        artist_client, _, booking = self._make_on_my_way_booking('+919000000306', '+919000000307')
+        for _ in range(5):
+            resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 999999}, format='json')
+            self.assertEqual(resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.booking_otp_locked_until)
+        locked_resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(locked_resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.arrived_at)
+
+    def test_arrived_before_on_my_way_returns_400(self):
+        artist_client, artist_user, profile = make_artist(phone_number='+919000000308')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        _, customer = make_customer(phone_number='+919000000309')
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        booking.booking_otp = 111111
+        booking.booking_otp_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_arrived_twice_returns_400(self):
+        artist_client, _, booking = self._make_on_my_way_booking('+919000000310', '+919000000311')
+        first = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(first.status_code, 200)
+        booking.refresh_from_db()
+        second = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(second.status_code, 400)
+
+    def test_arrived_on_another_artists_booking_returns_400(self):
+        artist_client, _, booking = self._make_on_my_way_booking('+919000000312', '+919000000313')
+        other_client, _, _ = make_artist(phone_number='+919000000314')
+        resp = other_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_arrived_notifies_customer_and_creates_start_pin_notification(self):
+        artist_client, _, booking = self._make_on_my_way_booking('+919000000315', '+919000000316')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'booking_otp': 111111}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(Notification.objects.filter(booking_id=booking.booking_id, type='artist_arrived').exists())
+        self.assertTrue(Notification.objects.filter(booking_id=booking.booking_id, type='start_pin_ready').exists())
+
+
+# ─── Customer Get Start PIN ─────────────────────────────────────────────────────
+
+class GetStartPinTest(TestCase):
+    url = '/customers/bookings/start_pin/'
+
+    def _arrived_booking(self, artist_phone, customer_phone):
+        artist_client, artist_user, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        customer_client, customer = make_customer(phone_number=customer_phone)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        booking.on_my_way_at = timezone.now()
+        booking.booking_otp = 222222
+        booking.booking_otp_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        artist_client.put(
+            '/artists/bookings/arrived/', {'booking_id': booking.booking_id, 'booking_otp': 222222}, format='json',
+        )
+        booking.refresh_from_db()
+        return customer_client, booking
+
+    def test_get_start_pin_after_arrival_returns_200(self):
+        customer_client, booking = self._arrived_booking('+919000000320', '+919000000321')
+        resp = customer_client.get(self.url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['data']['startServicePin'], booking.start_service_pin)
+
+    def test_get_start_pin_before_arrival_returns_400(self):
+        customer_client, customer = make_customer(phone_number='+919000000322')
+        _, _, profile = make_artist(phone_number='+919000000323')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        resp = customer_client.get(self.url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_get_start_pin_for_another_customers_booking_returns_400(self):
+        _, booking = self._arrived_booking('+919000000324', '+919000000325')
+        outsider_client, _ = make_customer(phone_number='+919000000326')
+        resp = outsider_client.get(self.url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 400)
+
+
+# ─── Artist Verify Start PIN ────────────────────────────────────────────────────
+
+class VerifyStartPinTest(TestCase):
+    url = '/artists/bookings/start_pin/verify/'
+
+    def _make_arrived_booking(self, artist_phone, customer_phone, pin=1234):
+        artist_client, artist_user, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        customer_client, customer = make_customer(phone_number=customer_phone)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        booking.on_my_way_at = timezone.now()
+        booking.arrived_at = timezone.now()
+        booking.start_service_pin = pin
+        booking.start_pin_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        return artist_client, customer_client, booking
+
+    def test_verify_correct_pin_starts_service_and_generates_completion_pin(self):
+        artist_client, _, booking = self._make_arrived_booking('+919000000330', '+919000000331')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'in_progress')
+        self.assertIsNotNone(booking.service_started_at)
+        self.assertIsNone(booking.start_service_pin)
+        self.assertIsNone(booking.start_pin_expiry)
+        self.assertIsNotNone(booking.completion_pin)
+        self.assertEqual(len(str(booking.completion_pin)), 4)
+
+    def test_verify_incorrect_pin_returns_400_and_does_not_start(self):
+        artist_client, _, booking = self._make_arrived_booking('+919000000332', '+919000000333')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 9999}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'confirmed')
+        self.assertIsNone(booking.service_started_at)
+        self.assertEqual(booking.start_pin_attempts, 1)
+
+    def test_verify_expired_pin_returns_400(self):
+        artist_client, _, booking = self._make_arrived_booking('+919000000334', '+919000000335')
+        booking.start_pin_expiry = timezone.now() - timedelta(minutes=1)
+        booking.save()
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_verify_pin_locks_out_after_5_failed_attempts(self):
+        artist_client, _, booking = self._make_arrived_booking('+919000000336', '+919000000337')
+        for _ in range(5):
+            resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 9999}, format='json')
+            self.assertEqual(resp.status_code, 400)
+        locked_resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(locked_resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'confirmed')
+
+    def test_verify_pin_before_arrival_returns_400(self):
+        artist_client, artist_user, profile = make_artist(phone_number='+919000000338')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        _, customer = make_customer(phone_number='+919000000339')
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_verify_pin_twice_returns_400(self):
+        artist_client, _, booking = self._make_arrived_booking('+919000000340', '+919000000341')
+        first = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(first.status_code, 200)
+        second = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(second.status_code, 400)
+
+    def test_verify_pin_on_another_artists_booking_returns_400(self):
+        artist_client, _, booking = self._make_arrived_booking('+919000000342', '+919000000343')
+        other_client, _, _ = make_artist(phone_number='+919000000344')
+        resp = other_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_verify_pin_notifies_customer(self):
+        artist_client, _, booking = self._make_arrived_booking('+919000000345', '+919000000346')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'start_service_pin': 1234}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(Notification.objects.filter(booking_id=booking.booking_id, type='service_started').exists())
+        self.assertTrue(Notification.objects.filter(booking_id=booking.booking_id, type='completion_pin_ready').exists())
+
+
+# ─── Customer Get Completion PIN ────────────────────────────────────────────────
+
+class GetCompletionPinTest(TestCase):
+    url = '/customers/bookings/completion_pin/'
+
+    def _in_progress_booking(self, artist_phone, customer_phone):
+        artist_client, artist_user, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        customer_client, customer = make_customer(phone_number=customer_phone)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        booking.on_my_way_at = timezone.now()
+        booking.arrived_at = timezone.now()
+        booking.start_service_pin = 4321
+        booking.start_pin_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        artist_client.put(
+            '/artists/bookings/start_pin/verify/',
+            {'booking_id': booking.booking_id, 'start_service_pin': 4321}, format='json',
+        )
+        booking.refresh_from_db()
+        return customer_client, booking
+
+    def test_get_completion_pin_after_service_start_returns_200(self):
+        customer_client, booking = self._in_progress_booking('+919000000350', '+919000000351')
+        resp = customer_client.get(self.url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['data']['completionPin'], booking.completion_pin)
+
+    def test_get_completion_pin_before_service_start_returns_400(self):
+        customer_client, customer = make_customer(phone_number='+919000000352')
+        _, _, profile = make_artist(phone_number='+919000000353')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        resp = customer_client.get(self.url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_get_completion_pin_for_another_customers_booking_returns_400(self):
+        _, booking = self._in_progress_booking('+919000000354', '+919000000355')
+        outsider_client, _ = make_customer(phone_number='+919000000356')
+        resp = outsider_client.get(self.url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 400)
+
+
+# ─── Artist Verify Completion PIN ───────────────────────────────────────────────
+
+class VerifyCompletionPinTest(TestCase):
+    url = '/artists/bookings/completion_pin/verify/'
+
+    def _make_in_progress_booking(self, artist_phone, customer_phone, pin=5678):
+        artist_client, artist_user, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        customer_client, customer = make_customer(phone_number=customer_phone)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='in_progress',
+        )
+        booking.completion_pin = pin
+        booking.completion_pin_expiry = timezone.now() + timedelta(hours=6)
+        booking.save()
+        return artist_client, customer_client, booking
+
+    def test_verify_correct_pin_completes_booking(self):
+        artist_client, _, booking = self._make_in_progress_booking('+919000000360', '+919000000361')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'completed')
+        self.assertIsNotNone(booking.service_completed_at)
+        self.assertIsNone(booking.completion_pin)
+        self.assertIsNone(booking.completion_pin_expiry)
+
+    def test_verify_incorrect_pin_returns_400_and_does_not_complete(self):
+        artist_client, _, booking = self._make_in_progress_booking('+919000000362', '+919000000363')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 1111}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'in_progress')
+        self.assertIsNone(booking.service_completed_at)
+        self.assertEqual(booking.completion_pin_attempts, 1)
+
+    def test_verify_expired_pin_returns_400(self):
+        artist_client, _, booking = self._make_in_progress_booking('+919000000364', '+919000000365')
+        booking.completion_pin_expiry = timezone.now() - timedelta(minutes=1)
+        booking.save()
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_verify_pin_locks_out_after_5_failed_attempts(self):
+        artist_client, _, booking = self._make_in_progress_booking('+919000000366', '+919000000367')
+        for _ in range(5):
+            resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 1111}, format='json')
+            self.assertEqual(resp.status_code, 400)
+        locked_resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(locked_resp.status_code, 400)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'in_progress')
+
+    def test_verify_pin_before_service_started_returns_400(self):
+        artist_client, artist_user, profile = make_artist(phone_number='+919000000368')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        _, customer = make_customer(phone_number='+919000000369')
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            status_name='confirmed',
+        )
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_verify_pin_twice_returns_400(self):
+        artist_client, _, booking = self._make_in_progress_booking('+919000000370', '+919000000371')
+        first = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(first.status_code, 200)
+        second = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(second.status_code, 400)
+
+    def test_verify_pin_on_another_artists_booking_returns_400(self):
+        artist_client, _, booking = self._make_in_progress_booking('+919000000372', '+919000000373')
+        other_client, _, _ = make_artist(phone_number='+919000000374')
+        resp = other_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_verify_pin_notifies_customer(self):
+        artist_client, _, booking = self._make_in_progress_booking('+919000000375', '+919000000376')
+        resp = artist_client.put(self.url, {'booking_id': booking.booking_id, 'completion_pin': 5678}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(Notification.objects.filter(booking_id=booking.booking_id, type='booking_completed').exists())
 
 
 # ─── Payment ───────────────────────────────────────────────────────────────────

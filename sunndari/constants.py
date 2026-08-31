@@ -43,6 +43,15 @@ class Constants:
     booking_not_completed = 'Review can only be submitted after the service is completed'
     slot_locked = 'Slot locked for 15 minutes pending payment'
     double_booking = 'This slot is already booked'
+    on_my_way_not_allowed = 'Booking must be confirmed and not already marked as on the way'
+    on_my_way_too_early = 'On My Way can only be marked within 2 hours of the booking start time'
+    arrived_not_allowed = 'Artist must be marked as on the way, and not already arrived, to confirm arrival'
+    start_pin_not_available = 'Start Service PIN is not available yet'
+    start_pin_verify_not_allowed = 'Artist must have arrived to start the service'
+    start_pin_invalid = 'Invalid or expired Start Service PIN'
+    completion_pin_not_available = 'Completion PIN is not available yet'
+    completion_pin_verify_not_allowed = 'Service must be in progress to mark it as completed'
+    completion_pin_invalid = 'Invalid or expired Completion PIN'
 
     # Payment
     payment_not_found = 'Payment record not found'

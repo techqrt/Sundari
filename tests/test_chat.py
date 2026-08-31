@@ -38,6 +38,20 @@ def confirmed_booking(customer_phone, artist_phone, status_name='confirmed'):
     return customer, artist_user, booking
 
 
+def complete_via_pin(artist_client, booking, pin=5678):
+    """Completion now only happens through Completion PIN verification, not the
+    generic status-update endpoint — seed a known PIN directly, then verify it."""
+    from django.utils import timezone
+    from datetime import timedelta
+    booking.completion_pin = pin
+    booking.completion_pin_expiry = timezone.now() + timedelta(hours=6)
+    booking.save()
+    return artist_client.put(
+        '/artists/bookings/completion_pin/verify/',
+        {'booking_id': booking.booking_id, 'completion_pin': pin}, format='json',
+    )
+
+
 # ─── HTTP: Conversation access & authorization ────────────────────────────────
 
 class ConversationAccessTest(TestCase):
@@ -155,14 +169,14 @@ class ChatClosureTest(TestCase):
         client, _ = auth(customer)
         client.post('/chat/messages/create/', {'booking_id': booking.booking_id, 'content': 'before completion'}, format='json')
         artist_client, _ = auth(artist_user)
-        artist_client.put('/artists/bookings/update_status/', {'booking_id': booking.booking_id, 'status': 'completed'}, format='json')
+        complete_via_pin(artist_client, booking)
         resp = client.post('/chat/messages/create/', {'booking_id': booking.booking_id, 'content': 'after completion'}, format='json')
         self.assertEqual(resp.status_code, 400)
 
     def test_completed_booking_rejects_new_artist_message(self):
         customer, artist_user, booking = confirmed_booking('+919100000203', '+919100000204', status_name='in_progress')
         artist_client, _ = auth(artist_user)
-        artist_client.put('/artists/bookings/update_status/', {'booking_id': booking.booking_id, 'status': 'completed'}, format='json')
+        complete_via_pin(artist_client, booking)
         resp = artist_client.post('/chat/messages/create/', {'booking_id': booking.booking_id, 'content': 'too late'}, format='json')
         self.assertEqual(resp.status_code, 400)
 
@@ -171,7 +185,7 @@ class ChatClosureTest(TestCase):
         client, _ = auth(customer)
         client.post('/chat/messages/create/', {'booking_id': booking.booking_id, 'content': 'keep me'}, format='json')
         artist_client, _ = auth(artist_user)
-        artist_client.put('/artists/bookings/update_status/', {'booking_id': booking.booking_id, 'status': 'completed'}, format='json')
+        complete_via_pin(artist_client, booking)
         resp = client.get('/chat/messages/get_all/', {'booking_id': booking.booking_id})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['data']['data'][0]['content'], 'keep me')
