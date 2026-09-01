@@ -453,6 +453,21 @@ class ArtistBookingTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data['data']['data']), 1)
 
+    def test_get_all_bookings_with_mixed_null_and_set_timestamps_returns_200(self):
+        # Regression: a nullable datetime column with even one non-null value across the
+        # list gets upcast by pandas to datetime64, turning the other rows' None into NaT
+        # — which serializes to the literal string "NaT" unless the mapper guards for it.
+        client, _, profile = make_artist(phone_number='+919000000278')
+        untouched = self._make_booking(profile, customer_phone='+919000000279')
+        on_the_way = self._make_booking(profile, customer_phone='+919000000280')
+        on_the_way.on_my_way_at = timezone.now()
+        on_the_way.save()
+        resp = client.get(self.get_all_url)
+        self.assertEqual(resp.status_code, 200)
+        by_id = {b['bookingId']: b for b in resp.data['data']['data']}
+        self.assertIsNone(by_id[untouched.booking_id]['onMyWayAt'])
+        self.assertIsNotNone(by_id[on_the_way.booking_id]['onMyWayAt'])
+
     def test_confirm_pending_booking_returns_200(self):
         client, _, profile = make_artist(phone_number='+919000000273')
         booking = self._make_booking(profile, customer_phone='+919000000274')

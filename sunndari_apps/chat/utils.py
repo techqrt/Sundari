@@ -30,8 +30,12 @@ class ChatUtils:
     def flatten_to_nested_dict(df):
         result = []
         df = df.map(
-            lambda x: x.isoformat() if isinstance(x, (pandas.Timestamp,)) or hasattr(x, 'isoformat')
-            else (None if (isinstance(x, float) and pandas.isna(x)) else x)
+            # pandas.isna() first — a nullable datetime column that also holds a real
+            # timestamp gets upcast to datetime64, turning None into NaT, which still
+            # has an isoformat() method (returns the literal string "NaT") unless caught here.
+            lambda x: None if pandas.isna(x) else (
+                x.isoformat() if isinstance(x, (pandas.Timestamp,)) or hasattr(x, 'isoformat') else x
+            )
         )
         df = df.replace({np.nan: None, np.inf: None, -np.inf: None})
         for _, row in df.iterrows():
