@@ -18,6 +18,10 @@ class BookingSerializer(serializers.Serializer):
     cancelledBy = serializers.CharField(allow_null=True, allow_blank=True)
     cancellationReason = serializers.CharField(allow_null=True, allow_blank=True)
     expiresAt = serializers.DateTimeField(allow_null=True)
+    onMyWayAt = serializers.DateTimeField(allow_null=True)
+    arrivedAt = serializers.DateTimeField(allow_null=True)
+    serviceStartedAt = serializers.DateTimeField(allow_null=True)
+    serviceCompletedAt = serializers.DateTimeField(allow_null=True)
     createdAt = serializers.DateTimeField()
     updatedAt = serializers.DateTimeField()
 

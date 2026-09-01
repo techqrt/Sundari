@@ -364,6 +364,20 @@ class CustomerBookingTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['data']['bookingId'], booking.booking_id)
 
+    def test_get_booking_includes_lifecycle_timestamps_but_not_credentials(self):
+        client, customer = make_customer(phone_number='+919000000262')
+        booking = self._make_booking(customer, artist_phone='+919000000263')
+        booking.on_my_way_at = timezone.now()
+        booking.booking_otp = 999999
+        booking.save()
+        resp = client.get(self.get_url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.data['data']
+        self.assertIsNotNone(data['onMyWayAt'])
+        self.assertIsNone(data['arrivedAt'])
+        self.assertNotIn('bookingOtp', data)
+        self.assertNotIn('booking_otp', data)
+
     def test_get_another_customers_booking_returns_400(self):
         client, _ = make_customer(phone_number='+919000000251')
         _, other_customer = make_customer(phone_number='+919000000252')

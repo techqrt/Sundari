@@ -116,6 +116,11 @@ class Booking(models.Model):
         'location_type_id', 'address_id', 'booking_date', 'start_time', 'end_time',
         'status_id', 'total_amount', 'notes', 'cancelled_by', 'cancellation_reason',
         'expires_at', 'created_at', 'updated_at',
+        # Lifecycle sub-stage timestamps — safe to expose publicly (unlike the OTP/PIN
+        # fields on LIFECYCLE_FIELDS): they carry no verification value, and the frontend
+        # needs them to tell 'upcoming' / 'on the way' / 'arrived' apart while status
+        # stays 'confirmed' across all three.
+        'on_my_way_at', 'arrived_at', 'service_started_at', 'service_completed_at',
     )
 
     # Backend-internal only — deliberately excluded from VALUES_FIELDS/CustomersUtils.MAPS
