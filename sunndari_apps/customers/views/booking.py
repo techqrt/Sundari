@@ -75,7 +75,7 @@ class BookingView:
             status_id=booking['status_id'],
         ).values_list('name', flat=True).first()
         if status_name not in Booking.ACTIVE_STATUSES:
-            raise ValueError(Constants.update_not_allowed)
+            raise ValueError(f"This booking cannot be cancelled — it is already '{status_name}'.")
         cancelled_status = BookingStatus.objects.filter(name='cancelled').first()
         Booking.update_status(
             booking_id=params.booking_id,

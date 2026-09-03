@@ -94,7 +94,11 @@ class ArtistBookingView:
         ).values_list('name', flat=True).first()
         allowed = Booking.ARTIST_TRANSITIONS.get(current_status, [])
         if params.status not in allowed:
-            raise ValueError(Constants.update_not_allowed)
+            next_steps = ', '.join(f"'{s}'" for s in allowed) if allowed else 'none — this booking is in a final state'
+            raise ValueError(
+                f"Cannot set status to '{params.status}' — booking is currently '{current_status}'. "
+                f"Allowed next status: {next_steps}."
+            )
 
         new_status = BookingStatus.objects.filter(name=params.status).first()
         Booking.update_status(

@@ -25,7 +25,6 @@ class Constants:
     # General
     page_num_exceeded = 'The given page number is greater than maximum available limit'
     delete_not_allowed = 'Deleting records is not allowed'
-    update_not_allowed = 'Updating records is not allowed'
     item_not_found = 'Item not found'
     forbidden_resource = 'Not allowed to access this resource'
     data_get = 'Data fetched successfully'

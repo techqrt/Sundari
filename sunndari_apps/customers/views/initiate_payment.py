@@ -24,7 +24,7 @@ class InitiatePaymentView:
             status_id=booking['status_id'],
         ).values_list('name', flat=True).first()
         if status_name not in Booking.ACTIVE_STATUSES:
-            raise ValueError(Constants.update_not_allowed)
+            raise ValueError(f"Payment cannot be initiated — booking is '{status_name}'.")
 
         already_paid = Payment.total_paid_for_booking(booking_id=params.booking_id)
         remaining_due = booking['total_amount'] - already_paid
