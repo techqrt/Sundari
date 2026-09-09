@@ -181,6 +181,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'sunndari_apps.notifications.tasks.send_appointment_reminders',
         'schedule': 600.0,
     },
+    'mark-missed-bookings': {
+        'task': 'sunndari_apps.customers.tasks.mark_missed_bookings',
+        'schedule': 300.0,
+    },
 }
 
 # Brevo (email via SMTP)

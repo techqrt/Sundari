@@ -10,7 +10,7 @@ from sunndari_apps.customers.models import Booking
 
 from tests.test_customers import (
     make_customer, make_artist, make_sub_category, make_location_type,
-    make_package, make_booking, seed_booking_statuses, seed_payment_statuses, next_weekday,
+    make_package, make_booking, seed_booking_statuses, seed_payment_statuses, next_weekday, IST,
 )
 
 
@@ -168,7 +168,7 @@ class AppointmentReminderTaskTest(TestCase):
         sub = make_sub_category()
         package = make_package(profile, sub_category=sub)
         location_type = make_location_type()
-        target_dt = timezone.now() + timedelta(hours=hours_from_now)
+        target_dt = (timezone.now() + timedelta(hours=hours_from_now)).astimezone(IST)
         booking = make_booking(
             customer, profile, package, location_type,
             booking_date=target_dt.date(), start_time=target_dt.time().replace(microsecond=0),

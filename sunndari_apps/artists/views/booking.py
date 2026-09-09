@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.core.paginator import Paginator
 from django.utils import timezone
 from rest_framework import status
@@ -45,6 +45,7 @@ class ArtistBookingView:
         booking = Booking.get(booking_id=params.booking_id)
         if not booking or booking['artist_id'] != artist_id:
             raise ValueError(Constants.booking_not_found)
+        Booking.with_display_expiry([booking])
         utils = CustomersUtils(entity='booking', columns_required=[c for c in params.values.split(',') if c])
         data = json.loads(utils.mapper([booking]))[0]
         return Response(
@@ -68,6 +69,7 @@ class ArtistBookingView:
         if pages.num_pages < params.page_num:
             raise ValueError('Page limit exceeded!')
         page_data = list(pages.page(params.page_num))
+        Booking.with_display_expiry(page_data)
         utils = CustomersUtils(entity='booking')
         data = json.loads(utils.mapper(page_data))
         data = Utils.add_page_parameter(
@@ -92,6 +94,14 @@ class ArtistBookingView:
         current_status = BookingStatus.objects.filter(
             status_id=booking['status_id'],
         ).values_list('name', flat=True).first()
+
+        # Accepting is the only forward-progressing move this generic endpoint can make
+        # (cancelling/no-show are closing moves, always allowed even on an expired
+        # booking) — block it once the booking's own window has elapsed, rather than
+        # waiting for the sweep cron to catch up.
+        if params.status == 'confirmed' and Booking.is_past_missed_deadline(booking['booking_date'], booking['start_time']):
+            raise ValueError(Constants.booking_expired)
+
         allowed = Booking.ARTIST_TRANSITIONS.get(current_status, [])
         if params.status not in allowed:
             next_steps = ', '.join(f"'{s}'" for s in allowed) if allowed else 'none — this booking is in a final state'
@@ -163,9 +173,10 @@ class ArtistBookingView:
         if current_status != 'confirmed' or booking['on_my_way_at'] is not None:
             raise ValueError(Constants.on_my_way_not_allowed)
 
-        booking_start = timezone.make_aware(
-            datetime.combine(booking['booking_date'], booking['start_time'])
-        )
+        if Booking.is_past_missed_deadline(booking['booking_date'], booking['start_time']):
+            raise ValueError(Constants.booking_expired)
+
+        booking_start = Booking.to_aware(booking['booking_date'], booking['start_time'])
         window_opens_at = booking_start - timedelta(hours=Configurations.on_my_way_window_hours)
         if timezone.now() < window_opens_at:
             raise ValueError(Constants.on_my_way_too_early)
@@ -196,6 +207,9 @@ class ArtistBookingView:
         ).values_list('name', flat=True).first()
         if current_status != 'confirmed' or booking['on_my_way_at'] is None or booking['arrived_at'] is not None:
             raise ValueError(Constants.arrived_not_allowed)
+
+        if Booking.is_past_missed_deadline(booking['booking_date'], booking['start_time']):
+            raise ValueError(Constants.booking_expired)
 
         if Booking.is_booking_otp_locked(booking_id=params.booking_id):
             raise ValueError(Constants.account_locked)
@@ -245,6 +259,13 @@ class ArtistBookingView:
         ).values_list('name', flat=True).first()
         if current_status != 'confirmed' or booking['arrived_at'] is None:
             raise ValueError(Constants.start_pin_verify_not_allowed)
+
+        # No missed-deadline guard here, deliberately: arrived_at can only have been set
+        # by a real, OTP-verified, timestamped arrival that itself already had to happen
+        # before the deadline (arrived_extract enforces that). Once that legitimate
+        # on-site interaction has begun, blocking its next step just because the clock
+        # ticked over while the customer looked up their PIN would strand a real
+        # appointment — the same failure mode already ruled out for in_progress bookings.
 
         if Booking.is_start_pin_locked(booking_id=params.booking_id):
             raise ValueError(Constants.account_locked)

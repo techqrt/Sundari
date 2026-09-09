@@ -7,6 +7,7 @@ from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.help_center.services import SupportChatService
 from sunndari_apps.help_center.utils import HelpCenterUtils
+from sunndari_apps.help_center.models.conversation import SupportConversation
 from sunndari_apps.help_center.models.message import SupportMessage
 from sunndari_apps.help_center.dataclasses.request.get.get_messages import GetMessagesRequest
 from sunndari_apps.help_center.dataclasses.request.create.create_message import CreateMessageRequest
@@ -21,8 +22,12 @@ class MessageView:
 
     @Common(response_handler=SupportMessageResponseGetAllSerializer).exception_handler
     def get_all_extract(self, params: GetMessagesRequest):
-        conversation = SupportChatService.get_conversation_for_customer(customer_id=params.user_id)
-        if conversation['conversation_id'] != params.conversation_id:
+        # Ownership is checked against the specific conversation_id requested, not
+        # against "do I currently have an open conversation" — a customer with no open
+        # conversation of their own must still be refused access to someone else's, not
+        # waved through into an empty-state response.
+        conversation = SupportConversation.get(conversation_id=params.conversation_id)
+        if not conversation or conversation['customer_id'] != params.user_id:
             raise ValueError(Constants.forbidden_resource)
         raw = SupportMessage.get_all(conversation_id=params.conversation_id, sort_order=params.sort_order or 'asc')
         pages = Paginator(raw, per_page=params.limit)

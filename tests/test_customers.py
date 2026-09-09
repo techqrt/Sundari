@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -14,6 +15,9 @@ from sunndari_apps.core.models import (
 from sunndari_apps.users.models.customer_address import CustomerAddress
 from sunndari_apps.customers.models import Booking, Payment, Review
 from sunndari_apps.notifications.models.notification import Notification
+from sunndari.constants import Constants
+
+IST = ZoneInfo('Asia/Kolkata')
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -276,6 +280,67 @@ class CreateBookingTest(TestCase):
         self.assertIsNotNone(otp_notification)
         self.assertIn(str(booking.booking_otp), otp_notification.message)
 
+    def test_create_booking_in_the_past_returns_400(self):
+        client, _ = make_customer(phone_number='+919000000234')
+        _, _, profile = make_artist(phone_number='+919000000235')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=1500, duration=60)
+        location_type = make_location_type()
+        make_location_preference(profile, location_type)
+        yesterday_ist = (timezone.now().astimezone(IST) - timedelta(days=1)).date()
+        make_schedule(profile, day_of_week=yesterday_ist.weekday())
+        seed_booking_statuses()
+        resp = client.post(self.url, {
+            'artist_id': profile.artist_id,
+            'package_id': package.package_id,
+            'location_type_id': location_type.location_type_id,
+            'booking_date': yesterday_ist.strftime('%d-%m-%y'),
+            'start_time': '10:00:00',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(Constants.past_date_booking, resp.data['message'])
+
+    def test_create_booking_today_at_least_2h_out_returns_201(self):
+        client, _ = make_customer(phone_number='+919000000236')
+        _, _, profile = make_artist(phone_number='+919000000237')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=1500, duration=60)
+        location_type = make_location_type()
+        make_location_preference(profile, location_type)
+        # 3h out (comfortably past the 2h minimum) rather than a fixed clock time, so
+        # this doesn't go flaky depending on what time of day the suite happens to run.
+        target = (timezone.now() + timedelta(hours=3)).astimezone(IST)
+        make_schedule(profile, day_of_week=target.date().weekday(), start='00:00:00', end='23:59:00')
+        seed_booking_statuses()
+        resp = client.post(self.url, {
+            'artist_id': profile.artist_id,
+            'package_id': package.package_id,
+            'location_type_id': location_type.location_type_id,
+            'booking_date': target.date().strftime('%d-%m-%y'),
+            'start_time': target.time().strftime('%H:%M:%S'),
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+
+    def test_create_booking_within_2h_returns_400(self):
+        client, _ = make_customer(phone_number='+919000000238')
+        _, _, profile = make_artist(phone_number='+919000000239')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=1500, duration=60)
+        location_type = make_location_type()
+        make_location_preference(profile, location_type)
+        target = (timezone.now() + timedelta(hours=1)).astimezone(IST)
+        make_schedule(profile, day_of_week=target.date().weekday(), start='00:00:00', end='23:59:00')
+        seed_booking_statuses()
+        resp = client.post(self.url, {
+            'artist_id': profile.artist_id,
+            'package_id': package.package_id,
+            'location_type_id': location_type.location_type_id,
+            'booking_date': target.date().strftime('%d-%m-%y'),
+            'start_time': target.time().strftime('%H:%M:%S'),
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(Constants.booking_too_soon, resp.data['message'])
+
     def test_create_booking_outside_schedule_returns_400(self):
         client, _ = make_customer()
         profile, package, location_type, booking_date = self._setup_bookable_artist(phone_number='+919000000231')
@@ -305,6 +370,26 @@ class CreateBookingTest(TestCase):
             'start_time': '10:00:00',
         }, format='json')
         self.assertEqual(resp.status_code, 400)
+
+    def test_create_booking_inactive_package_returns_clear_error(self):
+        client, _ = make_customer(phone_number='+919000000242')
+        _, _, profile = make_artist(phone_number='+919000000243')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, is_active=False)
+        location_type = make_location_type()
+        make_location_preference(profile, location_type)
+        booking_date = next_weekday(2)
+        make_schedule(profile, day_of_week=booking_date.weekday())
+        seed_booking_statuses()
+        resp = client.post(self.url, {
+            'artist_id': profile.artist_id,
+            'package_id': package.package_id,
+            'location_type_id': location_type.location_type_id,
+            'booking_date': booking_date.strftime('%d-%m-%y'),
+            'start_time': '10:00:00',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(Constants.package_unavailable, resp.data['message'])
 
     def test_create_booking_double_booking_returns_400(self):
         client, _ = make_customer(phone_number='+919000000240')
@@ -377,6 +462,39 @@ class CustomerBookingTest(TestCase):
         self.assertIsNone(data['arrivedAt'])
         self.assertNotIn('bookingOtp', data)
         self.assertNotIn('booking_otp', data)
+
+    def test_get_pending_booking_keeps_payment_lock_expiry(self):
+        client, customer = make_customer(phone_number='+919000000264')
+        booking = self._make_booking(customer, artist_phone='+919000000265', status_name='pending')
+        resp = client.get(self.get_url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNotNone(resp.data['data']['expiresAt'])
+        # Unchanged from the raw DB value: the 15-minute payment lock set at creation.
+        booking.refresh_from_db()
+        self.assertAlmostEqual(
+            datetime.fromisoformat(resp.data['data']['expiresAt']).timestamp(),
+            booking.expires_at.timestamp(),
+            delta=1,
+        )
+
+    def test_get_confirmed_booking_returns_missed_grace_deadline(self):
+        client, customer = make_customer(phone_number='+919000000266')
+        booking = self._make_booking(customer, artist_phone='+919000000267', status_name='confirmed')
+        resp = client.get(self.get_url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 200)
+        expires_at = resp.data['data']['expiresAt']
+        self.assertIsNotNone(expires_at)
+        expected = Booking.to_aware(booking.booking_date, booking.start_time) + timedelta(hours=2)
+        self.assertAlmostEqual(
+            datetime.fromisoformat(expires_at).timestamp(), expected.timestamp(), delta=1,
+        )
+
+    def test_get_completed_booking_has_no_expiry(self):
+        client, customer = make_customer(phone_number='+919000000268')
+        booking = self._make_booking(customer, artist_phone='+919000000269', status_name='completed')
+        resp = client.get(self.get_url, {'booking_id': booking.booking_id})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.data['data']['expiresAt'])
 
     def test_get_another_customers_booking_returns_400(self):
         client, _ = make_customer(phone_number='+919000000251')
@@ -522,8 +640,7 @@ class OnMyWayTest(TestCase):
 
     def test_on_my_way_within_2h_window_returns_200(self):
         client, _, profile = make_artist(phone_number='+919000000290')
-        now = timezone.now()
-        booking_dt = now + timedelta(hours=1)
+        booking_dt = (timezone.now() + timedelta(hours=1)).astimezone(IST)
         booking = self._make_confirmed_booking(
             profile, '+919000000291', booking_dt.date(),
             start_time=booking_dt.time().strftime('%H:%M:%S'),
@@ -536,8 +653,7 @@ class OnMyWayTest(TestCase):
 
     def test_on_my_way_more_than_2h_before_returns_400(self):
         client, _, profile = make_artist(phone_number='+919000000292')
-        now = timezone.now()
-        booking_dt = now + timedelta(hours=5)
+        booking_dt = (timezone.now() + timedelta(hours=5)).astimezone(IST)
         booking = self._make_confirmed_booking(
             profile, '+919000000293', booking_dt.date(),
             start_time=booking_dt.time().strftime('%H:%M:%S'),
@@ -550,8 +666,7 @@ class OnMyWayTest(TestCase):
 
     def test_on_my_way_already_marked_returns_400(self):
         client, _, profile = make_artist(phone_number='+919000000294')
-        now = timezone.now()
-        booking_dt = now + timedelta(hours=1)
+        booking_dt = (timezone.now() + timedelta(hours=1)).astimezone(IST)
         booking = self._make_confirmed_booking(
             profile, '+919000000295', booking_dt.date(),
             start_time=booking_dt.time().strftime('%H:%M:%S'),
@@ -573,8 +688,7 @@ class OnMyWayTest(TestCase):
     def test_on_my_way_on_another_artists_booking_returns_400(self):
         client, _, _ = make_artist(phone_number='+919000000298')
         _, _, other_profile = make_artist(phone_number='+919000000299')
-        now = timezone.now()
-        booking_dt = now + timedelta(hours=1)
+        booking_dt = (timezone.now() + timedelta(hours=1)).astimezone(IST)
         booking = self._make_confirmed_booking(
             other_profile, '+919000000209', booking_dt.date(),
             start_time=booking_dt.time().strftime('%H:%M:%S'),
@@ -982,12 +1096,213 @@ class VerifyCompletionPinTest(TestCase):
         self.assertTrue(Notification.objects.filter(booking_id=booking.booking_id, type='booking_completed').exists())
 
 
+# ─── Booking timezone interpretation ────────────────────────────────────────────
+
+class BookingToAwareTest(TestCase):
+    """Booking dates/times are IST wall-clock values, not the server's default UTC
+    (settings.TIME_ZONE). Booking.to_aware() is the one place that combines them into
+    a real, comparable moment — every expiry/grace-window check in the app depends on
+    getting this right."""
+
+    def test_to_aware_interprets_naive_time_as_ist(self):
+        moment = Booking.to_aware(date(2026, 9, 8), time(10, 0, 0))
+        self.assertEqual(moment.utcoffset(), timedelta(hours=5, minutes=30))
+        # 10:00 AM IST is 04:30 AM UTC the same day.
+        as_utc = moment.astimezone(ZoneInfo('UTC'))
+        self.assertEqual(as_utc.hour, 4)
+        self.assertEqual(as_utc.minute, 30)
+        self.assertEqual(as_utc.date(), date(2026, 9, 8))
+
+    def test_to_aware_matches_timezone_now_for_the_same_real_instant(self):
+        real_moment = timezone.now() + timedelta(hours=3)
+        ist_moment = real_moment.astimezone(IST)
+        rebuilt = Booking.to_aware(ist_moment.date(), ist_moment.time())
+        self.assertAlmostEqual(rebuilt.timestamp(), real_moment.timestamp(), delta=1)
+
+
+# ─── Auto-expire (missed) cron ──────────────────────────────────────────────────
+
+class MarkMissedBookingsTaskTest(TestCase):
+
+    def _booking_at(self, hours_from_now, customer_phone, artist_phone, status_name='pending'):
+        _, customer = make_customer(phone_number=customer_phone)
+        _, _, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        target = (timezone.now() + timedelta(hours=hours_from_now)).astimezone(IST)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=target.date(), start_time=target.time().replace(microsecond=0),
+            end_time=(target + timedelta(hours=1)).time().replace(microsecond=0),
+            status_name=status_name,
+        )
+        return customer, booking
+
+    def test_pending_booking_past_grace_period_becomes_no_show(self):
+        from sunndari_apps.customers.tasks import mark_missed_bookings
+        customer, booking = self._booking_at(-3, '+919000000440', '+919000000441', status_name='pending')
+        booking.booking_otp = 111111
+        booking.booking_otp_expiry = timezone.now() + timedelta(hours=1)
+        booking.save()
+        missed_count = mark_missed_bookings()
+        self.assertEqual(missed_count, 1)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'no_show')
+        self.assertIsNone(booking.booking_otp)
+        self.assertIsNone(booking.booking_otp_expiry)
+        self.assertTrue(
+            Notification.objects.filter(user_id=customer.user_id, type='booking_no_show', booking_id=booking.booking_id).exists()
+        )
+
+    def test_confirmed_booking_past_grace_period_becomes_no_show(self):
+        from sunndari_apps.customers.tasks import mark_missed_bookings
+        _, booking = self._booking_at(-3, '+919000000442', '+919000000443', status_name='confirmed')
+        missed_count = mark_missed_bookings()
+        self.assertEqual(missed_count, 1)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'no_show')
+
+    def test_booking_within_grace_period_is_untouched(self):
+        from sunndari_apps.customers.tasks import mark_missed_bookings
+        _, booking = self._booking_at(-1, '+919000000444', '+919000000445', status_name='confirmed')
+        missed_count = mark_missed_bookings()
+        self.assertEqual(missed_count, 0)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'confirmed')
+
+    def test_future_booking_is_untouched(self):
+        from sunndari_apps.customers.tasks import mark_missed_bookings
+        _, booking = self._booking_at(5, '+919000000446', '+919000000447', status_name='confirmed')
+        missed_count = mark_missed_bookings()
+        self.assertEqual(missed_count, 0)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'confirmed')
+
+    def test_in_progress_booking_past_grace_period_is_not_swept(self):
+        # Deliberately excluded: once the Start PIN was verified in person, the service
+        # should run to completion regardless of how long it takes, not get swept out
+        # from under an artist who is still genuinely on-site.
+        from sunndari_apps.customers.tasks import mark_missed_bookings
+        _, booking = self._booking_at(-5, '+919000000448', '+919000000449', status_name='in_progress')
+        missed_count = mark_missed_bookings()
+        self.assertEqual(missed_count, 0)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'in_progress')
+
+    def test_already_completed_booking_is_not_swept(self):
+        from sunndari_apps.customers.tasks import mark_missed_bookings
+        _, booking = self._booking_at(-5, '+919000000450', '+919000000451', status_name='completed')
+        missed_count = mark_missed_bookings()
+        self.assertEqual(missed_count, 0)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'completed')
+
+
+# ─── Expired booking blocked at the API level ───────────────────────────────────
+
+class ExpiredBookingApiGuardTest(TestCase):
+
+    def _expired_pending_booking(self, artist_phone, customer_phone):
+        artist_client, artist_user, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        _, customer = make_customer(phone_number=customer_phone)
+        target = (timezone.now() - timedelta(hours=3)).astimezone(IST)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=target.date(), start_time=target.time().replace(microsecond=0),
+            end_time=(target + timedelta(hours=1)).time().replace(microsecond=0),
+            status_name='pending',
+        )
+        return artist_client, booking
+
+    def _expired_confirmed_booking(self, artist_phone, customer_phone, **extra_fields):
+        artist_client, artist_user, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub)
+        location_type = make_location_type()
+        _, customer = make_customer(phone_number=customer_phone)
+        target = (timezone.now() - timedelta(hours=3)).astimezone(IST)
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=target.date(), start_time=target.time().replace(microsecond=0),
+            end_time=(target + timedelta(hours=1)).time().replace(microsecond=0),
+            status_name='confirmed',
+        )
+        for field, value in extra_fields.items():
+            setattr(booking, field, value)
+        if extra_fields:
+            booking.save()
+        return artist_client, booking
+
+    def test_confirm_expired_pending_booking_returns_400(self):
+        artist_client, booking = self._expired_pending_booking('+919000000460', '+919000000461')
+        resp = artist_client.put('/artists/bookings/update_status/', {
+            'booking_id': booking.booking_id, 'status': 'confirmed',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(Constants.booking_expired, resp.data['message'])
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'pending')
+
+    def test_reject_expired_pending_booking_still_allowed(self):
+        # Closing moves (cancel/no-show) are never blocked by expiry, only the
+        # forward-progressing 'confirmed' move is.
+        artist_client, booking = self._expired_pending_booking('+919000000462', '+919000000463')
+        resp = artist_client.put('/artists/bookings/update_status/', {
+            'booking_id': booking.booking_id, 'status': 'cancelled',
+        }, format='json')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_on_my_way_on_expired_confirmed_booking_returns_400(self):
+        artist_client, booking = self._expired_confirmed_booking('+919000000464', '+919000000465')
+        resp = artist_client.put('/artists/bookings/on_my_way/', {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(Constants.booking_expired, resp.data['message'])
+
+    def test_arrived_on_expired_confirmed_booking_returns_400(self):
+        artist_client, booking = self._expired_confirmed_booking(
+            '+919000000466', '+919000000467',
+            on_my_way_at=timezone.now(), booking_otp=222222, booking_otp_expiry=timezone.now() + timedelta(hours=6),
+        )
+        resp = artist_client.put('/artists/bookings/arrived/', {
+            'booking_id': booking.booking_id, 'booking_otp': 222222,
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(Constants.booking_expired, resp.data['message'])
+
+    def test_verify_start_pin_not_blocked_once_already_arrived(self):
+        # arrived_at could only have been set by a real, OTP-verified arrival that
+        # itself had to happen before the deadline — starting the service afterward
+        # must not be retroactively blocked just because the clock has since ticked
+        # past the original deadline.
+        artist_client, booking = self._expired_confirmed_booking(
+            '+919000000468', '+919000000469',
+            on_my_way_at=timezone.now(), arrived_at=timezone.now(),
+            start_service_pin=3456, start_pin_expiry=timezone.now() + timedelta(hours=6),
+        )
+        resp = artist_client.put('/artists/bookings/start_pin/verify/', {
+            'booking_id': booking.booking_id, 'start_service_pin': 3456,
+        }, format='json')
+        self.assertEqual(resp.status_code, 200)
+
+
 # ─── Payment ───────────────────────────────────────────────────────────────────
 
 class PaymentTest(TestCase):
     initiate_url = '/customers/payments/initiate/'
     webhook_url = '/customers/payments/webhook/'
     get_all_url = '/customers/payments/get_all/'
+    payment_types_url = '/customers/payments/payment_types/'
+
+    def test_get_payment_types_returns_full_advance_balance(self):
+        client, _ = make_customer(phone_number='+919000000290')
+        resp = client.get(self.payment_types_url)
+        self.assertEqual(resp.status_code, 200)
+        values = {item['value'] for item in resp.data['data']}
+        self.assertEqual(values, {'full', 'advance', 'balance'})
 
     def _make_booking(self, customer_phone='+919000000280', artist_phone='+919000000281', price=1500):
         client, customer = make_customer(phone_number=customer_phone)

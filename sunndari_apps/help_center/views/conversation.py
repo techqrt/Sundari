@@ -18,6 +18,16 @@ class ConversationView:
     @Common(response_handler=SupportConversationResponseSerializer).exception_handler
     def get_extract(self, params: GetConversationRequest):
         conversation = SupportChatService.get_conversation_for_customer(customer_id=params.user_id)
+        if not conversation:
+            # Never having started a support chat is a normal empty state, not an error.
+            # Built directly (not via Utils.success_response_data) because that helper
+            # omits the 'data' key entirely when data=None, which then fails this
+            # endpoint's response serializer — it declares 'data' as required, just
+            # nullable, so the key must actually be present with a null value.
+            return Response(
+                status=status.HTTP_200_OK,
+                data={'status': True, 'message': 'No conversation yet', 'data': None}
+            )
         utils = HelpCenterUtils(entity='conversation', columns_required=[c for c in params.values.split(',') if c])
         data = json.loads(utils.mapper([conversation]))[0]
         return Response(

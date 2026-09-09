@@ -16,10 +16,13 @@ def make_admin(phone_number='+919400000001', name='Test Admin'):
 
 class CustomerConversationTest(TestCase):
 
-    def test_no_conversation_before_first_message(self):
+    def test_no_conversation_before_first_message_is_empty_not_an_error(self):
+        # Never having started a support chat is a normal empty state, not a 400.
         client, _ = make_customer(phone_number='+919300000001')
         resp = client.get('/help_center/conversation/get/')
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data['status'])
+        self.assertIsNone(resp.data['data'])
 
     def test_conversation_created_on_first_message(self):
         client, customer = make_customer(phone_number='+919300000002')
@@ -140,7 +143,9 @@ class ConversationLifecycleTest(TestCase):
         conversation.refresh_from_db()
         self.assertEqual(conversation.status, 'open')
 
-    def test_customer_conversation_not_reachable_right_after_close(self):
+    def test_customer_conversation_empty_right_after_close(self):
+        # Having no currently-open conversation (whether never started, or just closed)
+        # is a normal empty state, not an error — same as never having started one.
         client, customer = make_customer(phone_number='+919300000209')
         admin_client, _ = make_admin(phone_number='+919300000210')
         client.post('/help_center/messages/create/', {'content': 'hi'}, format='json')
@@ -149,7 +154,8 @@ class ConversationLifecycleTest(TestCase):
             '/help_center/admin/conversation/close/', {'conversation_id': conversation.conversation_id}, format='json',
         )
         resp = client.get('/help_center/conversation/get/')
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.data['data'])
 
     def test_new_message_after_close_starts_a_new_conversation(self):
         client, customer = make_customer(phone_number='+919300000211')
@@ -237,6 +243,13 @@ class NotificationIntegrationTest(TestCase):
 # ─── HTTP: Artist support endpoints (same model, separate routes) ─────────────
 
 class ArtistSupportEndpointTest(TestCase):
+
+    def test_no_conversation_before_first_message_is_empty_not_an_error(self):
+        client, _, _ = make_artist(phone_number='+919300000600')
+        resp = client.get('/help_center/artist/conversation/get/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data['status'])
+        self.assertIsNone(resp.data['data'])
 
     def test_artist_can_create_and_read_own_conversation(self):
         client, artist, _ = make_artist(phone_number='+919300000601')

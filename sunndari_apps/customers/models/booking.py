@@ -1,9 +1,19 @@
 import random
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+
+# booking_date/start_time/end_time are entered and displayed as IST wall-clock
+# values (confirmed 2026-09-09) — the server's own TIME_ZONE is UTC, so combining
+# them with Django's default active timezone (via timezone.make_aware) would
+# silently mis-locate every appointment by IST's +5:30 offset. Booking.to_aware()
+# is the one place that turns a (date, time) pair into a real moment in time;
+# every expiry/grace-window/"now" comparison in this app must go through it
+# instead of datetime.combine()+timezone.make_aware() directly.
+IST = ZoneInfo('Asia/Kolkata')
 
 
 class Booking(models.Model):
@@ -171,6 +181,58 @@ class Booking(models.Model):
         return self.booking_id
 
     @staticmethod
+    def to_aware(date_obj, time_obj):
+        """Combine a booking's date/time into a real, comparable moment — interpreted
+        as IST wall-clock time, not the server's default UTC. Use this (never
+        datetime.combine()+timezone.make_aware()) anywhere a booking's schedule needs
+        to be compared against timezone.now()."""
+        return datetime.combine(date_obj, time_obj).replace(tzinfo=IST)
+
+    @staticmethod
+    def is_past_missed_deadline(booking_date, start_time, grace_hours: int = None) -> bool:
+        """A booking nobody has acted on within bookingDate+startTime+grace is treated
+        as missed — this is the single source of truth for that deadline, used by both
+        the sweeping cron and the API-level guard on forward-progressing actions
+        (accept/on-my-way/arrived/start), so a booking can never be advanced through an
+        expired window purely because the cron hasn't run yet."""
+        from sunndari.config import Configurations
+        grace = grace_hours if grace_hours is not None else Configurations.booking_missed_grace_hours
+        deadline = Booking.to_aware(booking_date, start_time) + timedelta(hours=grace)
+        return timezone.now() > deadline
+
+    @staticmethod
+    def with_display_expiry(rows: list) -> list:
+        """The public 'expiresAt' field means two different things depending on status,
+        by design (mutates the raw dicts before they reach CustomersUtils.mapper() —
+        the existing 'expires_at' -> 'expiresAt' rename picks up whichever value ends
+        up here, no new field needed):
+          - pending: the existing 15-minute payment-lock deadline (unchanged behaviour).
+          - confirmed / in_progress: overloaded to the missed-status grace deadline
+            (bookingDate+startTime+grace) — the deadline that actually matters once a
+            booking is past the payment-lock stage.
+          - anything else (completed/cancelled/no_show): null — the field stops being
+            meaningful once a booking is in a terminal state.
+        """
+        from sunndari.config import Configurations
+        from sunndari_apps.core.models.booking_status import BookingStatus
+
+        if not rows:
+            return rows
+        status_ids = {row['status_id'] for row in rows}
+        status_names = dict(
+            BookingStatus.objects.filter(status_id__in=status_ids).values_list('status_id', 'name')
+        )
+        for row in rows:
+            status_name = status_names.get(row['status_id'])
+            if status_name in ('confirmed', 'in_progress'):
+                row['expires_at'] = Booking.to_aware(row['booking_date'], row['start_time']) + timedelta(
+                    hours=Configurations.booking_missed_grace_hours,
+                )
+            elif status_name != 'pending':
+                row['expires_at'] = None
+        return rows
+
+    @staticmethod
     def get(booking_id: int) -> dict:
         return Booking.objects.filter(booking_id=booking_id).values(*Booking.VALUES_FIELDS).first()
 
@@ -234,7 +296,7 @@ class Booking(models.Model):
         so its expiry is tied to the appointment's own scheduled end (+ a running-late
         buffer), not a short fixed window like the login OTP."""
         otp = random.randint(100000, 999999)
-        expiry = timezone.make_aware(datetime.combine(booking_date, end_time)) + timedelta(hours=buffer_hours)
+        expiry = Booking.to_aware(booking_date, end_time) + timedelta(hours=buffer_hours)
         booking = Booking.objects.get(booking_id=booking_id)
         booking.booking_otp = otp
         booking.booking_otp_expiry = expiry
@@ -272,7 +334,7 @@ class Booking(models.Model):
         the Start Service PIN in the same write. PIN expiry mirrors the Booking OTP's own
         policy: valid through the rest of the scheduled slot plus a running-late buffer."""
         pin = random.randint(1000, 9999)
-        expiry = timezone.make_aware(datetime.combine(booking_date, end_time)) + timedelta(hours=buffer_hours)
+        expiry = Booking.to_aware(booking_date, end_time) + timedelta(hours=buffer_hours)
         booking = Booking.objects.get(booking_id=booking_id)
         booking.arrived_at = timezone.now()
         booking.booking_otp = None
@@ -313,7 +375,7 @@ class Booking(models.Model):
         same write — mirrors confirm_arrival()'s eager-generation convention rather than
         generating it lazily on first customer read."""
         completion_pin = random.randint(1000, 9999)
-        expiry = timezone.make_aware(datetime.combine(booking_date, end_time)) + timedelta(hours=buffer_hours)
+        expiry = Booking.to_aware(booking_date, end_time) + timedelta(hours=buffer_hours)
         booking = Booking.objects.get(booking_id=booking_id)
         booking.status_id = in_progress_status_id
         booking.service_started_at = timezone.now()
@@ -384,6 +446,23 @@ class Booking(models.Model):
             booking.completion_pin = None
             booking.completion_pin_expiry = None
         booking.save()
+
+    @staticmethod
+    def mark_missed(booking_id: int, no_show_status_id: int) -> int:
+        """Auto-expiry sweep target: a pending/confirmed booking whose scheduled window
+        elapsed with nobody acting on it. Reuses the existing 'no_show' status rather
+        than a new one — voids every outstanding credential, same as a cancellation,
+        since none of them can legitimately be used against a dead booking anymore."""
+        return Booking.objects.filter(booking_id=booking_id).update(
+            status_id=no_show_status_id,
+            booking_otp=None,
+            booking_otp_expiry=None,
+            start_service_pin=None,
+            start_pin_expiry=None,
+            completion_pin=None,
+            completion_pin_expiry=None,
+            updated_at=timezone.now(),
+        )
 
     @staticmethod
     def mark_on_my_way(booking_id: int) -> None:

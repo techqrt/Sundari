@@ -25,10 +25,10 @@ class SupportChatService:
 
     @staticmethod
     def get_conversation_for_customer(customer_id: int) -> dict:
-        conversation = SupportConversation.get_open_for_customer(customer_id=customer_id)
-        if not conversation:
-            raise ValueError(Constants.conversation_not_found)
-        return conversation
+        """Returns None, not an error, when the customer/artist has never started a
+        support chat — that's a normal empty state (nothing to show yet), not a failure.
+        Callers render it as their own appropriate empty shape."""
+        return SupportConversation.get_open_for_customer(customer_id=customer_id)
 
     @staticmethod
     def get_conversation_for_admin(conversation_id: int, user_id: int) -> dict:

@@ -11,7 +11,7 @@ class SupportConversationSerializer(serializers.Serializer):
 
 
 class SupportConversationResponseSerializer(serializers.Serializer):
-    data = SupportConversationSerializer()
+    data = SupportConversationSerializer(allow_null=True)
 
 
 class SupportMessageSerializer(serializers.Serializer):

@@ -30,6 +30,7 @@ class BookingView:
         booking = Booking.get(booking_id=params.booking_id)
         if not booking or booking['customer_id'] != params.user_id:
             raise ValueError(Constants.booking_not_found)
+        Booking.with_display_expiry([booking])
         utils = CustomersUtils(entity='booking', columns_required=[c for c in params.values.split(',') if c])
         data = json.loads(utils.mapper([booking]))[0]
         return Response(
@@ -52,6 +53,7 @@ class BookingView:
         if pages.num_pages < params.page_num:
             raise ValueError('Page limit exceeded!')
         page_data = list(pages.page(params.page_num))
+        Booking.with_display_expiry(page_data)
         utils = CustomersUtils(entity='booking')
         data = json.loads(utils.mapper(page_data))
         data = Utils.add_page_parameter(

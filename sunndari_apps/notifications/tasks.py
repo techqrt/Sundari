@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from celery import shared_task
 from django.utils import timezone
 from sunndari_apps.customers.models.booking import Booking
@@ -14,14 +14,18 @@ REMINDER_WINDOWS = {
 @shared_task
 def send_appointment_reminders() -> dict:
     now = timezone.now()
+    # Widened by a day on each side vs. the exact 2-day reminder window: this is only a
+    # cheap DB pre-filter, and IST (UTC+5:30) can put a booking's IST calendar date on
+    # the other side of the UTC-date boundary near midnight — the real cutoff is the
+    # per-booking hours_away check below, computed against the booking's true IST moment.
     upcoming = Booking.objects.filter(
         status__name='confirmed',
-        booking_date__range=(now.date(), (now + timedelta(days=2)).date()),
+        booking_date__range=((now - timedelta(days=1)).date(), (now + timedelta(days=3)).date()),
     ).values('booking_id', 'customer_id', 'booking_date', 'start_time')
 
     sent = {reminder_type: 0 for reminder_type in REMINDER_WINDOWS}
     for booking in upcoming:
-        booking_dt = timezone.make_aware(datetime.combine(booking['booking_date'], booking['start_time']))
+        booking_dt = Booking.to_aware(booking['booking_date'], booking['start_time'])
         hours_away = (booking_dt - now).total_seconds() / 3600
 
         for reminder_type, (low, high, message) in REMINDER_WINDOWS.items():

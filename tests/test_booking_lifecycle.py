@@ -18,7 +18,7 @@ from sunndari_apps.artists.models import ArtistAvailabilitySchedule
 
 from tests.test_customers import (
     make_customer, make_artist, make_sub_category, make_location_type,
-    make_package, make_location_preference, seed_booking_statuses,
+    make_package, make_location_preference, seed_booking_statuses, IST,
 )
 
 
@@ -33,8 +33,11 @@ class FullBookingLifecycleTest(TestCase):
         location_type = make_location_type()
         make_location_preference(profile, location_type)
 
-        now = timezone.now()
-        booking_start = now + timedelta(minutes=90)
+        # Safely past the 2h-minimum-advance rule at creation time — the on-my-way
+        # window (needs the booking within 2h of now) is brought into range afterward
+        # by directly advancing the booking's own scheduled time, rather than racing
+        # a wall-clock boundary that elapsed test-execution time would make flaky.
+        booking_start = (timezone.now() + timedelta(hours=3)).astimezone(IST)
         ArtistAvailabilitySchedule.objects.create(
             artist=profile, day_of_week=booking_start.weekday(),
             start_time='00:00:00', end_time='23:59:00',
@@ -74,6 +77,13 @@ class FullBookingLifecycleTest(TestCase):
         )
 
         # ── On My Way (within the 2h window) ───────────────────────────────
+        # Advance the booking's own scheduled time to bring it within the on-my-way
+        # window, simulating that the appointment is now imminent.
+        near_start = (timezone.now() + timedelta(hours=1)).astimezone(IST)
+        booking.booking_date = near_start.date()
+        booking.start_time = near_start.time()
+        booking.save()
+
         on_my_way_resp = artist_client.put('/artists/bookings/on_my_way/', {'booking_id': booking_id}, format='json')
         self.assertEqual(on_my_way_resp.status_code, 200)
         booking.refresh_from_db()
@@ -156,8 +166,7 @@ class FullBookingLifecycleTest(TestCase):
         location_type = make_location_type()
         make_location_preference(profile, location_type)
 
-        now = timezone.now()
-        booking_start = now + timedelta(minutes=90)
+        booking_start = (timezone.now() + timedelta(hours=3)).astimezone(IST)
         ArtistAvailabilitySchedule.objects.create(
             artist=profile, day_of_week=booking_start.weekday(),
             start_time='00:00:00', end_time='23:59:00',

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -13,7 +14,7 @@ from sunndari_apps.artists.models.availability_block import ArtistAvailabilityBl
 from sunndari_apps.artists.models.artist_location_preference import ArtistLocationPreference
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.users.models.customer_address import CustomerAddress
-from sunndari_apps.customers.models.booking import Booking
+from sunndari_apps.customers.models.booking import Booking, IST
 from sunndari_apps.customers.dataclasses.request.create.create_booking import CreateBookingRequest
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
@@ -26,6 +27,14 @@ class CreateBookingView:
     @Common().exception_handler
     def create_extract(self, params: CreateBookingRequest):
         with transaction.atomic():
+            today_ist = timezone.now().astimezone(IST).date()
+            if params.booking_date < today_ist:
+                raise ValueError(Constants.past_date_booking)
+
+            booking_start_moment = Booking.to_aware(params.booking_date, params.start_time)
+            if booking_start_moment < timezone.now() + timedelta(hours=Configurations.min_booking_advance_hours):
+                raise ValueError(Constants.booking_too_soon)
+
             artist = ArtistProfile.objects.filter(
                 artist_id=params.artist_id, approval_status__name='approved',
             ).first()
@@ -33,10 +42,12 @@ class CreateBookingView:
                 raise ValueError(Constants.artist_not_found)
 
             package = PricingPackage.objects.filter(
-                package_id=params.package_id, artist_id=params.artist_id, is_active=True,
+                package_id=params.package_id, artist_id=params.artist_id,
             ).first()
             if not package:
                 raise ValueError(Constants.data_no_match)
+            if not package.is_active:
+                raise ValueError(Constants.package_unavailable)
 
             if not ArtistLocationPreference.objects.filter(
                 artist_id=params.artist_id, location_type_id=params.location_type_id,

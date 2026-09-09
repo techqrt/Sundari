@@ -16,6 +16,8 @@ class Configurations:
     jwt_expiry_days = 7
     slot_lock_minutes = 15
     on_my_way_window_hours = 2
+    min_booking_advance_hours = 2
+    booking_missed_grace_hours = 2
     max_portfolio_items = 20
     max_saved_addresses = 5
     min_package_price = 500

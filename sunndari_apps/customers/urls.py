@@ -9,6 +9,7 @@ from sunndari_apps.customers.controllers.payment_webhook import PaymentWebhookCo
 from sunndari_apps.customers.controllers.payment import PaymentController
 from sunndari_apps.customers.controllers.review import ReviewController
 from sunndari_apps.customers.controllers.service_pin import StartPinController, CompletionPinController
+from sunndari_apps.customers.controllers.payment_type import PaymentTypeController
 
 urlpatterns = [
     # Search & Discovery
@@ -27,6 +28,7 @@ urlpatterns = [
     path('bookings/completion_pin/', CompletionPinController.get_completion_pin, name='customer_get_completion_pin'),
 
     # Payment
+    path('payments/payment_types/', PaymentTypeController.get_all_payment_types, name='customer_get_all_payment_types'),
     path('payments/initiate/', InitiatePaymentController.initiate_payment, name='customer_initiate_payment'),
     path('payments/webhook/', PaymentWebhookController.payment_webhook, name='customer_payment_webhook'),
     path('payments/get/', PaymentController.get_payment, name='customer_get_payment'),
