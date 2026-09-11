@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from sunndari_apps.customers.serializers.response.get.get_payment import PaymentSerializer
+from sunndari_apps.payments.serializers.response.get.get_payment import PaymentSerializer
 
 
 class PaymentGetAllSerializer(serializers.Serializer):

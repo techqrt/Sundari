@@ -54,12 +54,16 @@ class Constants:
     past_date_booking = 'Cannot book a date in the past'
     booking_too_soon = 'Bookings must be made at least 2 hours in advance'
     booking_expired = 'This booking has expired and cannot be updated'
+    payment_required_to_confirm = 'This booking cannot be confirmed until payment has been completed'
     package_unavailable = 'This package is currently unavailable'
 
     # Payment
     payment_not_found = 'Payment record not found'
     payment_already_completed = 'Booking is already fully paid'
     invalid_payment_amount = 'Payment amount exceeds the remaining amount due'
+    payment_signature_invalid = 'Payment signature verification failed'
+    payment_not_verifiable = 'This payment cannot be verified in its current state'
+    payment_verification_mismatch = 'Payment could not be verified with the payment gateway'
 
     # Portfolio
     portfolio_limit_exceeded = 'Maximum 20 active portfolio items allowed'

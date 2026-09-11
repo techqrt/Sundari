@@ -13,7 +13,8 @@ from sunndari_apps.core.models import (
     ServiceCategory, ServiceSubCategory, LocationType, ApprovalStatus, BookingStatus, PaymentStatus,
 )
 from sunndari_apps.users.models.customer_address import CustomerAddress
-from sunndari_apps.customers.models import Booking, Payment, Review
+from sunndari_apps.customers.models import Booking, Review
+from sunndari_apps.payments.models import Payment
 from sunndari_apps.notifications.models.notification import Notification
 from sunndari.constants import Constants
 
@@ -116,6 +117,27 @@ def make_booking(customer, profile, package, location_type, booking_date, start_
         address_id=address.address_id if address else None,
     )
     return Booking.objects.get(booking_id=booking_id)
+
+
+def make_paid_payment(booking) -> Payment:
+    """A booking cannot be confirmed by the artist without a 'paid' Payment covering its
+    full total_amount — tests that exercise the pending->confirmed transition need one of
+    these first. Inserts the Payment row directly rather than going through the real
+    initiate/verify endpoints, since most callers of this helper aren't testing the
+    payment flow itself — see tests/test_payments.py for that."""
+    seed_payment_statuses()
+    paid_status = PaymentStatus.objects.get(name='paid')
+    payment = Payment()
+    payment.create(
+        booking_id=booking.booking_id,
+        customer_id=booking.customer_id,
+        artist_id=booking.artist_id,
+        amount=booking.total_amount,
+        commission_amount=0,
+        artist_payout_amount=booking.total_amount,
+        status_id=paid_status.status_id,
+    )
+    return Payment.objects.get(booking_id=booking.booking_id)
 
 
 def next_weekday(target_weekday: int) -> date:
@@ -307,17 +329,23 @@ class CreateBookingTest(TestCase):
         package = make_package(profile, sub_category=sub, price=1500, duration=60)
         location_type = make_location_type()
         make_location_preference(profile, location_type)
-        # 3h out (comfortably past the 2h minimum) rather than a fixed clock time, so
-        # this doesn't go flaky depending on what time of day the suite happens to run.
-        target = (timezone.now() + timedelta(hours=3)).astimezone(IST)
-        make_schedule(profile, day_of_week=target.date().weekday(), start='00:00:00', end='23:59:00')
+        # Pinned to noon IST (today, or tomorrow if noon today is already <2h away) rather
+        # than "now + 3h" — a raw offset can land near midnight IST depending on the actual
+        # wall-clock gap between the test host's real timezone and IST, pushing the 60-min
+        # package duration into the next calendar date and tripping the (correct,
+        # unrelated) cross-midnight rejection. Noon leaves comfortable headroom either way.
+        now_ist = timezone.now().astimezone(IST)
+        target_date = now_ist.date()
+        if Booking.to_aware(target_date, time(12, 0, 0)) < now_ist + timedelta(hours=2, minutes=5):
+            target_date = target_date + timedelta(days=1)
+        make_schedule(profile, day_of_week=target_date.weekday(), start='00:00:00', end='23:59:00')
         seed_booking_statuses()
         resp = client.post(self.url, {
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
-            'booking_date': target.date().strftime('%d-%m-%y'),
-            'start_time': target.time().strftime('%H:%M:%S'),
+            'booking_date': target_date.strftime('%d-%m-%y'),
+            'start_time': '12:00:00',
         }, format='json')
         self.assertEqual(resp.status_code, 201)
 
@@ -541,6 +569,21 @@ class CustomerBookingTest(TestCase):
         resp = client.put(self.cancel_url, {'booking_id': booking.booking_id}, format='json')
         self.assertEqual(resp.status_code, 400)
 
+    def test_cancel_paid_confirmed_booking_triggers_refund(self):
+        # Payment.mark_refunded is a documented stub (flips status to 'refunded', no real
+        # gateway refund call yet — that's explicitly out of scope) but it must still fire
+        # correctly against a real 'paid' Payment row now that Payment lives in its own
+        # app and confirmation is gated on it.
+        client, customer = make_customer(phone_number='+919000000320')
+        booking = self._make_booking(customer, artist_phone='+919000000321', status_name='confirmed')
+        payment = make_paid_payment(booking)
+        resp = client.put(self.cancel_url, {'booking_id': booking.booking_id, 'reason': 'Change of plans'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'cancelled')
+        payment.refresh_from_db()
+        self.assertEqual(payment.status.name, 'refunded')
+
     def test_get_all_unauthenticated_returns_401(self):
         client = APIClient()
         resp = client.get(self.get_all_url)
@@ -589,10 +632,20 @@ class ArtistBookingTest(TestCase):
     def test_confirm_pending_booking_returns_200(self):
         client, _, profile = make_artist(phone_number='+919000000273')
         booking = self._make_booking(profile, customer_phone='+919000000274')
+        make_paid_payment(booking)
         resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'confirmed'}, format='json')
         self.assertEqual(resp.status_code, 200)
         booking.refresh_from_db()
         self.assertEqual(booking.status.name, 'confirmed')
+
+    def test_confirm_unpaid_booking_returns_400(self):
+        client, _, profile = make_artist(phone_number='+919000000278')
+        booking = self._make_booking(profile, customer_phone='+919000000279')
+        resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'confirmed'}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(Constants.payment_required_to_confirm, resp.data['message'])
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'pending')
 
     def test_reject_pending_booking_invalidates_booking_otp(self):
         client, _, profile = make_artist(phone_number='+919000000280')
@@ -607,6 +660,17 @@ class ArtistBookingTest(TestCase):
         self.assertEqual(booking.cancelled_by, 'artist')
         self.assertIsNone(booking.booking_otp)
         self.assertIsNone(booking.booking_otp_expiry)
+
+    def test_artist_cancel_paid_confirmed_booking_triggers_refund(self):
+        client, _, profile = make_artist(phone_number='+919000000322')
+        booking = self._make_booking(profile, customer_phone='+919000000323', status_name='confirmed')
+        payment = make_paid_payment(booking)
+        resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'cancelled'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status.name, 'cancelled')
+        payment.refresh_from_db()
+        self.assertEqual(payment.status.name, 'refunded')
 
     def test_invalid_transition_returns_400(self):
         client, _, profile = make_artist(phone_number='+919000000275')
@@ -1290,85 +1354,7 @@ class ExpiredBookingApiGuardTest(TestCase):
 
 
 # ─── Payment ───────────────────────────────────────────────────────────────────
-
-class PaymentTest(TestCase):
-    initiate_url = '/customers/payments/initiate/'
-    webhook_url = '/customers/payments/webhook/'
-    get_all_url = '/customers/payments/get_all/'
-    payment_types_url = '/customers/payments/payment_types/'
-
-    def test_get_payment_types_returns_full_advance_balance(self):
-        client, _ = make_customer(phone_number='+919000000290')
-        resp = client.get(self.payment_types_url)
-        self.assertEqual(resp.status_code, 200)
-        values = {item['value'] for item in resp.data['data']}
-        self.assertEqual(values, {'full', 'advance', 'balance'})
-
-    def _make_booking(self, customer_phone='+919000000280', artist_phone='+919000000281', price=1500):
-        client, customer = make_customer(phone_number=customer_phone)
-        _, _, profile = make_artist(phone_number=artist_phone)
-        sub = make_sub_category()
-        package = make_package(profile, sub_category=sub, price=price)
-        location_type = make_location_type()
-        booking = make_booking(
-            customer, profile, package, location_type,
-            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
-        )
-        return client, customer, profile, booking
-
-    def test_initiate_payment_full_amount(self):
-        seed_payment_statuses()
-        client, customer, profile, booking = self._make_booking()
-        resp = client.post(self.initiate_url, {'booking_id': booking.booking_id}, format='json')
-        self.assertEqual(resp.status_code, 201)
-        self.assertIn('gateway_order_id', resp.data['data'])
-        payment = Payment.objects.get(payment_id=resp.data['data']['payment_id'])
-        self.assertEqual(str(payment.amount), '1500.00')
-        self.assertEqual(str(payment.commission_amount), '150.00')
-
-    def test_initiate_payment_exceeding_remaining_due_returns_400(self):
-        seed_payment_statuses()
-        client, customer, profile, booking = self._make_booking(customer_phone='+919000000282', artist_phone='+919000000283')
-        resp = client.post(self.initiate_url, {'booking_id': booking.booking_id, 'amount': '9999.00'}, format='json')
-        self.assertEqual(resp.status_code, 400)
-
-    def test_webhook_marks_payment_paid(self):
-        seed_payment_statuses()
-        client, customer, profile, booking = self._make_booking(customer_phone='+919000000284', artist_phone='+919000000285')
-        resp = client.post(self.initiate_url, {'booking_id': booking.booking_id}, format='json')
-        gateway_order_id = resp.data['data']['gateway_order_id']
-
-        webhook_client = APIClient()
-        webhook_resp = webhook_client.post(self.webhook_url, {
-            'gateway_order_id': gateway_order_id,
-            'gateway_payment_id': 'test_txn_123',
-            'status': 'paid',
-        }, format='json')
-        self.assertEqual(webhook_resp.status_code, 200)
-        payment = Payment.objects.get(gateway_order_id=gateway_order_id)
-        self.assertEqual(payment.status.name, 'paid')
-        self.assertIsNotNone(payment.paid_at)
-
-    def test_webhook_unknown_order_returns_400(self):
-        seed_payment_statuses()
-        webhook_client = APIClient()
-        resp = webhook_client.post(self.webhook_url, {
-            'gateway_order_id': 'DOES-NOT-EXIST',
-            'gateway_payment_id': 'x',
-            'status': 'paid',
-        }, format='json')
-        self.assertEqual(resp.status_code, 400)
-
-    def test_get_all_payments_returns_own_only(self):
-        seed_payment_statuses()
-        client, customer, profile, booking = self._make_booking(customer_phone='+919000000286', artist_phone='+919000000287')
-        client.post(self.initiate_url, {'booking_id': booking.booking_id}, format='json')
-        other_client, _, _, other_booking = self._make_booking(customer_phone='+919000000288', artist_phone='+919000000289')
-        other_client.post(self.initiate_url, {'booking_id': other_booking.booking_id}, format='json')
-
-        resp = client.get(self.get_all_url)
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.data['data']['data']), 1)
+# Moved to tests/test_payments.py — Payment now lives in sunndari_apps.payments.
 
 
 # ─── Reviews ───────────────────────────────────────────────────────────────────

@@ -3,8 +3,8 @@ from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
-from sunndari_apps.customers.models.payment import Payment
-from sunndari_apps.customers.serializers.response.get_all.payment_type import PaymentTypeListResponseSerializer
+from sunndari_apps.payments.models import Payment
+from sunndari_apps.payments.serializers.response.get_all.payment_type import PaymentTypeListResponseSerializer
 from sunndari.constants import Constants
 
 

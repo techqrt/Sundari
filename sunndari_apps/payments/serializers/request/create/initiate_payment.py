@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from sunndari_apps.customers.dataclasses.request.create.initiate_payment import InitiatePaymentRequest
+from sunndari_apps.payments.dataclasses.request.create.initiate_payment import InitiatePaymentRequest
 
 
 class InitiatePaymentSerializer(serializers.Serializer):

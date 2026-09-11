@@ -6,8 +6,8 @@ from rest_framework.response import Response
 
 from sunndari_apps.common.swagger import SwaggerPage
 from sunndari_apps.common.serializer_validations import SerializerValidations
-from sunndari_apps.customers.serializers.request.create.initiate_payment import InitiatePaymentSerializer
-from sunndari_apps.customers.views.initiate_payment import InitiatePaymentView
+from sunndari_apps.payments.serializers.request.create.initiate_payment import InitiatePaymentSerializer
+from sunndari_apps.payments.views.initiate_payment import InitiatePaymentView
 
 
 class InitiatePaymentController:

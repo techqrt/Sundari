@@ -3,7 +3,7 @@ from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from sunndari_apps.common.serializers.request.get import GetSerializer
 from sunndari_apps.common.swagger import SwaggerPage
-from sunndari_apps.customers.dataclasses.request.get.get_payment import GetPaymentRequest
+from sunndari_apps.payments.dataclasses.request.get.get_payment import GetPaymentRequest
 
 
 class GetPaymentSerializer(GetSerializer):

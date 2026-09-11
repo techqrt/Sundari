@@ -4,49 +4,23 @@ import numpy as np
 from sunndari_apps.common.common import Common
 
 
-class CustomersUtils:
+class PaymentsUtils:
     MAPS = {
-        'artist_search': {
-            'artist_id': 'artistId',
-            'user__name': 'name',
-            'bio': 'bio',
-            'city': 'city',
-            'years_experience': 'yearsExperience',
-            'avg_rating': 'avgRating',
-            'total_reviews': 'totalReviews',
-            'starting_price': 'startingPrice',
-        },
-        'booking': {
+        'payment': {
+            'payment_id': 'paymentId',
             'booking_id': 'bookingId',
             'customer_id': 'customerId',
             'artist_id': 'artistId',
-            'sub_category_id': 'subCategoryId',
-            'package_id': 'packageId',
-            'location_type_id': 'locationTypeId',
-            'address_id': 'addressId',
-            'booking_date': 'bookingDate',
-            'start_time': 'startTime',
-            'end_time': 'endTime',
+            'payment_type': 'paymentType',
+            'amount': 'amount',
+            'commission_amount': 'commissionAmount',
+            'artist_payout_amount': 'artistPayoutAmount',
             'status_id': 'statusId',
-            'total_amount': 'totalAmount',
-            'notes': 'notes',
-            'cancelled_by': 'cancelledBy',
-            'cancellation_reason': 'cancellationReason',
-            'expires_at': 'expiresAt',
-            'on_my_way_at': 'onMyWayAt',
-            'arrived_at': 'arrivedAt',
-            'service_started_at': 'serviceStartedAt',
-            'service_completed_at': 'serviceCompletedAt',
-            'created_at': 'createdAt',
-            'updated_at': 'updatedAt',
-        },
-        'review': {
-            'review_id': 'reviewId',
-            'booking_id': 'bookingId',
-            'customer_id': 'customerId',
-            'artist_id': 'artistId',
-            'rating': 'rating',
-            'comment': 'comment',
+            'gateway': 'gateway',
+            'gateway_order_id': 'gatewayOrderId',
+            'gateway_payment_id': 'gatewayPaymentId',
+            'paid_at': 'paidAt',
+            'failure_reason': 'failureReason',
             'created_at': 'createdAt',
             'updated_at': 'updatedAt',
         },
@@ -104,5 +78,5 @@ class CustomersUtils:
 
     @staticmethod
     def reverse_mapper(entity: str, fields: list) -> dict:
-        reverse_map = {v: k for k, v in CustomersUtils.MAPS.get(entity, {}).items()}
+        reverse_map = {v: k for k, v in PaymentsUtils.MAPS.get(entity, {}).items()}
         return {field: reverse_map.get(field, '') for field in fields}

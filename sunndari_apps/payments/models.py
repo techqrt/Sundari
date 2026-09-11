@@ -126,11 +126,24 @@ class Payment(models.Model):
         return total or 0
 
     @staticmethod
+    def set_gateway_order(payment_id: int, gateway: str, gateway_order_id: str) -> None:
+        """Replaces the placeholder order id set at create() time with the real
+        gateway-issued order id, once the gateway call actually succeeds."""
+        payment = Payment.objects.get(payment_id=payment_id)
+        payment.gateway = gateway
+        payment.gateway_order_id = gateway_order_id
+        payment.save()
+
+    @staticmethod
     def mark_paid(payment_id: int, gateway_payment_id: str, status_id: int) -> None:
         payment = Payment.objects.get(payment_id=payment_id)
         payment.gateway_payment_id = gateway_payment_id
         payment.status_id = status_id
         payment.paid_at = timezone.now()
+        # A prior failed attempt on this same row (e.g. a bad first /verify/ call
+        # followed by a successful retry) must not leave a stale failure_reason
+        # sitting alongside a now-successful payment in the transaction history.
+        payment.failure_reason = None
         payment.save()
 
     @staticmethod

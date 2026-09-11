@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'sunndari_apps.admin_panel',
     'sunndari_apps.chat',
     'sunndari_apps.help_center',
+    'sunndari_apps.payments',
 ]
 
 AUTH_USER_MODEL = 'auth.User'

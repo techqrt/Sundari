@@ -9,6 +9,7 @@ fields directly except to read the Booking OTP, which is deliberately never
 exposed through any API — the real artist would receive it via SMS/notification).
 """
 from datetime import timedelta
+from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.utils import timezone
 
@@ -18,11 +19,44 @@ from sunndari_apps.artists.models import ArtistAvailabilitySchedule
 
 from tests.test_customers import (
     make_customer, make_artist, make_sub_category, make_location_type,
-    make_package, make_location_preference, seed_booking_statuses, IST,
+    make_package, make_location_preference, seed_booking_statuses, seed_payment_statuses, IST,
 )
 
 
 class FullBookingLifecycleTest(TestCase):
+
+    def setUp(self):
+        # A booking can't be confirmed without a verified payment (see Stage 5) — this
+        # E2E test walks the real /initiate/ + /verify/ endpoints too, so RazorpayGateway
+        # is mocked the same way tests/test_payments.py does, keeping it hermetic.
+        patcher = patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client')
+        mock_get_client = patcher.start()
+        self.addCleanup(patcher.stop)
+        mock_client = MagicMock()
+        mock_client.order.create.side_effect = lambda data: {
+            'id': f"order_test_{data['receipt']}", 'amount': data['amount'], 'currency': data['currency'], 'status': 'created',
+        }
+        mock_client.utility.verify_payment_signature.return_value = None
+        mock_get_client.return_value = mock_client
+        self.mock_razorpay_client = mock_client
+
+    def _pay_for_booking(self, customer_client, booking_id):
+        seed_payment_statuses()
+        init_resp = customer_client.post('/customers/payments/initiate/', {'booking_id': booking_id}, format='json')
+        self.assertEqual(init_resp.status_code, 201)
+        order_id = init_resp.data['data']['gateway_order_id']
+        amount_paise = init_resp.data['data']['amount']
+        self.mock_razorpay_client.payment.fetch.return_value = {
+            'id': 'pay_test_lifecycle', 'order_id': order_id, 'status': 'captured', 'amount': amount_paise,
+        }
+        self.mock_razorpay_client.order.fetch.return_value = {
+            'id': order_id, 'amount': amount_paise, 'amount_paid': amount_paise,
+            'amount_due': 0, 'currency': 'INR', 'status': 'paid',
+        }
+        verify_resp = customer_client.post('/customers/payments/verify/', {
+            'razorpay_order_id': order_id, 'razorpay_payment_id': 'pay_test_lifecycle', 'razorpay_signature': 'sig_ok',
+        }, format='json')
+        self.assertEqual(verify_resp.status_code, 200)
 
     def test_full_lifecycle_end_to_end(self):
         seed_booking_statuses()
@@ -64,6 +98,9 @@ class FullBookingLifecycleTest(TestCase):
         self.assertTrue(
             Notification.objects.filter(booking_id=booking_id, type='booking_otp_issued', user_id=artist_user.user_id).exists()
         )
+
+        # ── Customer pays — required before the artist can confirm ─────────
+        self._pay_for_booking(customer_client, booking_id)
 
         # ── Artist accepts ──────────────────────────────────────────────────
         accept_resp = artist_client.put('/artists/bookings/update_status/', {

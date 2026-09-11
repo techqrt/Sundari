@@ -19,7 +19,7 @@ from sunndari_apps.artists.dataclasses.request.update.verify_completion_pin impo
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
-from sunndari_apps.customers.models.payment import Payment
+from sunndari_apps.payments.models import Payment
 from sunndari_apps.customers.utils import CustomersUtils
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
@@ -101,6 +101,14 @@ class ArtistBookingView:
         # waiting for the sweep cron to catch up.
         if params.status == 'confirmed' and Booking.is_past_missed_deadline(booking['booking_date'], booking['start_time']):
             raise ValueError(Constants.booking_expired)
+
+        # The core payment invariant: a booking may not become 'confirmed' (real) until
+        # it has been paid in full. Uses the same server-authoritative total the payment
+        # flow itself validates against — never a client-supplied figure.
+        if params.status == 'confirmed':
+            total_paid = Payment.total_paid_for_booking(booking_id=params.booking_id)
+            if total_paid < booking['total_amount']:
+                raise ValueError(Constants.payment_required_to_confirm)
 
         allowed = Booking.ARTIST_TRANSITIONS.get(current_status, [])
         if params.status not in allowed:

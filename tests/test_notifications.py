@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -10,7 +11,7 @@ from sunndari_apps.customers.models import Booking
 
 from tests.test_customers import (
     make_customer, make_artist, make_sub_category, make_location_type,
-    make_package, make_booking, seed_booking_statuses, seed_payment_statuses, next_weekday, IST,
+    make_package, make_booking, make_paid_payment, seed_booking_statuses, seed_payment_statuses, next_weekday, IST,
 )
 
 
@@ -124,6 +125,7 @@ class NotificationEventHookTest(TestCase):
             customer, profile, package, location_type,
             booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
         )
+        make_paid_payment(booking)
         resp = artist_client.put('/artists/bookings/update_status/', {
             'booking_id': booking.booking_id, 'status': 'confirmed',
         }, format='json')
@@ -132,27 +134,45 @@ class NotificationEventHookTest(TestCase):
             Notification.objects.filter(user_id=customer.user_id, type='booking_confirmed').exists()
         )
 
-    def test_payment_webhook_notifies_customer(self):
+    def test_payment_verify_notifies_customer(self):
+        # No webhook in this integration — /initiate/ and /verify/ both call the real
+        # Razorpay SDK, so RazorpayGateway.get_client() is mocked here the same way
+        # tests/test_payments.py does, keeping this test hermetic (no network call).
         seed_payment_statuses()
-        customer_client, customer = make_customer(phone_number='+919000000424')
-        _, _, profile = make_artist(phone_number='+919000000425')
-        sub = make_sub_category()
-        package = make_package(profile, sub_category=sub)
-        location_type = make_location_type()
-        booking = make_booking(
-            customer, profile, package, location_type,
-            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
-        )
-        init_resp = customer_client.post('/customers/payments/initiate/', {'booking_id': booking.booking_id}, format='json')
-        gateway_order_id = init_resp.data['data']['gateway_order_id']
+        with patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client') as mock_get_client:
+            mock_client = MagicMock()
+            mock_client.order.create.side_effect = lambda data: {
+                'id': f"order_test_{data['receipt']}", 'amount': data['amount'], 'currency': data['currency'], 'status': 'created',
+            }
+            mock_get_client.return_value = mock_client
 
-        webhook_client = APIClient()
-        webhook_resp = webhook_client.post('/customers/payments/webhook/', {
-            'gateway_order_id': gateway_order_id,
-            'gateway_payment_id': 'txn_1',
-            'status': 'paid',
-        }, format='json')
-        self.assertEqual(webhook_resp.status_code, 200)
+            customer_client, customer = make_customer(phone_number='+919000000424')
+            _, _, profile = make_artist(phone_number='+919000000425')
+            sub = make_sub_category()
+            package = make_package(profile, sub_category=sub)
+            location_type = make_location_type()
+            booking = make_booking(
+                customer, profile, package, location_type,
+                booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+            )
+            init_resp = customer_client.post('/customers/payments/initiate/', {'booking_id': booking.booking_id}, format='json')
+            order_id = init_resp.data['data']['gateway_order_id']
+            amount_paise = init_resp.data['data']['amount']
+
+            mock_client.utility.verify_payment_signature.return_value = None
+            mock_client.payment.fetch.return_value = {
+                'id': 'pay_test_1', 'order_id': order_id, 'status': 'captured', 'amount': amount_paise,
+            }
+            mock_client.order.fetch.return_value = {
+                'id': order_id, 'amount': amount_paise, 'amount_paid': amount_paise,
+                'amount_due': 0, 'currency': 'INR', 'status': 'paid',
+            }
+            verify_resp = customer_client.post('/customers/payments/verify/', {
+                'razorpay_order_id': order_id,
+                'razorpay_payment_id': 'pay_test_1',
+                'razorpay_signature': 'sig_ok',
+            }, format='json')
+            self.assertEqual(verify_resp.status_code, 200)
         self.assertTrue(
             Notification.objects.filter(user_id=customer.user_id, type='payment_status').exists()
         )

@@ -2,7 +2,7 @@ from celery import shared_task
 from django.utils import timezone
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.customers.models.booking import Booking, IST
-from sunndari_apps.customers.models.payment import Payment
+from sunndari_apps.payments.models import Payment
 from sunndari_apps.notifications.utils import NotificationService
 
 

@@ -7,8 +7,8 @@ from rest_framework.response import Response
 from sunndari_apps.common.swagger import SwaggerPage
 from sunndari_apps.common.serializer_validations import SerializerValidations
 from sunndari_apps.core.serializers.request.get.get_no_param import NoParamSerializer
-from sunndari_apps.customers.serializers.response.get_all.payment_type import PaymentTypeListResponseSerializer
-from sunndari_apps.customers.views.payment_type import PaymentTypeView
+from sunndari_apps.payments.serializers.response.get_all.payment_type import PaymentTypeListResponseSerializer
+from sunndari_apps.payments.views.payment_type import PaymentTypeView
 
 
 class PaymentTypeController:

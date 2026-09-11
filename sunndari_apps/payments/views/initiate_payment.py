@@ -1,14 +1,17 @@
+import razorpay
 from rest_framework import status
 from rest_framework.response import Response
 
+from sunndari.config import Configurations
 from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
-from sunndari_apps.customers.models.payment import Payment
-from sunndari_apps.customers.dataclasses.request.create.initiate_payment import InitiatePaymentRequest
+from sunndari_apps.payments.models import Payment
+from sunndari_apps.payments.gateway import RazorpayGateway
+from sunndari_apps.payments.dataclasses.request.create.initiate_payment import InitiatePaymentRequest
 from sunndari.constants import Constants
 
 
@@ -50,15 +53,33 @@ class InitiatePaymentView:
             status_id=pending_status.status_id,
             payment_type=params.payment_type,
         )
-        payment = Payment.get(payment_id=payment_id)
+
+        # Razorpay amounts are in the smallest currency unit (paise for INR), never a
+        # client-supplied figure — always derived from the same server-authoritative
+        # `amount` computed above.
+        amount_in_paise = int(round(amount * 100))
+        try:
+            razorpay_order = RazorpayGateway.get_client().order.create(data={
+                'amount': amount_in_paise,
+                'currency': Configurations.razorpay_currency,
+                'receipt': f'payment_{payment_id}',
+            })
+        except (razorpay.errors.BadRequestError, razorpay.errors.ServerError, razorpay.errors.GatewayError) as e:
+            failed_status = PaymentStatus.objects.filter(name='failed').first()
+            Payment.mark_failed(payment_id=payment_id, status_id=failed_status.status_id, failure_reason=str(e)[:300])
+            raise ValueError('Unable to initiate payment with the payment gateway. Please try again.')
+
+        Payment.set_gateway_order(payment_id=payment_id, gateway='razorpay', gateway_order_id=razorpay_order['id'])
         return Response(
             status=status.HTTP_201_CREATED,
             data=Utils.success_response_data(
                 message='Payment initiated. Complete payment using the returned order reference.',
                 data={
                     'payment_id': payment_id,
-                    'gateway_order_id': payment['gateway_order_id'],
-                    'amount': str(amount),
+                    'gateway_order_id': razorpay_order['id'],
+                    'razorpay_key_id': Configurations.razorpay_key_id,
+                    'amount': amount_in_paise,
+                    'currency': Configurations.razorpay_currency,
                 },
             )
         )

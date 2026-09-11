@@ -29,3 +29,6 @@ class Configurations:
     google_client_id = config('GOOGLE_CLIENT_ID', default='')
     chat_message_max_length = 2000
     firebase_credentials_path = config('FIREBASE_CREDENTIALS_PATH', default='')
+    razorpay_key_id = config('RAZORPAY_KEY_ID')
+    razorpay_key_secret = config('RAZORPAY_KEY_SECRET')
+    razorpay_currency = 'INR'

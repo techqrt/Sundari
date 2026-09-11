@@ -4,12 +4,8 @@ from sunndari_apps.customers.controllers.get_artist_detail import ArtistDetailCo
 from sunndari_apps.customers.controllers.check_availability import CheckAvailabilityController
 from sunndari_apps.customers.controllers.create_booking import CreateBookingController
 from sunndari_apps.customers.controllers.booking import BookingController
-from sunndari_apps.customers.controllers.initiate_payment import InitiatePaymentController
-from sunndari_apps.customers.controllers.payment_webhook import PaymentWebhookController
-from sunndari_apps.customers.controllers.payment import PaymentController
 from sunndari_apps.customers.controllers.review import ReviewController
 from sunndari_apps.customers.controllers.service_pin import StartPinController, CompletionPinController
-from sunndari_apps.customers.controllers.payment_type import PaymentTypeController
 
 urlpatterns = [
     # Search & Discovery
@@ -27,12 +23,8 @@ urlpatterns = [
     path('bookings/start_pin/', StartPinController.get_start_pin, name='customer_get_start_pin'),
     path('bookings/completion_pin/', CompletionPinController.get_completion_pin, name='customer_get_completion_pin'),
 
-    # Payment
-    path('payments/payment_types/', PaymentTypeController.get_all_payment_types, name='customer_get_all_payment_types'),
-    path('payments/initiate/', InitiatePaymentController.initiate_payment, name='customer_initiate_payment'),
-    path('payments/webhook/', PaymentWebhookController.payment_webhook, name='customer_payment_webhook'),
-    path('payments/get/', PaymentController.get_payment, name='customer_get_payment'),
-    path('payments/get_all/', PaymentController.get_all_payments, name='customer_get_all_payments'),
+    # Payment — see sunndari_apps.payments.urls, mounted at this same 'customers/payments/'
+    # prefix directly in sunndari/urls.py (public API paths unchanged by the app move).
 
     # Reviews
     path('reviews/create/', ReviewController.create_review, name='customer_create_review'),

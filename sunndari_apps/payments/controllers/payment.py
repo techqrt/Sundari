@@ -7,10 +7,10 @@ from rest_framework.response import Response
 from sunndari_apps.common.swagger import SwaggerPage
 from sunndari_apps.common.serializer_validations import SerializerValidations
 from sunndari_apps.common.serializers.request.get_all import GetAllSerializer
-from sunndari_apps.customers.serializers.request.get.get_payment import GetPaymentSerializer
-from sunndari_apps.customers.serializers.response.get.get_payment import PaymentResponseSerializer
-from sunndari_apps.customers.serializers.response.get_all.get_all_payment import PaymentResponseGetAllSerializer
-from sunndari_apps.customers.views.payment import PaymentView
+from sunndari_apps.payments.serializers.request.get.get_payment import GetPaymentSerializer
+from sunndari_apps.payments.serializers.response.get.get_payment import PaymentResponseSerializer
+from sunndari_apps.payments.serializers.response.get_all.get_all_payment import PaymentResponseGetAllSerializer
+from sunndari_apps.payments.views.payment import PaymentView
 
 
 class PaymentController:

@@ -10,7 +10,7 @@ from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
-from sunndari_apps.customers.models.payment import Payment
+from sunndari_apps.payments.models import Payment
 from sunndari_apps.customers.utils import CustomersUtils
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
