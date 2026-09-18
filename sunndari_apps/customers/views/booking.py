@@ -11,6 +11,7 @@ from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.payments.models import Payment
+from sunndari_apps.wallet.models.customer_wallet import CustomerWallet
 from sunndari_apps.customers.utils import CustomersUtils
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
@@ -88,6 +89,12 @@ class BookingView:
         refunded_status = PaymentStatus.objects.filter(name='refunded').first()
         if refunded_status:
             Payment.mark_refunded(booking_id=params.booking_id, status_id=refunded_status.status_id)
+
+        # Give back any coins redeemed against this booking — cancellation already
+        # fully refunds the payment above, so the customer shouldn't also permanently
+        # lose the coins for a service they never received.
+        CustomerWallet.reverse_all_redemptions_for_booking(booking_id=params.booking_id)
+
         artist = ArtistProfile.get(artist_id=booking['artist_id'])
         if artist:
             NotificationService.notify(

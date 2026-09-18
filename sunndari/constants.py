@@ -65,6 +65,11 @@ class Constants:
     payment_not_verifiable = 'This payment cannot be verified in its current state'
     payment_verification_mismatch = 'Payment could not be verified with the payment gateway'
 
+    # Wallet
+    redemption_tier_not_found = 'Selected redemption tier is not available'
+    redemption_exceeds_amount = 'Selected redemption tier exceeds the payable amount'
+    wallet_busy_please_retry = 'Your wallet is currently busy processing another request. Please try again in a moment.'
+
     # Portfolio
     portfolio_limit_exceeded = 'Maximum 20 active portfolio items allowed'
     file_required = 'A file is required to create a portfolio item'

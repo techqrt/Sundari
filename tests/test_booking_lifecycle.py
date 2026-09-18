@@ -16,6 +16,7 @@ from django.utils import timezone
 from sunndari_apps.customers.models import Booking
 from sunndari_apps.notifications.models.notification import Notification
 from sunndari_apps.artists.models import ArtistAvailabilitySchedule
+from sunndari_apps.wallet.models import CustomerWallet, CoinTransaction
 
 from tests.test_customers import (
     make_customer, make_artist, make_sub_category, make_location_type,
@@ -187,6 +188,18 @@ class FullBookingLifecycleTest(TestCase):
         self.assertTrue(
             Notification.objects.filter(booking_id=booking_id, type='booking_completed', user_id=customer.user_id).exists()
         )
+
+        # ── Cashback is credited to the customer's wallet on completion ────
+        # Default package price is ₹1500; at the default 10% cashback rate and ₹0.10
+        # coin value, cashback coins == the price's numeric value (₹150 / ₹0.10).
+        wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
+        self.assertEqual(wallet.balance_coins, 1500)
+        cashback_txn = CoinTransaction.objects.get(
+            wallet=wallet, booking_id=booking_id, transaction_type='CASHBACK',
+        )
+        self.assertEqual(cashback_txn.coins, 1500)
+        self.assertEqual(cashback_txn.remaining_coins, 1500)
+        self.assertIsNotNone(cashback_txn.expires_at)
 
         # ── Chat is closed once the booking completes ──────────────────────
         message_resp = customer_client.post('/chat/messages/create/', {

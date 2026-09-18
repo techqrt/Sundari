@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 from django.core.paginator import Paginator
+from django.db import transaction, OperationalError
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -20,6 +21,7 @@ from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.payments.models import Payment
+from sunndari_apps.wallet.models.customer_wallet import CustomerWallet
 from sunndari_apps.customers.utils import CustomersUtils
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
@@ -103,11 +105,13 @@ class ArtistBookingView:
             raise ValueError(Constants.booking_expired)
 
         # The core payment invariant: a booking may not become 'confirmed' (real) until
-        # it has been paid in full. Uses the same server-authoritative total the payment
-        # flow itself validates against — never a client-supplied figure.
+        # it has been paid in full. Counts cash paid PLUS any coin-redeemed value
+        # settled on a successful payment — total_paid_for_booking() alone would
+        # understate this whenever redemption was used, permanently blocking
+        # confirmation of a booking the customer genuinely paid in full (cash + coins).
         if params.status == 'confirmed':
-            total_paid = Payment.total_paid_for_booking(booking_id=params.booking_id)
-            if total_paid < booking['total_amount']:
+            total_settled = Payment.total_settled_for_booking(booking_id=params.booking_id)
+            if total_settled < booking['total_amount']:
                 raise ValueError(Constants.payment_required_to_confirm)
 
         allowed = Booking.ARTIST_TRANSITIONS.get(current_status, [])
@@ -129,6 +133,12 @@ class ArtistBookingView:
             refunded_status = PaymentStatus.objects.filter(name='refunded').first()
             if refunded_status:
                 Payment.mark_refunded(booking_id=params.booking_id, status_id=refunded_status.status_id)
+            # Same reversal as the customer-initiated cancel path
+            # (BookingView.cancel_extract) — an artist rejecting/cancelling a booking
+            # triggers the exact same full refund above, so any coins the customer
+            # redeemed against it must come back here too, not just on their own
+            # cancellation path.
+            CustomerWallet.reverse_all_redemptions_for_booking(booking_id=params.booking_id)
         if params.status == 'confirmed':
             NotificationService.notify(
                 user_id=booking['customer_id'],
@@ -342,7 +352,51 @@ class ArtistBookingView:
             raise ValueError(Constants.completion_pin_invalid)
 
         completed_status = BookingStatus.objects.filter(name='completed').first()
-        Booking.complete_service(booking_id=params.booking_id, completed_status_id=completed_status.status_id)
+        total_amount = Booking.objects.filter(
+            booking_id=params.booking_id,
+        ).values_list('total_amount', flat=True).first()
+        # Cashback is credited in the same atomic block as the completion itself
+        # (unlike the notification/Firebase sync below, which are allowed to fail
+        # without undoing completion) — a booking's completion is expected to
+        # guarantee its cashback, so a wallet-credit failure rolls the whole thing
+        # back and leaves the Completion PIN usable again for the artist to retry.
+        try:
+            with transaction.atomic():
+                # Everything above this point was read without any lock — two
+                # requests whose reads overlap (a network-retried duplicate, a
+                # double-tap before the first response returns, or genuine
+                # concurrency) could otherwise both pass the same status/PIN checks
+                # and both reach here, each independently completing the booking and
+                # crediting cashback a second time. Locking the row and re-checking
+                # its live PIN/status closes that race: only the first request to
+                # actually acquire the lock still finds a matching, unconsumed PIN —
+                # a second request arrives here to find the PIN already nulled by the
+                # first (Booking.complete_service consumes it), so this re-check
+                # fails and it is rejected exactly like a stale/already-used PIN,
+                # never reaching complete_service()/award_cashback() a second time.
+                locked_booking = Booking.objects.select_for_update().get(booking_id=params.booking_id)
+                pin_still_valid = (
+                    locked_booking.status_id == booking['status_id']
+                    and locked_booking.completion_pin is not None
+                    and locked_booking.completion_pin == params.completion_pin
+                    and locked_booking.completion_pin_expiry is not None
+                    and timezone.now() <= locked_booking.completion_pin_expiry
+                )
+                if not pin_still_valid:
+                    raise ValueError(Constants.completion_pin_invalid)
+
+                Booking.complete_service(booking_id=params.booking_id, completed_status_id=completed_status.status_id)
+                CustomerWallet.award_cashback(
+                    customer_id=booking['customer_id'], booking_id=params.booking_id, service_amount=total_amount,
+                )
+        except OperationalError:
+            # A genuinely concurrent request is holding the same lock (SQLite's
+            # "database is locked" under contention, or a Postgres lock-timeout/
+            # serialization failure) — nothing committed, the Completion PIN is
+            # still valid, so this is a clean, retry-friendly rejection rather than
+            # the raw driver error Common().exception_handler's generic branch would
+            # otherwise surface.
+            raise ValueError(Constants.wallet_busy_please_retry)
         ChatService.close_conversation(booking_id=params.booking_id)
         NotificationService.notify(
             user_id=booking['customer_id'],

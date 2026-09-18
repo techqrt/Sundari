@@ -3,6 +3,7 @@ from django.utils import timezone
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.customers.models.booking import Booking, IST
 from sunndari_apps.payments.models import Payment
+from sunndari_apps.wallet.models.customer_wallet import CustomerWallet
 from sunndari_apps.notifications.utils import NotificationService
 
 
@@ -17,11 +18,25 @@ def cancel_stale_pending_bookings() -> int:
     ).exclude(
         booking_id__in=Payment.objects.filter(status__name='paid').values('booking_id'),
     )
-    return stale.update(
+    # Captured before the bulk update below, since that update would move these rows
+    # out of the 'pending' filter this same queryset relies on.
+    stale_booking_ids = list(stale.values_list('booking_id', flat=True))
+
+    updated_count = stale.update(
         status_id=cancelled_status.status_id,
         cancellation_reason='Auto-cancelled: slot lock expired without confirmation',
         updated_at=timezone.now(),
     )
+
+    # A customer can redeem coins at /initiate/ (debited right after the Razorpay order
+    # is created) and then simply never complete checkout — this sweep is what
+    # eventually cancels that booking. Without this, those coins would be forfeited
+    # silently and permanently, unlike every other cancellation path (customer- and
+    # artist-initiated), which already reverses them.
+    for booking_id in stale_booking_ids:
+        CustomerWallet.reverse_all_redemptions_for_booking(booking_id=booking_id)
+
+    return updated_count
 
 
 @shared_task

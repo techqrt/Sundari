@@ -126,6 +126,29 @@ class Payment(models.Model):
         return total or 0
 
     @staticmethod
+    def total_settled_for_booking(booking_id: int):
+        """Total value applied toward a booking's total_amount — cash actually paid
+        PLUS the rupee value of any coin redemption tied to a payment that actually
+        succeeded. A booking's total_amount is denominated in rupees regardless of
+        whether the customer covered part of it with cash or with redeemed coins, so
+        both must count when deciding whether a booking has been fully settled (e.g.
+        before the artist can confirm it, or when computing how much is still owed) —
+        total_paid_for_booking() alone only reflects what was charged via the gateway,
+        which understates this whenever redemption was used. Filters on
+        payment__status__name='paid' (not just "not reversed") so a redemption tied to
+        a payment that was never completed, or whose booking was later cancelled and
+        refunded, never counts as settled."""
+        from sunndari_apps.wallet.models.coin_transaction import CoinTransaction
+
+        cash_paid = Payment.total_paid_for_booking(booking_id=booking_id)
+        redeemed_value = CoinTransaction.objects.filter(
+            transaction_type='REDEMPTION',
+            payment__booking_id=booking_id,
+            payment__status__name='paid',
+        ).aggregate(models.Sum('rupee_equivalent'))['rupee_equivalent__sum'] or 0
+        return cash_paid + redeemed_value
+
+    @staticmethod
     def set_gateway_order(payment_id: int, gateway: str, gateway_order_id: str) -> None:
         """Replaces the placeholder order id set at create() time with the real
         gateway-issued order id, once the gateway call actually succeeds."""
@@ -143,6 +166,21 @@ class Payment(models.Model):
         # A prior failed attempt on this same row (e.g. a bad first /verify/ call
         # followed by a successful retry) must not leave a stale failure_reason
         # sitting alongside a now-successful payment in the transaction history.
+        payment.failure_reason = None
+        payment.save()
+
+    @staticmethod
+    def mark_paid_via_wallet(payment_id: int, status_id: int) -> None:
+        """For a payment fully covered by redeemed coins — no Razorpay order was ever
+        created (a ₹0 order would be rejected by the gateway outright), so this clears
+        the create()-time 'PENDING-xxxx' placeholder gateway_order_id rather than
+        leaving it sitting alongside a 'paid' status, and marks gateway='wallet' so
+        how the payment was actually settled stays visible/auditable."""
+        payment = Payment.objects.get(payment_id=payment_id)
+        payment.gateway = 'wallet'
+        payment.gateway_order_id = None
+        payment.status_id = status_id
+        payment.paid_at = timezone.now()
         payment.failure_reason = None
         payment.save()
 

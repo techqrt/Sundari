@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'sunndari_apps.chat',
     'sunndari_apps.help_center',
     'sunndari_apps.payments',
+    'sunndari_apps.wallet',
 ]
 
 AUTH_USER_MODEL = 'auth.User'
@@ -185,6 +186,12 @@ CELERY_BEAT_SCHEDULE = {
     'mark-missed-bookings': {
         'task': 'sunndari_apps.customers.tasks.mark_missed_bookings',
         'schedule': 300.0,
+    },
+    'expire-lapsed-coins': {
+        'task': 'sunndari_apps.wallet.tasks.expire_lapsed_coins',
+        # Coin batches expire on ~1-year windows, unlike the minute-scale booking-lock
+        # sweeps above — once/day is plenty.
+        'schedule': 86400.0,
     },
 }
 

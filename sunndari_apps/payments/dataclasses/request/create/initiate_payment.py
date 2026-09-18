@@ -6,3 +6,4 @@ class InitiatePaymentRequest:
     booking_id: int
     payment_type: str = 'full'
     amount: float = None
+    redemption_tier_id: int = None
