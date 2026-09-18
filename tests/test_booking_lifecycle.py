@@ -16,7 +16,7 @@ from django.utils import timezone
 from sunndari_apps.customers.models import Booking
 from sunndari_apps.notifications.models.notification import Notification
 from sunndari_apps.artists.models import ArtistAvailabilitySchedule
-from sunndari_apps.wallet.models import CustomerWallet, CoinTransaction
+from sunndari_apps.wallet.models import CustomerWallet, CoinTransaction, CoinConfig
 
 from tests.test_customers import (
     make_customer, make_artist, make_sub_category, make_location_type,
@@ -27,6 +27,9 @@ from tests.test_customers import (
 class FullBookingLifecycleTest(TestCase):
 
     def setUp(self):
+        # Pinned explicitly rather than relying on CoinConfig's model default, so this
+        # test's cashback assertion stays stable regardless of what that default is.
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         # A booking can't be confirmed without a verified payment (see Stage 5) — this
         # E2E test walks the real /initiate/ + /verify/ endpoints too, so RazorpayGateway
         # is mocked the same way tests/test_payments.py does, keeping it hermetic.

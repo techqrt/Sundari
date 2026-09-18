@@ -19,7 +19,7 @@ class CoinConfig(models.Model):
     # RedemptionTier.save() both divide by this value, so an admin-entered 0 would
     # otherwise raise ZeroDivisionError the next time either runs.
     coin_value_rupees = models.DecimalField(
-        max_digits=6, decimal_places=4, default=Decimal('0.10'),
+        max_digits=6, decimal_places=4, default=Decimal('0.01'),
         validators=[MinValueValidator(Decimal('0.0001'))],
     )
     coin_expiry_days = models.PositiveIntegerField(default=365)

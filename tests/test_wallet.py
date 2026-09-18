@@ -227,6 +227,7 @@ class CoinConfigTest(TestCase):
         config = CoinConfig.get_active()
         self.assertEqual(config.config_id, 1)
         self.assertEqual(str(config.cashback_percentage), '10.00')
+        self.assertEqual(str(config.coin_value_rupees), '0.01')
 
     def test_save_always_pins_pk_to_one(self):
         CoinConfig.objects.create(cashback_percentage='15.00')
@@ -249,6 +250,7 @@ class CoinConfigTest(TestCase):
 
 class AwardCashbackTest(TestCase):
     def test_award_cashback_converts_service_amount_to_coins(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         user = make_user('+919000000530', 'customer')
         txn = CustomerWallet.award_cashback(customer_id=user.user_id, booking_id=None, service_amount='1000.00')
         # 10% of 1000 = 100 rupees; at ₹0.10/coin that's 1000 coins.
@@ -280,6 +282,7 @@ class AwardCashbackTest(TestCase):
         # direct, deliberate second award_cashback() call for the same booking_id must
         # be rejected outright, never silently succeed.
         from django.db import IntegrityError
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         user = make_user('+919000000533', 'customer')
         client, customer = make_customer(phone_number='+919000000534')
         _, _, profile = make_artist(phone_number='+919000000535')
@@ -314,6 +317,7 @@ class AwardCashbackTest(TestCase):
         # 'in_progress'/valid-PIN snapshot) must still be rejected once it reaches the
         # lock, because the actual row was already completed and the PIN already
         # nulled by the first request in the meantime.
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         client, customer = make_customer(phone_number='+919000000536')
         artist_client, artist_user, profile = make_artist(phone_number='+919000000537')
         sub = make_sub_category()
@@ -357,6 +361,9 @@ class CashbackCompletionIntegrationTest(TestCase):
     """Confirms the wiring in ArtistBookingView.verify_completion_pin_extract — that a
     wallet-credit failure rolls back the booking completion itself (Completion PIN
     stays valid for the artist to retry) rather than silently losing the cashback."""
+
+    def setUp(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
 
     def _make_in_progress_booking(self, customer_phone, artist_phone, price=1000):
         customer_client, customer = make_customer(phone_number=customer_phone)
@@ -456,6 +463,7 @@ class EligibleTiersEndpointTest(TestCase):
         return client, customer, booking
 
     def test_returns_only_affordable_and_in_range_tiers(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         RedemptionTier.objects.create(rupee_value='500.00')   # 5000 coins
         RedemptionTier.objects.create(rupee_value='1000.00')  # 10000 coins
         RedemptionTier.objects.create(rupee_value='3000.00')  # 30000 coins, exceeds booking amount
@@ -489,6 +497,7 @@ class RedemptionAtInitiateTest(TestCase):
     initiate_url = '/customers/payments/initiate/'
 
     def setUp(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         patcher = patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client')
         mock_get_client = patcher.start()
         self.addCleanup(patcher.stop)
@@ -634,6 +643,7 @@ class RedemptionReversalOnCancelTest(TestCase):
     cancel_url = '/customers/bookings/cancel/'
 
     def setUp(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         patcher = patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client')
         mock_get_client = patcher.start()
         self.addCleanup(patcher.stop)
@@ -930,6 +940,7 @@ class RedemptionReversalOnAutoExpiryTest(TestCase):
     initiate_url = '/customers/payments/initiate/'
 
     def setUp(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         patcher = patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client')
         mock_get_client = patcher.start()
         self.addCleanup(patcher.stop)
@@ -1009,6 +1020,7 @@ class TotalSettledForBookingTest(TestCase):
     confirm_url = '/artists/bookings/update_status/'
 
     def setUp(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         patcher = patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client')
         mock_get_client = patcher.start()
         self.addCleanup(patcher.stop)
@@ -1113,6 +1125,7 @@ class FullyCoveredByCoinsTest(TestCase):
     confirm_url = '/artists/bookings/update_status/'
 
     def setUp(self):
+        CoinConfig.objects.create(coin_value_rupees='0.10')
         patcher = patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client')
         mock_get_client = patcher.start()
         self.addCleanup(patcher.stop)
