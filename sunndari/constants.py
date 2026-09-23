@@ -64,6 +64,7 @@ class Constants:
     payment_signature_invalid = 'Payment signature verification failed'
     payment_not_verifiable = 'This payment cannot be verified in its current state'
     payment_verification_mismatch = 'Payment could not be verified with the payment gateway'
+    duplicate_booking_in_group = 'The same booking_id cannot appear more than once in a group payment'
 
     # Wallet
     redemption_tier_not_found = 'Selected redemption tier is not available'

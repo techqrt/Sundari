@@ -5,8 +5,9 @@ from django.test import TestCase
 from sunndari.config import Configurations
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
-from sunndari_apps.payments.models import Payment
+from sunndari_apps.payments.models import Payment, PaymentOrder
 from sunndari_apps.notifications.models.notification import Notification
+from sunndari_apps.wallet.models import RedemptionTier, CustomerWallet, CoinTransaction
 
 from tests.test_customers import (
     make_customer, make_artist, make_client, make_sub_category, make_location_type,
@@ -493,3 +494,497 @@ class PaymentFailureScenarioTest(TestCase):
             'booking_id': booking.booking_id, 'status': 'confirmed',
         }, format='json')
         self.assertEqual(confirm_resp.status_code, 200)
+
+
+# ─── PaymentOrder (multi-booking grouped checkout) ───────────────────────────────
+
+class PaymentOrderModelTest(TestCase):
+    """Phase 1 model-layer tests — no /initiate_group/ endpoint yet, this only proves
+    the schema and static methods work as Payment's own equivalents already do."""
+
+    def test_create_and_get(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000060001')
+        pending_status = PaymentStatus.objects.get(name='pending')
+
+        order_id = PaymentOrder().create(
+            customer_id=customer.user_id, total_amount='3000.00', status_id=pending_status.status_id,
+        )
+        order = PaymentOrder.get(order_id=order_id)
+        self.assertEqual(order['customer_id'], customer.user_id)
+        self.assertEqual(str(order['total_amount']), '3000.00')
+        self.assertEqual(order['status_id'], pending_status.status_id)
+        self.assertTrue(order['gateway_order_id'].startswith('PENDING-'))
+        self.assertIsNone(order['paid_at'])
+
+    def test_set_gateway_order_and_lookup_by_it(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000060002')
+        pending_status = PaymentStatus.objects.get(name='pending')
+        order_id = PaymentOrder().create(
+            customer_id=customer.user_id, total_amount='3000.00', status_id=pending_status.status_id,
+        )
+
+        PaymentOrder.set_gateway_order(order_id=order_id, gateway='razorpay', gateway_order_id='order_group_abc')
+        fetched = PaymentOrder.get_by_gateway_order_id(gateway_order_id='order_group_abc')
+        self.assertEqual(fetched['order_id'], order_id)
+        self.assertEqual(fetched['gateway'], 'razorpay')
+
+    def test_mark_paid_and_mark_failed(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000060003')
+        pending_status = PaymentStatus.objects.get(name='pending')
+        paid_status = PaymentStatus.objects.get(name='paid')
+        failed_status = PaymentStatus.objects.get(name='failed')
+
+        order_id = PaymentOrder().create(
+            customer_id=customer.user_id, total_amount='3000.00', status_id=pending_status.status_id,
+        )
+        PaymentOrder.mark_paid(order_id=order_id, gateway_payment_id='pay_xyz', status_id=paid_status.status_id)
+        order = PaymentOrder.get(order_id=order_id)
+        self.assertEqual(order['status_id'], paid_status.status_id)
+        self.assertEqual(order['gateway_payment_id'], 'pay_xyz')
+        self.assertIsNotNone(order['paid_at'])
+
+        PaymentOrder.mark_failed(order_id=order_id, status_id=failed_status.status_id, failure_reason='boom')
+        order = PaymentOrder.get(order_id=order_id)
+        self.assertEqual(order['status_id'], failed_status.status_id)
+        self.assertEqual(order['failure_reason'], 'boom')
+
+    def test_payment_can_link_to_an_order(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000060004')
+        _, _, profile = make_artist(phone_number='+919000060005')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=1000)
+        location_type = make_location_type()
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+        )
+        pending_status = PaymentStatus.objects.get(name='pending')
+        order_id = PaymentOrder().create(
+            customer_id=customer.user_id, total_amount='1000.00', status_id=pending_status.status_id,
+        )
+        payment_id = Payment().create(
+            booking_id=booking.booking_id, customer_id=customer.user_id, artist_id=profile.artist_id,
+            amount=1000, commission_amount=100, artist_payout_amount=900,
+            status_id=pending_status.status_id, order_id=order_id,
+        )
+        payment = Payment.get(payment_id=payment_id)
+        self.assertEqual(payment['order_id'], order_id)
+
+    def test_solo_payment_still_has_no_order_by_default(self):
+        # Confirms Phase 1 is purely additive — a payment created the existing way
+        # (no order_id passed) is completely unaffected.
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000060006')
+        _, _, profile = make_artist(phone_number='+919000060007')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=1000)
+        location_type = make_location_type()
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+        )
+        pending_status = PaymentStatus.objects.get(name='pending')
+        payment_id = Payment().create(
+            booking_id=booking.booking_id, customer_id=customer.user_id, artist_id=profile.artist_id,
+            amount=1000, commission_amount=100, artist_payout_amount=900, status_id=pending_status.status_id,
+        )
+        payment = Payment.get(payment_id=payment_id)
+        self.assertIsNone(payment['order_id'])
+
+
+# ─── POST /customers/payments/initiate_group/ ────────────────────────────────────
+
+class InitiateGroupPaymentTest(TestCase):
+    initiate_group_url = '/customers/payments/initiate_group/'
+
+    def setUp(self):
+        patcher = patch('sunndari_apps.payments.views.initiate_group_payment.RazorpayGateway.get_client')
+        mock_get_client = patcher.start()
+        self.addCleanup(patcher.stop)
+        mock_client = MagicMock()
+        mock_client.order.create.side_effect = lambda data: {
+            'id': f"order_test_{data['receipt']}", 'amount': data['amount'], 'currency': data['currency'], 'status': 'created',
+        }
+        mock_get_client.return_value = mock_client
+        self.mock_razorpay_client = mock_client
+
+    def _make_booking(self, customer, artist_phone, price, commission_rate=None):
+        _, _, profile = make_artist(phone_number=artist_phone)
+        if commission_rate is not None:
+            profile.commission_rate = commission_rate
+            profile.save()
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=price)
+        location_type = make_location_type()
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+        )
+        return profile, booking
+
+    def test_group_of_three_creates_one_order_and_three_payments(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000061001')
+        _, b1 = self._make_booking(customer, '+919000061002', price=1000, commission_rate='10.00')
+        _, b2 = self._make_booking(customer, '+919000061003', price=1500, commission_rate='10.00')
+        _, b3 = self._make_booking(customer, '+919000061004', price=2000, commission_rate='10.00')
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b2.booking_id, b3.booking_id],
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        # ₹1000 + ₹1500 + ₹2000 = ₹4500 -> 450000 paise.
+        self.assertEqual(resp.data['data']['amount'], 450000)
+        self.assertEqual(len(resp.data['data']['payment_ids']), 3)
+
+        order_id = resp.data['data']['order_id']
+        order = PaymentOrder.get(order_id=order_id)
+        self.assertEqual(str(order['total_amount']), '4500.00')
+        self.assertEqual(order['gateway'], 'razorpay')
+
+        payments = Payment.objects.filter(order_id=order_id).order_by('amount')
+        self.assertEqual(payments.count(), 3)
+        self.assertEqual([str(p.amount) for p in payments], ['1000.00', '1500.00', '2000.00'])
+        for p in payments:
+            self.assertEqual(str(p.commission_amount), str(round(p.amount * 10 / 100, 2)))
+            self.assertEqual(p.status.name, 'pending')
+
+    def test_duplicate_booking_id_rejected(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000061005')
+        _, b1 = self._make_booking(customer, '+919000061006', price=1000)
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b1.booking_id],
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.mock_razorpay_client.order.create.assert_not_called()
+        self.assertFalse(Payment.objects.filter(booking_id=b1.booking_id).exists())
+
+    def test_single_booking_id_rejected_by_serializer(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000061007')
+        _, b1 = self._make_booking(customer, '+919000061008', price=1000)
+
+        resp = client.post(self.initiate_group_url, {'booking_ids': [b1.booking_id]}, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_booking_not_owned_by_customer_blocks_whole_group_and_creates_nothing(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000061009')
+        _, b1 = self._make_booking(customer, '+919000061010', price=1000)
+        other_client, other_customer = make_customer(phone_number='+919000061011')
+        _, b2 = self._make_booking(other_customer, '+919000061012', price=1000)
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b2.booking_id],
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.mock_razorpay_client.order.create.assert_not_called()
+        # Neither booking got a Payment row -- validated before anything was created.
+        self.assertFalse(Payment.objects.filter(booking_id__in=[b1.booking_id, b2.booking_id]).exists())
+        self.assertEqual(PaymentOrder.objects.count(), 0)
+
+    def test_already_fully_paid_booking_blocks_whole_group(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000061013')
+        _, b1 = self._make_booking(customer, '+919000061014', price=1000)
+        _, b2 = self._make_booking(customer, '+919000061015', price=1000)
+        paid_status = PaymentStatus.objects.get(name='paid')
+        Payment().create(
+            booking_id=b2.booking_id, customer_id=customer.user_id, artist_id=b2.artist_id,
+            amount=1000, commission_amount=100, artist_payout_amount=900, status_id=paid_status.status_id,
+        )
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b2.booking_id],
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.mock_razorpay_client.order.create.assert_not_called()
+        self.assertFalse(Payment.objects.filter(booking_id=b1.booking_id).exists())
+
+    def test_gateway_failure_marks_order_and_all_payments_failed(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000061016')
+        _, b1 = self._make_booking(customer, '+919000061017', price=1000)
+        _, b2 = self._make_booking(customer, '+919000061018', price=1000)
+        self.mock_razorpay_client.order.create.side_effect = razorpay.errors.BadRequestError('gateway down')
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b2.booking_id],
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+        order = PaymentOrder.objects.get(customer_id=customer.user_id)
+        self.assertEqual(order.status.name, 'failed')
+        payments = Payment.objects.filter(order=order)
+        self.assertEqual(payments.count(), 2)
+        for p in payments:
+            self.assertEqual(p.status.name, 'failed')
+
+    def test_redemption_applies_only_to_first_booking(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000062001')
+        profile1, b1 = self._make_booking(customer, '+919000062002', price=1000, commission_rate='10.00')
+        _, b2 = self._make_booking(customer, '+919000062003', price=1500, commission_rate='10.00')
+        tier = RedemptionTier.objects.create(rupee_value='500.00')  # 50000 coins at ₹0.01/coin
+        CustomerWallet.credit(customer_id=customer.user_id, coins=50000, transaction_type='ADJUSTMENT')
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b2.booking_id], 'redemption_tier_id': tier.tier_id,
+        }, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data['data']['coins_redeemed'], 50000)
+        self.assertEqual(str(resp.data['data']['redemption_discount']), '500.00')
+        # (₹1000 - ₹500) + ₹1500 = ₹2000 -> 200000 paise.
+        self.assertEqual(resp.data['data']['amount'], 200000)
+
+        order_id = resp.data['data']['order_id']
+        p1 = Payment.objects.get(order_id=order_id, booking_id=b1.booking_id)
+        p2 = Payment.objects.get(order_id=order_id, booking_id=b2.booking_id)
+        self.assertEqual(str(p1.amount), '500.00')  # discounted
+        self.assertEqual(str(p2.amount), '1500.00')  # untouched
+        # Commission on booking 1 stays computed off the PRE-redemption ₹1000 — the
+        # platform, not the artist, absorbs the discount.
+        self.assertEqual(str(p1.commission_amount), '100.00')
+        self.assertEqual(str(p1.artist_payout_amount), '900.00')
+
+        wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
+        self.assertEqual(wallet.balance_coins, 0)
+        redemption_txn = CoinTransaction.objects.get(wallet=wallet, transaction_type='REDEMPTION')
+        self.assertEqual(redemption_txn.booking_id, b1.booking_id)
+        self.assertEqual(redemption_txn.payment_id, p1.payment_id)
+
+    def test_tier_exceeding_first_booking_amount_is_blocked_even_if_group_total_covers_it(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000062004')
+        _, b1 = self._make_booking(customer, '+919000062005', price=1000)
+        _, b2 = self._make_booking(customer, '+919000062006', price=1000)
+        # ₹2000 tier exceeds b1's own ₹1000 price, even though the ₹2000 group total
+        # would cover it -- must be blocked per the "first booking only" allocation rule.
+        tier = RedemptionTier.objects.create(rupee_value='2000.00')
+        CustomerWallet.credit(customer_id=customer.user_id, coins=200000, transaction_type='ADJUSTMENT')
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b2.booking_id], 'redemption_tier_id': tier.tier_id,
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.mock_razorpay_client.order.create.assert_not_called()
+        wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
+        self.assertEqual(wallet.balance_coins, 200000)  # untouched
+
+    def test_insufficient_coins_fails_whole_group(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000062007')
+        _, b1 = self._make_booking(customer, '+919000062008', price=1000)
+        _, b2 = self._make_booking(customer, '+919000062009', price=1000)
+        tier = RedemptionTier.objects.create(rupee_value='500.00')
+        CustomerWallet.credit(customer_id=customer.user_id, coins=100, transaction_type='ADJUSTMENT')  # not enough
+
+        resp = client.post(self.initiate_group_url, {
+            'booking_ids': [b1.booking_id, b2.booking_id], 'redemption_tier_id': tier.tier_id,
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+        order = PaymentOrder.objects.get(customer_id=customer.user_id)
+        self.assertEqual(order.status.name, 'failed')
+        payments = Payment.objects.filter(order=order)
+        self.assertEqual(payments.count(), 2)
+        for p in payments:
+            self.assertEqual(p.status.name, 'failed')
+        wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
+        self.assertEqual(wallet.balance_coins, 100)  # untouched
+
+    def test_no_redemption_tier_behaves_exactly_as_phase_2(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000062010')
+        _, b1 = self._make_booking(customer, '+919000062011', price=1000)
+        _, b2 = self._make_booking(customer, '+919000062012', price=1000)
+
+        resp = client.post(self.initiate_group_url, {'booking_ids': [b1.booking_id, b2.booking_id]}, format='json')
+        self.assertEqual(resp.status_code, 201)
+        self.assertNotIn('coins_redeemed', resp.data['data'])
+        self.assertEqual(resp.data['data']['amount'], 200000)
+
+
+# ─── /verify/ extended for a grouped PaymentOrder ────────────────────────────────
+
+class VerifyGroupPaymentTest(TestCase):
+    initiate_group_url = '/customers/payments/initiate_group/'
+    verify_url = '/customers/payments/verify/'
+
+    def setUp(self):
+        patcher = patch('sunndari_apps.payments.views.initiate_group_payment.RazorpayGateway.get_client')
+        mock_get_client = patcher.start()
+        self.addCleanup(patcher.stop)
+        mock_client = MagicMock()
+        mock_client.order.create.side_effect = lambda data: {
+            'id': f"order_test_{data['receipt']}", 'amount': data['amount'], 'currency': data['currency'], 'status': 'created',
+        }
+        mock_client.utility.verify_payment_signature.return_value = None
+        mock_get_client.return_value = mock_client
+        self.mock_razorpay_client = mock_client
+
+    def _make_booking(self, customer, artist_phone, price):
+        _, _, profile = make_artist(phone_number=artist_phone)
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=price)
+        location_type = make_location_type()
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+        )
+        return profile, booking
+
+    def test_verify_marks_order_and_all_payments_paid(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000063001')
+        _, b1 = self._make_booking(customer, '+919000063002', price=1000)
+        _, b2 = self._make_booking(customer, '+919000063003', price=1500)
+
+        init_resp = client.post(self.initiate_group_url, {'booking_ids': [b1.booking_id, b2.booking_id]}, format='json')
+        self.assertEqual(init_resp.status_code, 201)
+        order_id = init_resp.data['data']['order_id']
+        gateway_order_id = init_resp.data['data']['gateway_order_id']
+        amount_paise = init_resp.data['data']['amount']
+
+        self.mock_razorpay_client.payment.fetch.return_value = {
+            'id': 'pay_group_ok', 'order_id': gateway_order_id, 'status': 'captured', 'amount': amount_paise,
+        }
+        self.mock_razorpay_client.order.fetch.return_value = {
+            'id': gateway_order_id, 'amount': amount_paise, 'amount_paid': amount_paise,
+            'amount_due': 0, 'currency': 'INR', 'status': 'paid',
+        }
+        with patch('sunndari_apps.payments.views.verify_payment.RazorpayGateway.get_client', return_value=self.mock_razorpay_client):
+            verify_resp = client.post(self.verify_url, {
+                'razorpay_order_id': gateway_order_id, 'razorpay_payment_id': 'pay_group_ok', 'razorpay_signature': 'sig_ok',
+            }, format='json')
+        self.assertEqual(verify_resp.status_code, 200)
+        self.assertEqual(verify_resp.data['message'], 'Payment verified successfully')
+
+        order = PaymentOrder.objects.get(order_id=order_id)
+        self.assertEqual(order.status.name, 'paid')
+        self.assertEqual(order.gateway_payment_id, 'pay_group_ok')
+        payments = Payment.objects.filter(order=order)
+        self.assertEqual(payments.count(), 2)
+        for p in payments:
+            self.assertEqual(p.status.name, 'paid')
+            self.assertEqual(p.gateway_payment_id, 'pay_group_ok')
+        self.assertTrue(
+            Notification.objects.filter(booking_id=b1.booking_id, type='payment_status', user_id=customer.user_id).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(booking_id=b2.booking_id, type='payment_status', user_id=customer.user_id).exists()
+        )
+
+    def test_verify_is_idempotent_on_repeat(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000063004')
+        _, b1 = self._make_booking(customer, '+919000063005', price=1000)
+        _, b2 = self._make_booking(customer, '+919000063006', price=1000)
+        init_resp = client.post(self.initiate_group_url, {'booking_ids': [b1.booking_id, b2.booking_id]}, format='json')
+        gateway_order_id = init_resp.data['data']['gateway_order_id']
+        amount_paise = init_resp.data['data']['amount']
+
+        self.mock_razorpay_client.payment.fetch.return_value = {
+            'id': 'pay_x', 'order_id': gateway_order_id, 'status': 'captured', 'amount': amount_paise,
+        }
+        self.mock_razorpay_client.order.fetch.return_value = {
+            'id': gateway_order_id, 'amount': amount_paise, 'amount_paid': amount_paise,
+            'amount_due': 0, 'currency': 'INR', 'status': 'paid',
+        }
+        body = {'razorpay_order_id': gateway_order_id, 'razorpay_payment_id': 'pay_x', 'razorpay_signature': 'sig_ok'}
+        with patch('sunndari_apps.payments.views.verify_payment.RazorpayGateway.get_client', return_value=self.mock_razorpay_client):
+            first = client.post(self.verify_url, body, format='json')
+            second = client.post(self.verify_url, body, format='json')
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.data['message'], 'Payment already verified')
+        self.mock_razorpay_client.utility.verify_payment_signature.assert_called_once()
+
+    def test_invalid_signature_fails_whole_group(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000063007')
+        _, b1 = self._make_booking(customer, '+919000063008', price=1000)
+        _, b2 = self._make_booking(customer, '+919000063009', price=1000)
+        init_resp = client.post(self.initiate_group_url, {'booking_ids': [b1.booking_id, b2.booking_id]}, format='json')
+        gateway_order_id = init_resp.data['data']['gateway_order_id']
+        order_id = init_resp.data['data']['order_id']
+
+        self.mock_razorpay_client.utility.verify_payment_signature.side_effect = razorpay.errors.SignatureVerificationError('bad')
+        with patch('sunndari_apps.payments.views.verify_payment.RazorpayGateway.get_client', return_value=self.mock_razorpay_client):
+            resp = client.post(self.verify_url, {
+                'razorpay_order_id': gateway_order_id, 'razorpay_payment_id': 'pay_bad', 'razorpay_signature': 'sig_bad',
+            }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+        order = PaymentOrder.objects.get(order_id=order_id)
+        self.assertEqual(order.status.name, 'failed')
+        payments = Payment.objects.filter(order=order)
+        for p in payments:
+            self.assertEqual(p.status.name, 'failed')
+            self.assertEqual(p.failure_reason, 'Signature verification failed')
+
+    def test_unknown_group_order_id_returns_400(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000063010')
+        with patch('sunndari_apps.payments.views.verify_payment.RazorpayGateway.get_client', return_value=self.mock_razorpay_client):
+            resp = client.post(self.verify_url, {
+                'razorpay_order_id': 'order_does_not_exist', 'razorpay_payment_id': 'pay_x', 'razorpay_signature': 'sig_x',
+            }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_wrong_customer_cannot_verify_someone_elses_group(self):
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000063011')
+        _, b1 = self._make_booking(customer, '+919000063012', price=1000)
+        _, b2 = self._make_booking(customer, '+919000063013', price=1000)
+        init_resp = client.post(self.initiate_group_url, {'booking_ids': [b1.booking_id, b2.booking_id]}, format='json')
+        gateway_order_id = init_resp.data['data']['gateway_order_id']
+
+        outsider_client, _ = make_customer(phone_number='+919000063014')
+        with patch('sunndari_apps.payments.views.verify_payment.RazorpayGateway.get_client', return_value=self.mock_razorpay_client):
+            resp = outsider_client.post(self.verify_url, {
+                'razorpay_order_id': gateway_order_id, 'razorpay_payment_id': 'pay_x', 'razorpay_signature': 'sig_x',
+            }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_solo_payment_verify_still_works_unaffected(self):
+        # Confirms the fallback never interferes with the existing solo path -- a solo
+        # /initiate/ payment's gateway_order_id is found and handled by the first branch,
+        # never falling through to the PaymentOrder lookup.
+        seed_payment_statuses()
+        client, customer = make_customer(phone_number='+919000063015')
+        _, _, profile = make_artist(phone_number='+919000063016')
+        sub = make_sub_category()
+        package = make_package(profile, sub_category=sub, price=1000)
+        location_type = make_location_type()
+        booking = make_booking(
+            customer, profile, package, location_type,
+            booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
+        )
+        with patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client', return_value=self.mock_razorpay_client):
+            init_resp = client.post('/customers/payments/initiate/', {'booking_id': booking.booking_id}, format='json')
+        self.assertEqual(init_resp.status_code, 201)
+        order_id_str = init_resp.data['data']['gateway_order_id']
+        amount_paise = init_resp.data['data']['amount']
+
+        self.mock_razorpay_client.payment.fetch.return_value = {
+            'id': 'pay_solo', 'order_id': order_id_str, 'status': 'captured', 'amount': amount_paise,
+        }
+        self.mock_razorpay_client.order.fetch.return_value = {
+            'id': order_id_str, 'amount': amount_paise, 'amount_paid': amount_paise,
+            'amount_due': 0, 'currency': 'INR', 'status': 'paid',
+        }
+        with patch('sunndari_apps.payments.views.verify_payment.RazorpayGateway.get_client', return_value=self.mock_razorpay_client):
+            verify_resp = client.post(self.verify_url, {
+                'razorpay_order_id': order_id_str, 'razorpay_payment_id': 'pay_solo', 'razorpay_signature': 'sig_ok',
+            }, format='json')
+        self.assertEqual(verify_resp.status_code, 200)
+        payment = Payment.objects.get(booking_id=booking.booking_id)
+        self.assertEqual(payment.status.name, 'paid')
+        self.assertIsNone(payment.order)

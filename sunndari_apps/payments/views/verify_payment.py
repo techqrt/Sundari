@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.core.models.payment_status import PaymentStatus
-from sunndari_apps.payments.models import Payment
+from sunndari_apps.payments.models import Payment, PaymentOrder
 from sunndari_apps.payments.gateway import RazorpayGateway
 from sunndari_apps.payments.dataclasses.request.update.verify_payment import VerifyPaymentRequest
 from sunndari_apps.notifications.utils import NotificationService
@@ -19,14 +19,29 @@ class VerifyPaymentView:
     real via two separate checks — a cryptographic signature check (proves the values
     weren't fabricated by the client, since only Razorpay and this server's key_secret
     can produce a valid one) and a live Razorpay API fetch (proves the payment actually
-    exists and was captured, not just that the signature format was well-formed)."""
+    exists and was captured, not just that the signature format was well-formed).
+
+    Handles two shapes of gateway_order_id: a solo /initiate/ payment's own, or a
+    /initiate_group/ PaymentOrder's — tried in that order. The solo lookup is checked
+    first and, if it finds a row at all, is handled exactly as before this feature
+    existed (including its own ownership check) without ever falling through — the two
+    tables' gateway_order_id columns are each independently unique, so an id that
+    belongs to a solo payment can never also belong to a PaymentOrder."""
 
     @Common().exception_handler
     def verify_extract(self, params: VerifyPaymentRequest):
         payment = Payment.get_by_gateway_order_id(gateway_order_id=params.razorpay_order_id)
-        if not payment or payment['customer_id'] != params.user_id:
-            raise ValueError(Constants.payment_not_found)
+        if payment is not None:
+            if payment['customer_id'] != params.user_id:
+                raise ValueError(Constants.payment_not_found)
+            return self._verify_solo(params, payment)
 
+        order = PaymentOrder.get_by_gateway_order_id(gateway_order_id=params.razorpay_order_id)
+        if order is None or order['customer_id'] != params.user_id:
+            raise ValueError(Constants.payment_not_found)
+        return self._verify_group(params, order)
+
+    def _verify_solo(self, params: VerifyPaymentRequest, payment: dict):
         current_status = PaymentStatus.objects.filter(
             status_id=payment['status_id'],
         ).values_list('name', flat=True).first()
@@ -104,6 +119,89 @@ class VerifyPaymentView:
             type='payment_status',
             booking_id=payment['booking_id'],
         )
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Payment verified successfully')
+        )
+
+    def _verify_group(self, params: VerifyPaymentRequest, order: dict):
+        """Same verification logic as _verify_solo, checked against the PaymentOrder's
+        total_amount instead of a single Payment's amount, and marking the whole order
+        (and every Payment under it, via PaymentOrder.mark_paid/mark_failed's own
+        cascade) paid or failed together — a group checkout is one gateway transaction,
+        so it succeeds or fails as one unit, never partially."""
+        current_status = PaymentStatus.objects.filter(
+            status_id=order['status_id'],
+        ).values_list('name', flat=True).first()
+
+        if current_status == 'paid':
+            return Response(
+                status=status.HTTP_200_OK,
+                data=Utils.success_response_data(message='Payment already verified')
+            )
+        if current_status in ('refunded', 'partially_refunded'):
+            raise ValueError(Constants.payment_not_verifiable)
+
+        client = RazorpayGateway.get_client()
+
+        try:
+            client.utility.verify_payment_signature({
+                'razorpay_order_id': params.razorpay_order_id,
+                'razorpay_payment_id': params.razorpay_payment_id,
+                'razorpay_signature': params.razorpay_signature,
+            })
+        except razorpay.errors.SignatureVerificationError:
+            failed_status = PaymentStatus.objects.filter(name='failed').first()
+            PaymentOrder.mark_failed(
+                order_id=order['order_id'], status_id=failed_status.status_id,
+                failure_reason='Signature verification failed',
+            )
+            raise ValueError(Constants.payment_signature_invalid)
+
+        try:
+            razorpay_payment = client.payment.fetch(params.razorpay_payment_id)
+            razorpay_order = client.order.fetch(params.razorpay_order_id)
+        except (razorpay.errors.BadRequestError, razorpay.errors.ServerError, razorpay.errors.GatewayError):
+            raise ValueError(Constants.payment_verification_mismatch)
+
+        expected_amount_paise = int(round(order['total_amount'] * 100))
+        is_valid = (
+            razorpay_payment.get('order_id') == params.razorpay_order_id
+            and razorpay_payment.get('status') == 'captured'
+            and razorpay_order.get('amount') == expected_amount_paise
+            and razorpay_order.get('amount_paid') == razorpay_order.get('amount')
+            and razorpay_order.get('status') == 'paid'
+        )
+        if not is_valid:
+            failed_status = PaymentStatus.objects.filter(name='failed').first()
+            PaymentOrder.mark_failed(
+                order_id=order['order_id'], status_id=failed_status.status_id,
+                failure_reason=(
+                    f"Gateway reported payment status='{razorpay_payment.get('status')}', "
+                    f"order status='{razorpay_order.get('status')}'"
+                ),
+            )
+            raise ValueError(Constants.payment_verification_mismatch)
+
+        paid_status = PaymentStatus.objects.filter(name='paid').first()
+        PaymentOrder.mark_paid(
+            order_id=order['order_id'],
+            gateway_payment_id=params.razorpay_payment_id,
+            status_id=paid_status.status_id,
+        )
+        # One notification per booking in the group, same as if each had been paid
+        # individually — every Payment in a group belongs to the same customer
+        # (validated at /initiate_group/ time), so this is just a fan-out, not a
+        # per-payment ownership check.
+        booking_ids = Payment.objects.filter(order_id=order['order_id']).values_list('booking_id', flat=True)
+        for booking_id in booking_ids:
+            NotificationService.notify(
+                user_id=order['customer_id'],
+                title='Payment status update',
+                message='Your payment was received successfully.',
+                type='payment_status',
+                booking_id=booking_id,
+            )
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message='Payment verified successfully')
