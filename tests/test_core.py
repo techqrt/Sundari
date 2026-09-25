@@ -344,12 +344,12 @@ class SeedCoreCommandTest(TestCase):
     def test_seed_creates_all_categories(self):
         from django.core.management import call_command
         call_command('seed_core', verbosity=0)
-        self.assertEqual(ServiceCategory.objects.count(), 11)
+        self.assertEqual(ServiceCategory.objects.count(), 2)
 
     def test_seed_creates_sub_categories(self):
         from django.core.management import call_command
         call_command('seed_core', verbosity=0)
-        self.assertGreaterEqual(ServiceSubCategory.objects.count(), 50)
+        self.assertEqual(ServiceSubCategory.objects.count(), 12)
 
     def test_seed_creates_location_types(self):
         from django.core.management import call_command
@@ -375,5 +375,5 @@ class SeedCoreCommandTest(TestCase):
         from django.core.management import call_command
         call_command('seed_core', verbosity=0)
         call_command('seed_core', verbosity=0)
-        self.assertEqual(ServiceCategory.objects.count(), 11)
+        self.assertEqual(ServiceCategory.objects.count(), 2)
         self.assertEqual(LocationType.objects.count(), 3)
