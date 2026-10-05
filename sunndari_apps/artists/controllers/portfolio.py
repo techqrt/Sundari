@@ -14,6 +14,7 @@ from sunndari_apps.artists.serializers.request.get.get_portfolio import GetPortf
 from sunndari_apps.artists.serializers.request.delete.delete_portfolio import DeletePortfolioSerializer
 from sunndari_apps.artists.serializers.response.get.get_portfolio import PortfolioResponseSerializer
 from sunndari_apps.artists.serializers.response.get_all.get_all_portfolio import PortfolioResponseGetAllSerializer
+from sunndari_apps.artists.serializers.request.update.reorder_portfolio import ReorderPortfolioSerializer
 from sunndari_apps.artists.views.portfolio import PortfolioView
 
 
@@ -84,3 +85,18 @@ class PortfolioController:
     @SerializerValidations(serializer=GetAllSerializer).validate
     def get_all_portfolio(request: Request) -> Response:
         return PortfolioView().get_all_extract(params=request.params)
+
+    @extend_schema(
+        description=(
+            'Set the display order of your portfolio: send portfolio ids in the order you want them first. '
+            'Items you leave out keep their relative order after the listed ones.'
+        ),
+        request=ReorderPortfolioSerializer,
+        responses=SwaggerPage.response(description='Portfolio reordered successfully'),
+        tags=['Artists - Portfolio'],
+    )
+    @api_view(['PUT'])
+    @permission_classes([IsAuthenticated])
+    @SerializerValidations(serializer=ReorderPortfolioSerializer).validate
+    def reorder_portfolio(request: Request) -> Response:
+        return PortfolioView().reorder_extract(params=request.params)

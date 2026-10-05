@@ -661,3 +661,159 @@ class ArtistProfileTest(TestCase):
         resp = self.client.post('/auth/token/refresh/', {'refresh_token': refresh_token})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data['data']['role'], 'artist')
+
+
+# ─── Role hardening (admin cannot be self-assigned) ───────────────────────────
+
+class PublicRoleRestrictionTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_register_with_admin_role_returns_400_and_creates_no_user(self):
+        resp = self.client.post('/auth/register/', {
+            'name': 'Mallory', 'phone_number': '+919000000900', 'password': 'Zr7!kQp2mWx', 'role': 'admin',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(User.objects.filter(phone_number='+919000000900').exists())
+
+    @patch('sunndari_apps.authentication.views.send_otp_sms')
+    def test_phone_otp_request_with_admin_role_returns_400(self, mock_sms):
+        resp = self.client.post('/auth/phone-otp/request/', {'phone_number': '+919000000901', 'role': 'admin'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(User.objects.filter(phone_number='+919000000901').exists())
+        mock_sms.assert_not_called()
+
+    @patch('sunndari_apps.authentication.views.send_otp_email')
+    def test_email_otp_request_with_admin_role_returns_400(self, mock_email):
+        resp = self.client.post('/auth/email-otp/request/', {'email': 'mallory@example.com', 'role': 'admin'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(User.objects.filter(email='mallory@example.com').exists())
+
+    @patch('sunndari_apps.authentication.views.verify_google_token',
+           return_value={'google_id': 'g-admin', 'email': 'g-admin@example.com', 'name': 'G'})
+    def test_google_auth_with_admin_role_returns_400(self, _mock):
+        resp = self.client.post('/auth/google/', {'id_token': 'x', 'role': 'admin'})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(User.objects.filter(google_id='g-admin').exists())
+
+    def test_register_with_artist_and_customer_roles_still_works(self):
+        for i, role in enumerate(['artist', 'customer']):
+            resp = self.client.post('/auth/register/', {
+                'name': 'Ok', 'phone_number': f'+91900000091{i}', 'password': 'Zr7!kQp2mWx', 'role': role,
+            }, format='json')
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(User.objects.get(phone_number=f'+91900000091{i}').role, role)
+
+
+# ─── Forgot / reset password ──────────────────────────────────────────────────
+
+class ForgotResetPasswordTest(TestCase):
+    forgot_url = '/auth/forgot-password/'
+    reset_url = '/auth/reset-password/'
+    phone = '+919000000920'
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = make_user(phone_number=self.phone, email='reset@example.com')
+        self.user.set_password('old-password-1')
+        self.user.save()
+
+    @patch('sunndari_apps.authentication.views.send_otp_sms')
+    def test_forgot_password_by_phone_sends_otp(self, mock_sms):
+        resp = self.client.post(self.forgot_url, {'username': self.phone})
+        self.assertEqual(resp.status_code, 200)
+        mock_sms.assert_called_once()
+        self.user.refresh_from_db()
+        self.assertIsNotNone(self.user.otp)
+
+    @patch('sunndari_apps.authentication.views.send_otp_email')
+    def test_forgot_password_by_email_sends_email_otp(self, mock_email):
+        resp = self.client.post(self.forgot_url, {'username': 'reset@example.com'})
+        self.assertEqual(resp.status_code, 200)
+        mock_email.assert_called_once()
+
+    @patch('sunndari_apps.authentication.views.send_otp_sms')
+    def test_forgot_password_unknown_user_returns_same_200_and_sends_nothing(self, mock_sms):
+        known = self.client.post(self.forgot_url, {'username': self.phone})
+        unknown = self.client.post(self.forgot_url, {'username': '+919000000999'})
+        self.assertEqual(unknown.status_code, 200)
+        self.assertEqual(unknown.data['message'], known.data['message'])
+        self.assertEqual(mock_sms.call_count, 1)
+
+    def _request_otp(self):
+        with patch('sunndari_apps.authentication.views.send_otp_sms'):
+            self.client.post(self.forgot_url, {'username': self.phone})
+        self.user.refresh_from_db()
+        return self.user.otp
+
+    def test_reset_password_success_sets_password_nulls_otp_and_revokes_sessions(self):
+        self.user.access_token = 'old-access'
+        self.user.refresh_token = 'old-refresh'
+        self.user.save()
+        otp = self._request_otp()
+        resp = self.client.post(self.reset_url, {
+            'username': self.phone, 'otp': str(otp), 'new_password': 'brand-new-pass-2',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('brand-new-pass-2'))
+        self.assertFalse(self.user.check_password('old-password-1'))
+        self.assertIsNone(self.user.otp)
+        self.assertIsNone(self.user.otp_expiry)
+        self.assertEqual(self.user.access_token, '')
+        self.assertEqual(self.user.refresh_token, '')
+        login = self.client.post('/auth/login/', {'username': self.phone, 'password': 'brand-new-pass-2'})
+        self.assertEqual(login.status_code, 200)
+
+    def test_reset_password_otp_cannot_be_reused(self):
+        otp = self._request_otp()
+        payload = {'username': self.phone, 'otp': str(otp), 'new_password': 'brand-new-pass-2'}
+        self.assertEqual(self.client.post(self.reset_url, payload).status_code, 200)
+        payload['new_password'] = 'another-pass-333'
+        self.assertEqual(self.client.post(self.reset_url, payload).status_code, 400)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('brand-new-pass-2'))
+
+    def test_reset_password_wrong_otp_returns_400_and_counts_attempt(self):
+        otp = self._request_otp()
+        wrong = '000000' if otp != 0 else '111111'
+        resp = self.client.post(self.reset_url, {
+            'username': self.phone, 'otp': wrong, 'new_password': 'brand-new-pass-2',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.otp_attempts, 1)
+        self.assertTrue(self.user.check_password('old-password-1'))
+
+    def test_reset_password_locks_after_five_wrong_attempts(self):
+        otp = self._request_otp()
+        for _ in range(5):
+            self.client.post(self.reset_url, {'username': self.phone, 'otp': '000000', 'new_password': 'brand-new-pass-2'})
+        resp = self.client.post(self.reset_url, {
+            'username': self.phone, 'otp': str(otp), 'new_password': 'brand-new-pass-2',
+        })
+        self.assertEqual(resp.status_code, 403)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('old-password-1'))
+
+    def test_reset_password_expired_otp_returns_400(self):
+        otp = self._request_otp()
+        self.user.otp_expiry = timezone.now() - datetime.timedelta(minutes=1)
+        self.user.save()
+        resp = self.client.post(self.reset_url, {
+            'username': self.phone, 'otp': str(otp), 'new_password': 'brand-new-pass-2',
+        })
+        self.assertEqual(resp.status_code, 400)
+
+    def test_reset_password_unknown_user_returns_400(self):
+        resp = self.client.post(self.reset_url, {
+            'username': '+919000000999', 'otp': '123456', 'new_password': 'brand-new-pass-2',
+        })
+        self.assertEqual(resp.status_code, 400)
+
+    def test_reset_password_short_password_returns_400(self):
+        otp = self._request_otp()
+        resp = self.client.post(self.reset_url, {'username': self.phone, 'otp': str(otp), 'new_password': 'short'})
+        self.assertEqual(resp.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertIsNotNone(self.user.otp)

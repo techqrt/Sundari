@@ -2,11 +2,15 @@ from pathlib import Path
 from datetime import timedelta
 import os
 import sys
+from decouple import config
 from sunndari.config import Configurations
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-change-this-in-production'
+# Also the JWT signing key. Set SECRET_KEY in the environment for any real deployment; the
+# fallback is the previous hard-coded value so existing local setups keep working, but it is
+# public (it is in git history) and must never be used in production.
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 
 DEBUG = Configurations.debug
 
@@ -137,6 +141,16 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Fernet key for encrypting sensitive fields (ID numbers). Falls back to a SECRET_KEY-derived key.
+FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='')
+# Never served by URL — KYC documents live here (see common/storage.PrivateMediaStorage).
+PRIVATE_MEDIA_ROOT = os.path.join(BASE_DIR, 'private_media')
+
+if TESTING:
+    # Uploads made by the test suite must not land in the real media folders.
+    import tempfile
+    MEDIA_ROOT = tempfile.mkdtemp(prefix='sunndari_test_media_')
+    PRIVATE_MEDIA_ROOT = tempfile.mkdtemp(prefix='sunndari_test_private_media_')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

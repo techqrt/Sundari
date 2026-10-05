@@ -1,6 +1,11 @@
+import logging
 import uuid
 from django.db import models, transaction
 from django.utils import timezone
+
+from sunndari_apps.payments.gateway import RazorpayGateway
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentOrder(models.Model):
@@ -90,6 +95,19 @@ class PaymentOrder(models.Model):
                 gateway_payment_id=gateway_payment_id, status_id=status_id,
                 paid_at=order.paid_at, failure_reason=None, updated_at=timezone.now(),
             )
+
+    @staticmethod
+    def mark_paid_checked(order_id: int, gateway_payment_id: str, status_id: int) -> bool:
+        """mark_paid() for a group order, refusing (and changing nothing) if any booking in it
+        would be pushed past its total by the payment it carries."""
+        from sunndari_apps.customers.models.booking import Booking
+        with transaction.atomic():
+            for payment in Payment.objects.select_for_update().filter(order_id=order_id):
+                booking = Booking.objects.select_for_update().get(booking_id=payment.booking_id)
+                if Payment.total_settled_for_booking(payment.booking_id) + payment.amount > booking.total_amount:
+                    return False
+            PaymentOrder.mark_paid(order_id=order_id, gateway_payment_id=gateway_payment_id, status_id=status_id)
+            return True
 
     @staticmethod
     def mark_failed(order_id: int, status_id: int, failure_reason: str = None) -> None:
@@ -284,6 +302,20 @@ class Payment(models.Model):
         payment.save()
 
     @staticmethod
+    def mark_paid_checked(payment_id: int, gateway_payment_id: str, status_id: int) -> bool:
+        """mark_paid(), but only if the booking is not pushed past its total by this payment.
+        The booking row is locked for the check so two payments verified at the same moment
+        cannot both pass it. Returns False (and changes nothing) when it would overpay."""
+        from sunndari_apps.customers.models.booking import Booking
+        with transaction.atomic():
+            payment = Payment.objects.select_for_update().get(payment_id=payment_id)
+            booking = Booking.objects.select_for_update().get(booking_id=payment.booking_id)
+            if Payment.total_settled_for_booking(payment.booking_id) + payment.amount > booking.total_amount:
+                return False
+            Payment.mark_paid(payment_id=payment_id, gateway_payment_id=gateway_payment_id, status_id=status_id)
+            return True
+
+    @staticmethod
     def mark_paid_via_wallet(payment_id: int, status_id: int) -> None:
         """For a payment fully covered by redeemed coins — no Razorpay order was ever
         created (a ₹0 order would be rejected by the gateway outright), so this clears
@@ -306,9 +338,48 @@ class Payment(models.Model):
         payment.save()
 
     @staticmethod
-    def mark_refunded(booking_id: int, status_id: int) -> None:
-        # Full-refund stub: real cancellation policy (full vs partial vs none, based on
-        # notice period) and the gateway refund API call both still need to be plugged in.
-        Payment.objects.filter(booking_id=booking_id, status__name='paid').update(
-            status_id=status_id, updated_at=timezone.now(),
-        )
+    def _refund_at_gateway(payment: 'Payment') -> str:
+        """Asks the gateway to return the cash part of one payment. Returns '' on success or a
+        short reason on failure. Wallet-only or zero-cash payments have nothing to return."""
+        if payment.gateway == 'wallet' or not payment.gateway_payment_id or payment.amount <= 0:
+            return ''
+        try:
+            RazorpayGateway.get_client().payment.refund(payment.gateway_payment_id, {
+                'amount': int(round(payment.amount * 100)),
+                'notes': {'payment_id': str(payment.payment_id), 'booking_id': str(payment.booking_id)},
+            })
+            return ''
+        except Exception as error:                      # network, auth, already-refunded, over-refund ...
+            logger.exception('Gateway refund failed for payment %s', payment.payment_id)
+            return f'Refund failed: {str(error)[:200]}'
+
+    @staticmethod
+    def mark_refunded(booking_id: int, status_id: int) -> dict:
+        """Refunds every paid payment of a booking. A payment only becomes 'refunded' once the
+        gateway has accepted the refund; if the gateway call fails the payment stays 'paid' with
+        the reason recorded (and the customer is told it is being handled), so the system never
+        claims money was returned when it was not. Use the `retry_refunds` command to retry."""
+        from sunndari_apps.notifications.utils import NotificationService
+        outcome = {'refunded': 0, 'pending': 0}
+        for payment in Payment.objects.filter(booking_id=booking_id, status__name='paid'):
+            problem = Payment._refund_at_gateway(payment)
+            if problem:
+                Payment.objects.filter(payment_id=payment.payment_id).update(failure_reason=problem, updated_at=timezone.now())
+                outcome['pending'] += 1
+                NotificationService.notify(
+                    user_id=payment.customer_id, title='Refund being processed',
+                    message='We could not return your payment automatically yet. Our team will complete the refund.',
+                    type='refund_pending', booking_id=booking_id,
+                )
+            else:
+                Payment.objects.filter(payment_id=payment.payment_id).update(
+                    status_id=status_id, failure_reason=None, updated_at=timezone.now(),
+                )
+                outcome['refunded'] += 1
+                if payment.amount > 0:
+                    NotificationService.notify(
+                        user_id=payment.customer_id, title='Refund initiated',
+                        message=f'A refund of ₹{payment.amount} has been initiated to your original payment method.',
+                        type='refund_initiated', booking_id=booking_id,
+                    )
+        return outcome

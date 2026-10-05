@@ -13,6 +13,8 @@ urlpatterns = [
     # Password
     path('register/', AuthController.register, name='auth_register'),
     path('login/', AuthController.login, name='auth_login'),
+    path('forgot-password/', AuthController.forgot_password, name='auth_forgot_password'),
+    path('reset-password/', AuthController.reset_password, name='auth_reset_password'),
 
     # Google
     path('google/', AuthController.google_auth, name='google_auth'),

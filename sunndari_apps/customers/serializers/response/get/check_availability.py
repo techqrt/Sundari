@@ -19,6 +19,9 @@ class AvailabilitySerializer(serializers.Serializer):
     isBlocked = serializers.BooleanField()
     workingWindow = WorkingWindowSerializer(allow_null=True)
     bookedRanges = serializers.ListField(child=BookedRangeSerializer())
+    blockedRanges = serializers.ListField(child=BookedRangeSerializer(), required=False)
+    bufferBeforeMinutes = serializers.IntegerField(required=False)
+    bufferAfterMinutes = serializers.IntegerField(required=False)
 
 
 class AvailabilityResponseSerializer(serializers.Serializer):

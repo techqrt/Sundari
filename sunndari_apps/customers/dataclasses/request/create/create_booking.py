@@ -11,3 +11,4 @@ class CreateBookingRequest:
     start_time: time
     address_id: int = None
     notes: str = None
+    addon_ids: list = None

@@ -8,6 +8,9 @@ class CreatePackageSerializer(serializers.Serializer):
     price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=500)
     duration_minutes = serializers.IntegerField(min_value=1)
     description = serializers.CharField(required=False, allow_blank=True)
+    makeup_type = serializers.CharField(required=False, allow_blank=True, max_length=50)
+    brands = serializers.ListField(child=serializers.CharField(max_length=50), required=False, max_length=10)
+    product_details = serializers.CharField(required=False, allow_blank=True)
     inclusions = serializers.ListField(child=serializers.CharField(max_length=300), required=False, default=list)
 
     def create(self, validated_data) -> CreatePackageRequest:

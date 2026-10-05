@@ -22,6 +22,9 @@ class Review(models.Model):
     )
     rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField(null=True, blank=True)
+    # The artist's public answer to this review (editable by the artist; null until given).
+    reply = models.TextField(null=True, blank=True)
+    replied_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -36,7 +39,7 @@ class Review(models.Model):
 
     VALUES_FIELDS = (
         'review_id', 'booking_id', 'customer_id', 'artist_id',
-        'rating', 'comment', 'created_at', 'updated_at',
+        'rating', 'comment', 'reply', 'replied_at', 'created_at', 'updated_at',
     )
 
     def create(self, booking_id: int, customer_id: int, artist_id: int, rating: int, comment: str = None) -> int:

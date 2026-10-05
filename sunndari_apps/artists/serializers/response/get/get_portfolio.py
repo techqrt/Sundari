@@ -10,6 +10,8 @@ class PortfolioSerializer(serializers.Serializer):
     caption = serializers.CharField(allow_null=True, allow_blank=True)
     approvalStatusId = serializers.IntegerField(allow_null=True)
     isActive = serializers.BooleanField()
+    isWorkSample = serializers.BooleanField(required=False)
+    sortOrder = serializers.IntegerField(required=False)
     createdAt = serializers.DateTimeField()
     updatedAt = serializers.DateTimeField()
 

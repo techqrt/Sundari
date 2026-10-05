@@ -1,4 +1,7 @@
 import razorpay
+from datetime import timedelta
+from django.db.models import Sum
+from django.utils import timezone
 from django.db import OperationalError
 from rest_framework import status
 from rest_framework.response import Response
@@ -71,12 +74,49 @@ class InitiatePaymentView:
         if amount <= 0 or amount > remaining_due:
             raise ValueError(Constants.invalid_payment_amount)
 
+        # Orders for this booking that were started recently and not yet paid or failed. A
+        # double-tap or a retry must not create a second order for the same money: the same
+        # amount is answered with the existing order, and anything that would commit more than
+        # the booking's remaining due is refused (otherwise two verified orders overpay it).
+        live_pending = Payment.objects.filter(
+            booking_id=params.booking_id, status__name='pending',
+            created_at__gte=timezone.now() - timedelta(minutes=Configurations.payment_pending_window_minutes),
+        )
+        if params.redemption_tier_id is None:
+            existing = live_pending.filter(order__isnull=True, amount=amount).exclude(
+                gateway_order_id__startswith='PENDING-',
+            ).order_by('-payment_id').first()
+            if existing:
+                return Response(
+                    status=status.HTTP_200_OK,
+                    data=Utils.success_response_data(
+                        message='A payment order for this amount is already open; reusing it.',
+                        data={
+                            'payment_id': existing.payment_id,
+                            'gateway_order_id': existing.gateway_order_id,
+                            'razorpay_key_id': Configurations.razorpay_key_id,
+                            'amount': int(round(existing.amount * 100)),
+                            'currency': Configurations.razorpay_currency,
+                        },
+                    )
+                )
+        committed = live_pending.aggregate(total=Sum('amount'))['total'] or 0
+        if committed + amount > remaining_due:
+            raise ValueError(Constants.payment_in_progress)
+
         # Commission/payout are always computed off `amount` — the pre-redemption
         # figure — never the post-redemption charge below. A coin redemption is a
         # platform-funded discount: the artist is paid as if the customer paid in full,
         # so redeeming coins never reduces what an artist receives.
         artist = ArtistProfile.objects.filter(artist_id=booking['artist_id']).first()
-        commission_amount = round(amount * artist.commission_rate / 100, 2)
+        # The rate snapshotted on the booking when it was created (so a later change to the
+        # artist's rate doesn't alter what was quoted); bookings that pre-date it fall back
+        # to the artist's current rate.
+        booking_rate = Booking.objects.filter(
+            booking_id=params.booking_id,
+        ).values_list('commission_rate', flat=True).first()
+        commission_rate = booking_rate if booking_rate is not None else artist.commission_rate
+        commission_amount = round(amount * commission_rate / 100, 2)
         artist_payout_amount = amount - commission_amount
 
         redemption_tier = None

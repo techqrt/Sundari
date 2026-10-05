@@ -1,0 +1,5555 @@
+[
+ {
+  "flow": "AUTH",
+  "name": "forgot-password gives the same answer for known and unknown accounts",
+  "result": "PASS",
+  "expected": "identical",
+  "actual": "200/200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "reset-password with the right code works",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "old password no longer works, new one does",
+  "result": "PASS",
+  "expected": "old 401, new 200",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "reset code is single use",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "login by phone valid",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "login by email valid",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "wrong password -> 401",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "401",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "unknown user -> same 401 and same message (no enumeration)",
+  "result": "PASS",
+  "expected": "identical",
+  "actual": "401/Authentication Error vs 401/Authentication Error",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "inactive user is NOT issued a token at login",
+  "result": "PASS",
+  "expected": "rejected (401/403)",
+  "actual": "403, token issued=False",
+  "severity": "",
+  "note": "PasswordAuthView.login never checks is_active; the token is useless afterwards (JWTAuthentication rejects it) but one is still issued"
+ },
+ {
+  "flow": "AUTH",
+  "name": "valid token accepted on protected endpoint",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "missing token -> 401",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "garbage token -> 401",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "expired token -> 401",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "validly-signed but never-issued token -> 401 (session must match stored token)",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "401",
+  "severity": "",
+  "note": "Signing key is the (public) default unless SECRET_KEY is set; the stored-token check is what blocks forging"
+ },
+ {
+  "flow": "AUTH",
+  "name": "alg=none token -> 401",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "token signed with another key -> 401",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "logging in again invalidates the previous access token (single session)",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "401",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "refresh token cannot be used as an access token",
+  "result": "PASS",
+  "expected": "401",
+  "actual": "401",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "access token cannot be used to refresh",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "401",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "valid refresh token issues a new pair",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "logout endpoint",
+  "result": "BLOCKED",
+  "expected": "",
+  "actual": "No logout/revoke endpoint exists in the API (session ends only by re-login or expiry)",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "phone OTP request creates user + sends code",
+  "result": "PASS",
+  "expected": "200, sent",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "second OTP request invalidates the first code",
+  "result": "PASS",
+  "expected": "new code issued",
+  "actual": "425203->321457",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "wrong OTP rejected",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "superseded (older) OTP rejected",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "correct OTP logs in and returns tokens",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "OTP cannot be reused after success",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "OTP nulled in DB after success",
+  "result": "PASS",
+  "expected": "None",
+  "actual": "None",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "expired OTP rejected",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "OTP brute-force lockout after 5 wrong tries (403)",
+  "result": "PASS",
+  "expected": "locked 403",
+  "actual": "[400, 400, 400, 400, 400, 403]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "locked account cannot succeed even with the right code",
+  "result": "PASS",
+  "expected": "403",
+  "actual": "403",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "OTP request for unknown phone without role",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "404 (reveals the number is unregistered)",
+  "severity": "P3",
+  "note": "Account enumeration: 404 vs 200 differs for registered/unregistered numbers"
+ },
+ {
+  "flow": "AUTH",
+  "name": "non-numeric OTP -> 400 not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register customer (valid)",
+  "result": "PASS",
+  "expected": "200 + token + role customer",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "customer registration creates no ArtistProfile",
+  "result": "PASS",
+  "expected": "no profile",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register artist creates exactly one ArtistProfile",
+  "result": "PASS",
+  "expected": "200, 1 profile",
+  "actual": "200, 1",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "duplicate phone rejected",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "duplicate email rejected",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "no duplicate users after duplicate attempts",
+  "result": "PASS",
+  "expected": "1",
+  "actual": "1",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects: missing name",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects: missing contact",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects: missing role",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects: invalid email",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects: invalid role",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects: admin role self-assign",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects: short password",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTH",
+  "name": "register rejects common/weak password \"12345678\" (only min length 8 is enforced)",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": "No complexity/common-password check; only min_length=8"
+ },
+ {
+  "flow": "AUTH",
+  "name": "over-long phone number rejected, no 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ",
+  "name": "unauthenticated sweep: 150 routes x 4 methods = 600 requests all rejected",
+  "result": "PASS",
+  "expected": "only 401/403/404/405",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ",
+  "name": "routes intentionally public",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "auth/email-otp/request/, auth/email-otp/verify/, auth/forgot-password/, auth/google/, auth/login/, auth/phone-otp/request/, auth/phone-otp/verify/, auth/register/, auth/reset-password/, auth/token/refresh/, core/pages/get/, public/artists/get/",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot GET artist A portfolio item",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot EDIT artist A portfolio item",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot DELETE artist A portfolio item",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot GET artist A portfolio item",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot EDIT artist A portfolio item",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot DELETE artist A portfolio item",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot REORDER using artist A portfolio ids",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot GET artist A package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot EDIT artist A package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot DELETE artist A package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot GET artist A package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot EDIT artist A package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot DELETE artist A package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot upload a photo to artist A package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot read artist A add-on",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot edit artist A add-on",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot delete artist A add-on",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist A cannot attach artist B package to an own add-on",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist A cannot re-link own add-on to artist B package",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot edit artist A service area",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot remove artist A service area",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot GET artist A KYC document",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot DOWNLOAD artist A KYC file",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot DELETE artist A KYC document",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot GET artist A KYC document",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot DOWNLOAD artist A KYC file",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot DELETE artist A KYC document",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Anonymous cannot download artist A KYC file",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 401, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B document list never contains artist A documents",
+  "result": "PASS",
+  "expected": "excluded",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer cannot use admin KYC list",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot use admin KYC list",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot verify artist A KYC document",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B payout GET never returns artist A account",
+  "result": "PASS",
+  "expected": "no A data",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer cannot read any payout account",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B setting a payout account does not overwrite artist A's",
+  "result": "PASS",
+  "expected": "A unchanged",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Payout GET response never exposes the full account number",
+  "result": "PASS",
+  "expected": "masked only",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B removing a block date never removes artist A's block",
+  "result": "PASS",
+  "expected": "A block kept",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B removing a weekday schedule never touches artist A's",
+  "result": "PASS",
+  "expected": "A schedule kept",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Public package list of an approved artist is readable (intended)",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot GET customer A address",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot EDIT customer A address",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot DELETE customer A address",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B address list excludes customer A addresses",
+  "result": "PASS",
+  "expected": "excluded",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B sees no private data (phone/email/tokens) of customer A - at most a name/role label",
+  "result": "PASS",
+  "expected": "only userId/name/role",
+  "actual": "HTTP 200; keys=['name', 'role', 'userId']",
+  "severity": "",
+  "note": "users/profile/get takes an arbitrary user_id; after the fix other users get a minimal label"
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Another user's access token is never present in any profile response",
+  "result": "PASS",
+  "expected": "absent",
+  "actual": "token leaked=False",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Another user's FCM/device token is never exposed",
+  "result": "PASS",
+  "expected": "absent",
+  "actual": "['name', 'role', 'userId']",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer can read an artist user profile by id",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "HTTP 200: ['name', 'role', 'userId']",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot GET artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot update status of artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot mark on-my-way for artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot confirm arrival for artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot verify start PIN for artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot verify completion PIN for artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot GET customer A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot CANCEL customer A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot read customer A start PIN",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot read customer A completion PIN",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer A cannot use artist status endpoint on own booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot request a reschedule",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot request a reschedule of artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot review customer A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot rate customer A after artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot open chat for artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot open chat for customer A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot post chat on customer A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot read chat of artist A booking",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Booking untouched after all cross-user attempts",
+  "result": "PASS",
+  "expected": "confirmed",
+  "actual": "confirmed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Another user cannot read a notification",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Another user cannot mark a notification read",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B notification feed excludes other users' notifications",
+  "result": "PASS",
+  "expected": "only own",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Artist B cannot add a private note for a customer who never booked them",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot read customer A ticket",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot download customer A ticket attachment",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B cannot close customer A ticket",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer cannot use admin ticket list",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer cannot change ticket status",
+  "result": "PASS",
+  "expected": "rejected, data untouched",
+  "actual": "HTTP 400, intact=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Customer B help-center chat never shows customer A's messages",
+  "result": "PASS",
+  "expected": "isolated",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "AUTHZ/IDOR",
+  "name": "Help-center customer route does not expose conversations to artist role incorrectly",
+  "result": "PASS",
+  "expected": "isolated",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "SECURITY",
+  "name": "Attacker (plain customer) obtains the admin access token through /users/profile/get/",
+  "result": "PASS",
+  "expected": "no token in response",
+  "actual": "token obtained=False",
+  "severity": "",
+  "note": "User.get() selects access_token; UsersUtils mapper only renames known columns and passes the rest through"
+ },
+ {
+  "flow": "SECURITY",
+  "name": "Own profile response should also not echo the bearer token",
+  "result": "PASS",
+  "expected": "absent",
+  "actual": "['createdAt', 'email', 'fcmToken', 'isActive', 'name', 'phoneNumber', 'role', 'userId']",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "profile update accepts all registration fields",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "specialities set",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "profile + cover photo upload",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "work sample upload",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "artist can log in again after profile setup",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "every registration field survives logout/login",
+  "result": "PASS",
+  "expected": "all persisted",
+  "actual": "all present",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "profile + cover photo URLs returned after re-login",
+  "result": "PASS",
+  "expected": "both URLs",
+  "actual": "('http://testserver/media/artist_photos/artist_1/0111778f83334c7daa7ea59e78cfe0fe.png', 'http://testserver/media/artist_photos/artist_1/eb1b3177d7b74826b12a92574a1c2579.png')",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "work sample persisted in DB",
+  "result": "PASS",
+  "expected": "1",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "PROFILE",
+  "name": "re-upload replaces photo and removes the old file",
+  "result": "PASS",
+  "expected": "replaced, old file gone",
+  "actual": "artist_photos/artist_1/0111778f83334c7daa7ea59e78cfe0fe.png -> artist_photos/artist_1/e62bf14d180345c68e86102466d0cb54.png",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "SECURITY",
+  "name": "profile update ignores protected fields (commission, approval, rating, slug, counters, agreement)",
+  "result": "PASS",
+  "expected": "all unchanged",
+  "actual": "commission=10.00 status=pending rating=0.00 reviews=0 slug=None",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "SECURITY",
+  "name": "profile update with another artist_id/user_id does not touch that artist",
+  "result": "PASS",
+  "expected": "unchanged",
+  "actual": "None",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "SECURITY",
+  "name": "user profile update cannot change role / is_active / token (mass assignment)",
+  "result": "PASS",
+  "expected": "unchanged",
+  "actual": "role=artist active=True",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "incomplete onboarding cannot be submitted",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "artist cannot approve self via admin endpoint",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "artist cannot reject a competitor via admin endpoint",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "unapproved artist is hidden from customer search",
+  "result": "PASS",
+  "expected": "hidden",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create with extras",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package extras persisted and category derived",
+  "result": "PASS",
+  "expected": "persisted",
+  "actual": "{'packageId': 2, 'artistId': 1, 'subCategoryId': 1, 'name': 'QA pkg', 'price': '1000.00', 'durationMinutes': 60, 'description': None, 'makeupType': 'HD', 'productDetails': 'Airbrush', 'photoUrl': None, 'isActive': True, 'createdAt': '2026-10-05T05:57:59.395662+00:00', 'updatedAt': '2026-10-05T05:57:59.395716+00:00', 'brands': ['MAC', 'Huda'], 'category': {'categoryId': 1, 'name': 'QA Makeup'}, 'in",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create rejects price below minimum (499) (controlled 4xx)",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create rejects negative price (controlled 4xx)",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create rejects zero duration (controlled 4xx)",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create rejects text price (controlled 4xx)",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create rejects price too many digits (controlled 4xx)",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create rejects missing name (controlled 4xx)",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package create rejects name too long (controlled 4xx)",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package boundary: minimum price 500 / duration 1 accepted",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "package with an absurd duration (100000 min) is accepted",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "HTTP 201: can never be booked (slot would pass midnight)",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "editing a package after booking does not rewrite the booking (total/slot)",
+  "result": "PASS",
+  "expected": "total 1500.00, end 11:00",
+  "actual": "total 1500.00, end 11:00:00",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "deleting a package that has bookings is refused with a clear 4xx and keeps the booking",
+  "result": "PASS",
+  "expected": "controlled refusal",
+  "actual": "HTTP 400: Exception Error (\"Cannot delete some instances of model 'PricingPackage' because they are referenced through protected foreign keys: 'Booking.package'.\", {<Booking: Booking #1 (Customer #2 \u2192 Artist #1)>})",
+  "severity": "",
+  "note": "Booking.package is PROTECT; ideal behaviour is a specific message (or soft-delete), not a generic database error"
+ },
+ {
+  "flow": "CONTENT",
+  "name": "message shown to the artist when deleting a package that has bookings",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "Exception Error (\"Cannot delete some instances of model 'PricingPackage' because they are referenced through protected foreign keys: 'Booking.package'.\", {<Booking: Booking #1 (Customer #2 \u2192 Artist #1)>})",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "deactivating a package keeps existing bookings and blocks new ones",
+  "result": "PASS",
+  "expected": "booking kept, new refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio create",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio listing returns items in creation order",
+  "result": "PASS",
+  "expected": "[1, 2, 3]",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio reorder persists",
+  "result": "PASS",
+  "expected": "reversed",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio edit persists",
+  "result": "PASS",
+  "expected": "edited",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio file physically stored under MEDIA_ROOT",
+  "result": "PASS",
+  "expected": "file exists",
+  "actual": "portfolios/artist_1/7a23cee30c66422db3cf6e83f8df2837.png",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio delete removes the row",
+  "result": "PASS",
+  "expected": "deleted",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio delete also removes the stored file (no orphan)",
+  "result": "PASS",
+  "expected": "file removed",
+  "actual": "file still on disk",
+  "severity": "",
+  "note": "Portfolio.remove() deletes the row only; the uploaded media stays on disk forever"
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio create rejects missing media_type with a controlled 4xx",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio create rejects bad media_type with a controlled 4xx",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio create rejects missing sub_category with a controlled 4xx",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio create without a file -> 400",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONTENT",
+  "name": "portfolio capped at 20 active items",
+  "result": "PASS",
+  "expected": "20",
+  "actual": "20",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "valid PNG accepted",
+  "result": "PASS",
+  "expected": "accepted",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "HTML renamed .png rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "PHP with PNG body but .php extension rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "PNG body with .jpg extension (type mismatch) rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "SVG with script rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "GIF (not allowed) rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "empty file rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "truncated PNG header rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "random bytes with image MIME rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "oversize (>5 MB) rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "executable with image extension rejected",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "decompression-bomb dimensions (16000x16000) rejected without crashing",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "PNG+HTML polyglot (valid image) is accepted but never served as HTML",
+  "result": "PASS",
+  "expected": "accepted",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "filename '../../evil.png': rejected or stored safely inside MEDIA_ROOT under a random name",
+  "result": "PASS",
+  "expected": "safe",
+  "actual": "200 -> artist_photos/artist_1/0280953a7d244144aaa82b27be382cce.png",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "filename '..\\\\..\\\\evil.png': rejected or stored safely inside MEDIA_ROOT under a random name",
+  "result": "PASS",
+  "expected": "safe",
+  "actual": "200 -> artist_photos/artist_1/df15a43854164a158b4e993e7efb1205.png",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "filename 'aaaaaaaaaaaaaaaaaaaaaaaa': rejected or stored safely inside MEDIA_ROOT under a random name",
+  "result": "PASS",
+  "expected": "safe",
+  "actual": "200 -> artist_photos/artist_1/aab7cb2a52fd40798781d9af67bab2c4.png",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "filename '\u00fcn\u00ef\u00a9ode.png': rejected or stored safely inside MEDIA_ROOT under a random name",
+  "result": "PASS",
+  "expected": "safe",
+  "actual": "200 -> artist_photos/artist_1/fee491767c604fa6bc1e723364463a02.png",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "filename 'nul\\x00.png': rejected or stored safely inside MEDIA_ROOT under a random name",
+  "result": "PASS",
+  "expected": "safe",
+  "actual": "200 -> artist_photos/artist_1/a07776dd2db44cd1a556317dc118788b.png",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "KYC rejects HTML",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "KYC accepts a real PDF",
+  "result": "PASS",
+  "expected": "accepted",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "KYC file is stored outside the public MEDIA_ROOT",
+  "result": "PASS",
+  "expected": "private storage only",
+  "actual": "artist_documents/artist_1/011a3fd1f4864664b2a924e1b0f0011d.pdf",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "KYC file has no public URL",
+  "result": "PASS",
+  "expected": "url raises",
+  "actual": "raises",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "KYC owner download returns the file with nosniff and no-store",
+  "result": "PASS",
+  "expected": "safe headers",
+  "actual": "{'Content-Type': 'application/pdf', 'Content-Length': '11', 'Content-Disposition': 'inline; filename=\"document_1_front.pdf\"', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': \"sandbox; default-src 'none'\", 'Cache-Control': 'private, no-store', 'Vary': 'Accept, origin', 'Allow': 'OPTIONS, GET', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'same-origin', 'Cross-Origin-Opener-Policy':",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "UPLOAD",
+  "name": "public media (portfolio/profile photos) reachable by URL in production",
+  "result": "UNVERIFIED",
+  "expected": "",
+  "actual": "Served by Django static() only when DEBUG; the production web-server mapping is not in the repo",
+  "severity": "P2",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "onboarding setup calls all succeed over HTTP",
+  "result": "PASS",
+  "expected": "all 2xx",
+  "actual": "{'profile': 200, 'sample': 201, 'service': 201, 'package': 201, 'location': 201, 'schedule': 200, 'document': 201, 'bank': 200}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "initial status is in_progress, agreement step incomplete",
+  "result": "PASS",
+  "expected": "in_progress",
+  "actual": "in_progress",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "submit refused while a step (agreement) is incomplete",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "admin cannot approve or reject an artist who never submitted",
+  "result": "PASS",
+  "expected": "both refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "complete onboarding submits",
+  "result": "PASS",
+  "expected": "submitted",
+  "actual": "submitted",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "second submit while already submitted",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "HTTP 200 (idempotent re-submit re-stamps submittedForReviewAt)",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "submitted artist appears in the admin review queue",
+  "result": "PASS",
+  "expected": "listed",
+  "actual": "[1]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "admin review detail shows registration fields + work sample",
+  "result": "PASS",
+  "expected": "visible",
+  "actual": "['approvalStatus', 'artistId', 'bio', 'city', 'coverPhotoUrl', 'dateOfBirth']",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "approval blocked while the ID proof is unverified",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "customer cannot approve",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "artist cannot approve",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "anonymous cannot approve",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "401",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "rejection stores reason, status=rejected, leaves the review queue",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "rejected",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "artist can read the admin feedback",
+  "result": "PASS",
+  "expected": "feedback visible",
+  "actual": "[{'feedbackId': 1, 'decision': 'rejected', 'message': 'Please add a clearer work sample', 'createdAt': '2026-10-05T05:57:59.872761+00:00'}]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "admin cannot approve a rejected artist who has not resubmitted",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "artist resubmits after rejection and re-enters the queue",
+  "result": "PASS",
+  "expected": "resubmitted",
+  "actual": "submitted",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "admin approves the resubmission",
+  "result": "PASS",
+  "expected": "approved",
+  "actual": "approved",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "double approval is idempotent",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "approved artist cannot re-submit",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "approved artist is now discoverable by customers",
+  "result": "PASS",
+  "expected": "listed",
+  "actual": "[1]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "feedback history keeps every round (rejected then approved)",
+  "result": "PASS",
+  "expected": "['rejected', 'approved']",
+  "actual": "['rejected', 'approved']",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "lifecycle vs requirement",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "Implemented: pending -> submitted -> approved/rejected -> resubmit (status label stays \"rejected\"; owner decided not to add a separate \"changes_required\" status). A \"Draft\" state is derived (not_started/in_progress), not stored.",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "approve/reject cannot lift a suspension",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "APPROVAL",
+  "name": "suspension has no API",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "There is no endpoint to suspend or un-suspend an artist (Django admin only)",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "add bank account",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "GET returns masked number + holder + IFSC, never the raw number",
+  "result": "PASS",
+  "expected": "masked",
+  "actual": "{'payoutAccountId': 1, 'artistId': 1, 'accountHolderName': 'KYC Artist', 'ifscCode': 'HDFC0001234', 'upiId': None, 'verificationStatusId': 1, 'createdAt': '2026-10-05T05:57:59.913028+00:00', 'updatedAt': '2026-10-05T05:57:59.913065+00:00', 'bankAccountNumberMasked': 'XXXXXXXX9012'}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "update replaces the account (single row) and keeps UPI",
+  "result": "PASS",
+  "expected": "one updated account",
+  "actual": "{'payoutAccountId': 1, 'artistId': 1, 'accountHolderName': 'KYC Artist', 'ifscCode': 'HDFC0001234', 'upiId': 'artist@upi', 'verificationStatusId': 1, 'createdAt': '2026-10-05T05:57:59.913028+00:00', 'updatedAt': '2026-10-05T05:57:59.916676+00:00', 'bankAccountNumberMasked': 'XXXXXXXX7777'}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "rejects IFSC lowercase-invalid",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "rejects IFSC 11 chars bad pattern",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "rejects short account number",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "rejects account number with letters",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "rejects over-long account number",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "rejects empty holder name",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "two artists can register the same bank account number",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "HTTP 200: encrypted non-deterministically so duplicates cannot be detected",
+  "severity": "P3",
+  "note": "Fraud-risk design note; no uniqueness possible without a deterministic hash"
+ },
+ {
+  "flow": "BANK",
+  "name": "customer cannot set a payout account",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "unauthenticated cannot read/set payout account",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "bank account number encrypted at rest",
+  "result": "PASS",
+  "expected": "ciphertext",
+  "actual": "gAAAAABqwzxn",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "changing the account resets its verification to pending",
+  "result": "PASS",
+  "expected": "pending",
+  "actual": "pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "payout provider integration",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "NOT IMPLEMENTED: bank details are stored only; no endpoint verifies an account and no payout provider/ledger exists (owner skipped earnings & payouts)",
+  "severity": "P1",
+  "note": ""
+ },
+ {
+  "flow": "BANK",
+  "name": "verification of payout accounts",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "No admin endpoint can mark a payout account verified (verification_status stays pending forever)",
+  "severity": "P2",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "aadhaar: valid submission accepted",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "aadhaar: database stores the distinct id_type",
+  "result": "PASS",
+  "expected": "aadhaar",
+  "actual": "aadhaar",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "voter_id: valid submission accepted",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "voter_id: database stores the distinct id_type",
+  "result": "PASS",
+  "expected": "voter_id",
+  "actual": "voter_id",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "passport: valid submission accepted",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "passport: database stores the distinct id_type",
+  "result": "PASS",
+  "expected": "passport",
+  "actual": "passport",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "driving_licence: valid submission accepted",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "driving_licence: database stores the distinct id_type",
+  "result": "PASS",
+  "expected": "driving_licence",
+  "actual": "driving_licence",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects invalid id_type",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects missing id_type",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects missing document number",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects empty document number",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects aadhaar wrong length",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects aadhaar starting with 0/1",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects voter id wrong pattern",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects passport wrong pattern",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects driving licence wrong pattern",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects aadhaar without back image",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects SQL-ish document number",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects a submission with no image at all",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "rejects an unknown document_type",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "resubmitting an ID proof replaces the previous one (exactly one remains)",
+  "result": "PASS",
+  "expected": "1",
+  "actual": "1",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "resubmission resets verification to pending",
+  "result": "PASS",
+  "expected": "pending",
+  "actual": "pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC-SECURITY",
+  "name": "owner API shows a masked document number only",
+  "result": "PASS",
+  "expected": "masked",
+  "actual": "{'status': True, 'message': 'Data fetched successfully', 'data': {'data': [{'documentId': 6, 'artistId': 1, 'documentType': 'id_proof', 'idType': 'passport', 'd",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC-SECURITY",
+  "name": "raw ID number is not stored in plaintext in the database",
+  "result": "PASS",
+  "expected": "encrypted/masked at rest",
+  "actual": "XXXX4321 / gAAAAABqwzxnriEfhcP2",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC-SECURITY",
+  "name": "Aadhaar number is never stored in full (last 4 only, nothing encrypted)",
+  "result": "PASS",
+  "expected": "last 4 only",
+  "actual": "XXXXXXXX0123/None",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC-SECURITY",
+  "name": "customer cannot list artist KYC documents",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC-SECURITY",
+  "name": "anonymous cannot list artist KYC documents",
+  "result": "PASS",
+  "expected": "rejected",
+  "actual": "401",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC-SECURITY",
+  "name": "no KYC/bank field names appear in public artist responses",
+  "result": "PASS",
+  "expected": "absent",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC-SECURITY",
+  "name": "error responses do not leak internals (paths, SQL, tracebacks)",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "{'status': False, 'message': 'Value Error No matching record found', 'error': ['No matching record found']}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "admin can list artist documents incl. full ID number for non-Aadhaar types",
+  "result": "PASS",
+  "expected": "visible to admin",
+  "actual": "['aadhaar']",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "admin rejection requires a reason",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "admin can reject a document with a reason",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "KYC",
+  "name": "a decided document cannot be flipped silently",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "customer discovers the artist in search",
+  "result": "PASS",
+  "expected": "listed",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist detail shows services, packages, add-ons and areas keys",
+  "result": "PASS",
+  "expected": "all present",
+  "actual": "['addOns', 'packages', 'portfolio', 'profile', 'serviceAreas', 'services']",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "availability reports the working window for the chosen date",
+  "result": "PASS",
+  "expected": "window present",
+  "actual": "{'artistId': 1, 'bookingDate': '2026-10-08', 'dayOfWeek': 3, 'isBlocked': False, 'workingWindow': {'startTime': '06:00:00', 'endTime': '22:00:00', 'locationTypeId': None}, 'bookedRanges': [], 'blockedRanges': [], 'bufferBeforeMinutes': 0, 'bufferAfterMinutes': 0}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "customer creates a booking (pending, slot locked)",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "booking stored with server-computed total and 1h slot",
+  "result": "PASS",
+  "expected": "2000 / 11:00 / pending / lock",
+  "actual": "(Decimal('2000.00'), datetime.time(11, 0), 'pending')",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist receives a new-booking notification and booking OTP",
+  "result": "PASS",
+  "expected": "notified",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist sees the booking in their list",
+  "result": "PASS",
+  "expected": "listed",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist cannot confirm an unpaid booking",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist confirms after payment",
+  "result": "PASS",
+  "expected": "confirmed",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "on-my-way is refused days before the appointment",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "on-my-way accepted inside the 2h window",
+  "result": "PASS",
+  "expected": "ok",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "on-my-way cannot be repeated",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "arrival with a wrong booking OTP is refused and counted",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "(400, 1)",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "start PIN cannot be used before arrival",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "arrival with the correct OTP is accepted",
+  "result": "PASS",
+  "expected": "ok",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "booking OTP is nulled after use and a start PIN is issued",
+  "result": "PASS",
+  "expected": "single-use",
+  "actual": "(None, True)",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "used booking OTP cannot be replayed",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "customer can read their start PIN; artist cannot",
+  "result": "PASS",
+  "expected": "customer only",
+  "actual": "{'bookingId': 1, 'startServicePin': 9770}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "wrong start PIN refused",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "correct start PIN moves the booking to in_progress and consumes the PIN",
+  "result": "PASS",
+  "expected": "in_progress, pin nulled",
+  "actual": "(200, 'in_progress')",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "start PIN cannot be reused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "a wrong completion PIN is refused",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "correct completion PIN completes the booking and consumes the PIN",
+  "result": "PASS",
+  "expected": "completed",
+  "actual": "(200, 'completed')",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "cashback coins credited exactly once on completion",
+  "result": "PASS",
+  "expected": "credited",
+  "actual": "(0, 20000)",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "completion PIN replay refused and cashback not paid twice",
+  "result": "PASS",
+  "expected": "refused, no double credit",
+  "actual": "(400, 20000, 20000)",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "customer cannot cancel a completed booking",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist cannot cancel a completed booking",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist cannot re-confirm a completed booking",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist cannot mark a completed booking no-show",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "customer reviews the completed booking; artist rating updated",
+  "result": "PASS",
+  "expected": "rated",
+  "actual": "(201, 1, Decimal('5.00'))",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "a booking can only be reviewed once (rating not double counted)",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "artist rates the customer after completion",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "chat after completion",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "conversation closed=None; new message HTTP 400",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "BUSINESS-LOGIC",
+  "name": "an artist cannot book their own services (self-booking / fake-review / cashback abuse)",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "HTTP 400",
+  "severity": "",
+  "note": "create_booking has no role or self-ownership check; completing a self-booking pays cashback and allows a self-review"
+ },
+ {
+  "flow": "BOOKING",
+  "name": "same slot twice (retry/duplicate request) -> second refused",
+  "result": "PASS",
+  "expected": "201 then 400",
+  "actual": "(201, 400)",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "a different customer cannot take an overlapping slot",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "exactly one booking exists for the contested slot",
+  "result": "PASS",
+  "expected": "1",
+  "actual": "1",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "booking in the past refused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "booking less than 2 hours ahead refused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "booking on a blocked date refused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "booking outside working hours refused (05:00 and 21:30+1h)",
+  "result": "PASS",
+  "expected": "both refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "home visit outside the artist service areas refused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "home visit without an address refused once areas are configured",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "another artist's package cannot be booked under this artist",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "another customer's address cannot be used",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "unapproved artist cannot be booked",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "inactive package cannot be booked",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "BOOKING",
+  "name": "client-supplied price/status fields are ignored",
+  "result": "PASS",
+  "expected": "2000 / pending",
+  "actual": "(Decimal('2000.00'), 'pending')",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CONCURRENCY",
+  "name": "two customers booking the same artist/slot at the same instant",
+  "result": "UNVERIFIED",
+  "expected": "",
+  "actual": "Cannot be exercised here (SQLite test DB serialises writers). Code analysis: validate_slot() uses select_for_update() on EXISTING bookings only, so when no booking exists yet nothing is locked and two simultaneous first requests can both pass; there is also no DB unique/exclusion constraint on (artist, date, time). Needs a PostgreSQL concurrency test.",
+  "severity": "P1",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "declined: accept refused",
+  "result": "PASS",
+  "expected": "refused, stays cancelled",
+  "actual": "HTTP 400, now cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "declined: decline/cancel refused",
+  "result": "PASS",
+  "expected": "refused, stays cancelled",
+  "actual": "HTTP 400, now cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "declined: on-my-way refused",
+  "result": "PASS",
+  "expected": "refused, stays cancelled",
+  "actual": "HTTP 400, now cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "declined: arrived refused",
+  "result": "PASS",
+  "expected": "refused, stays cancelled",
+  "actual": "HTTP 400, now cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "declined: start PIN refused",
+  "result": "PASS",
+  "expected": "refused, stays cancelled",
+  "actual": "HTTP 400, now cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "declined: completion PIN refused",
+  "result": "PASS",
+  "expected": "refused, stays cancelled",
+  "actual": "HTTP 400, now cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "declined: customer cancel refused",
+  "result": "PASS",
+  "expected": "refused, stays cancelled",
+  "actual": "HTTP 400, now cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "completed: accept refused",
+  "result": "PASS",
+  "expected": "refused, stays completed",
+  "actual": "HTTP 400, now completed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "completed: decline/cancel refused",
+  "result": "PASS",
+  "expected": "refused, stays completed",
+  "actual": "HTTP 400, now completed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "completed: on-my-way refused",
+  "result": "PASS",
+  "expected": "refused, stays completed",
+  "actual": "HTTP 400, now completed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "completed: arrived refused",
+  "result": "PASS",
+  "expected": "refused, stays completed",
+  "actual": "HTTP 400, now completed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "completed: start PIN refused",
+  "result": "PASS",
+  "expected": "refused, stays completed",
+  "actual": "HTTP 400, now completed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "completed: completion PIN refused",
+  "result": "PASS",
+  "expected": "refused, stays completed",
+  "actual": "HTTP 400, now completed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "completed: customer cancel refused",
+  "result": "PASS",
+  "expected": "refused, stays completed",
+  "actual": "HTTP 400, now completed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "no_show: accept refused",
+  "result": "PASS",
+  "expected": "refused, stays no_show",
+  "actual": "HTTP 400, now no_show",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "no_show: decline/cancel refused",
+  "result": "PASS",
+  "expected": "refused, stays no_show",
+  "actual": "HTTP 400, now no_show",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "no_show: on-my-way refused",
+  "result": "PASS",
+  "expected": "refused, stays no_show",
+  "actual": "HTTP 400, now no_show",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "no_show: arrived refused",
+  "result": "PASS",
+  "expected": "refused, stays no_show",
+  "actual": "HTTP 400, now no_show",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "no_show: start PIN refused",
+  "result": "PASS",
+  "expected": "refused, stays no_show",
+  "actual": "HTTP 400, now no_show",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "no_show: completion PIN refused",
+  "result": "PASS",
+  "expected": "refused, stays no_show",
+  "actual": "HTTP 400, now no_show",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "no_show: customer cancel refused",
+  "result": "PASS",
+  "expected": "refused, stays no_show",
+  "actual": "HTTP 400, now no_show",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "pending: arrived refused",
+  "result": "PASS",
+  "expected": "refused, stays pending",
+  "actual": "HTTP 400, now pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "pending: on-my-way refused",
+  "result": "PASS",
+  "expected": "refused, stays pending",
+  "actual": "HTTP 400, now pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "pending: finish (completion PIN) refused",
+  "result": "PASS",
+  "expected": "refused, stays pending",
+  "actual": "HTTP 400, now pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "pending: start PIN refused",
+  "result": "PASS",
+  "expected": "refused, stays pending",
+  "actual": "HTTP 400, now pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "pending: artist cannot jump straight to in_progress through the status endpoint",
+  "result": "PASS",
+  "expected": "refused, stays pending",
+  "actual": "HTTP 400, now pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "pending: artist cannot jump straight to completed through the status endpoint",
+  "result": "PASS",
+  "expected": "refused, stays pending",
+  "actual": "HTTP 400, now pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "pending: artist cannot jump straight to no_show through the status endpoint",
+  "result": "PASS",
+  "expected": "refused, stays pending",
+  "actual": "HTTP 400, now pending",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "confirmed: artist cannot jump to in_progress without the PINs",
+  "result": "PASS",
+  "expected": "refused, stays confirmed",
+  "actual": "HTTP 400, now confirmed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "confirmed: artist cannot jump to completed without the PINs",
+  "result": "PASS",
+  "expected": "refused, stays confirmed",
+  "actual": "HTTP 400, now confirmed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "confirmed: other artist cannot cancel",
+  "result": "PASS",
+  "expected": "refused, stays confirmed",
+  "actual": "HTTP 400, now confirmed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "confirmed: customer cannot use the artist status endpoint",
+  "result": "PASS",
+  "expected": "refused, stays confirmed",
+  "actual": "HTTP 400, now confirmed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "unknown status value -> controlled 400",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "in_progress: artist cannot cancel mid-service",
+  "result": "PASS",
+  "expected": "refused, stays in_progress",
+  "actual": "HTTP 400, now in_progress",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "STATE-MACHINE",
+  "name": "customer cannot cancel (and be refunded) while the service is already in progress",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "HTTP 400, booking now in_progress",
+  "severity": "",
+  "note": "customers/views/booking.py:cancel_extract allows any ACTIVE status, which includes in_progress; the payment is marked refunded"
+ },
+ {
+  "flow": "MONEY",
+  "name": "commission + payout == amount, 2 decimals, within 1 paisa of exact, across 6 price/rate combinations",
+  "result": "PASS",
+  "expected": "consistent",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "rounding mode",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "Python round() on Decimal = banker's rounding (round-half-even), not commercial half-up; differences are <= 0.01 per payment",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "advance (partial) payment initiated for part of the total",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "amount above the remaining due is refused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "zero / negative amounts refused",
+  "result": "PASS",
+  "expected": "both refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "another customer cannot pay for / see someone else's booking",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "verify marks the payment paid",
+  "result": "PASS",
+  "expected": "paid",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "verify is idempotent (second call is a no-op, not a double credit)",
+  "result": "PASS",
+  "expected": "one paid row",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "another customer cannot verify someone else's payment",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "artist cannot confirm while only part-paid",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "balance payment equals exactly the remaining due (1500)",
+  "result": "PASS",
+  "expected": "1500",
+  "actual": "1500.00",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "initiating the balance twice creates two pending payments for the same dues",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "HTTP 200; pending rows=1",
+  "severity": "P2",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "a booking can never be settled for more than its total (no overpayment via duplicate orders)",
+  "result": "PASS",
+  "expected": "<= 2000",
+  "actual": "2000",
+  "severity": "",
+  "note": "initiate allows a second order for the same remaining due; verify does not re-check the total"
+ },
+ {
+  "flow": "MONEY",
+  "name": "no payment can be initiated once fully paid",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "payment the gateway did NOT capture is rejected even with a valid signature",
+  "result": "PASS",
+  "expected": "failed",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "bad signature -> payment marked failed, booking not confirmable",
+  "result": "PASS",
+  "expected": "failed, unconfirmed",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "artist cancelling a paid booking marks the payment refunded",
+  "result": "PASS",
+  "expected": "refunded",
+  "actual": "refunded",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "a real refund is requested from the payment gateway",
+  "result": "PASS",
+  "expected": "gateway refund API called",
+  "actual": "calls=1",
+  "severity": "",
+  "note": "Payment.mark_refunded is a stub: the customer is shown \"refunded\" but no money moves (documented TODO in payments/models.py)"
+ },
+ {
+  "flow": "MONEY",
+  "name": "real gateway refund / payout",
+  "result": "BLOCKED",
+  "expected": "",
+  "actual": "EXTERNAL DEPENDENCY: Razorpay credentials and a refund integration are not available",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "earnings / payouts / adjustments",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "NOT IMPLEMENTED (owner decision to skip): there is no earnings summary, payout history, adjustment or payout ledger; Payment.commission_amount / artist_payout_amount are the only stored source, and cancelled/refunded handling for earnings is undefined",
+  "severity": "P1",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "total = package + add-on + travel, to the paisa",
+  "result": "PASS",
+  "expected": "2482.83",
+  "actual": "2482.83",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "the charged amount equals the booking total (nothing the client sends changes it)",
+  "result": "PASS",
+  "expected": "2482.83",
+  "actual": "2482.83",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "MONEY",
+  "name": "later add-on / travel price edits do not alter the existing booking",
+  "result": "PASS",
+  "expected": "unchanged",
+  "actual": "(Decimal('2482.83'), Decimal('149.50'))",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "only a confirmed booking can be rescheduled",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "customer cannot start a reschedule through the artist endpoint",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "artist requests a new date/time",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "proposal stored, booking unchanged until the customer decides",
+  "result": "PASS",
+  "expected": "pending",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "a second open request on the same booking is refused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "another customer cannot accept the request",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "the artist cannot accept on the customer's behalf",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "accepting a stale request whose slot was taken meanwhile is refused",
+  "result": "PASS",
+  "expected": "refused, booking unchanged",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "accepting after the proposed day was blocked is refused",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "accept moves the booking and frees the old slot",
+  "result": "PASS",
+  "expected": "moved",
+  "actual": "(200, datetime.date(2026, 10, 11), datetime.time(14, 0))",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "the vacated slot can be booked by someone else, the new one cannot",
+  "result": "PASS",
+  "expected": "free / taken",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "a decided request cannot be answered again",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "rejection leaves the booking untouched",
+  "result": "PASS",
+  "expected": "unchanged",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "an expired request cannot be accepted",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "cancelling the booking closes its pending reschedule",
+  "result": "PASS",
+  "expected": "cancelled",
+  "actual": "cancelled",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "RESCHEDULE",
+  "name": "a booking whose artist already set off cannot be rescheduled",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "ADMIN",
+  "name": "all 18 admin routes x 4 methods reject customer, artist and anonymous callers",
+  "result": "PASS",
+  "expected": "no 2xx",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "ADMIN",
+  "name": "a genuine admin token works on admin routes (control)",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "ADMIN",
+  "name": "admin authentication",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "There is no separate admin login: admins authenticate through the ordinary /auth/* endpoints with role=admin; admin accounts can only be created outside the API (createsuperuser / Django admin)",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "customer opens the conversation of their booking",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "artist opens the same conversation",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "exactly one conversation exists per booking (no duplicates)",
+  "result": "PASS",
+  "expected": "1",
+  "actual": "1",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "customer sends a message",
+  "result": "PASS",
+  "expected": "2xx",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "both sides see the whole thread in order",
+  "result": "PASS",
+  "expected": "['Hello artist', 'Hi!']",
+  "actual": "['Hello artist', 'Hi!']",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "sending a message notifies the other party",
+  "result": "PASS",
+  "expected": "notified",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "empty message",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "whitespace-only message",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "2000 chars (limit)",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "2001 chars",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "HTML in a message is stored verbatim (clients must escape on render) and returned as plain JSON text",
+  "result": "PASS",
+  "expected": "stored raw",
+  "actual": "<script>alert(1)</script>",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "unknown booking id -> controlled 4xx",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "chat on a not-yet-confirmed (pending) booking",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "conversation HTTP 400, message HTTP 400",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "outsider cannot open the conversation",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "outsider cannot read messages",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "outsider cannot post a message",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CHAT",
+  "name": "the outsider message was not stored",
+  "result": "PASS",
+  "expected": "absent",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CUSTOMER",
+  "name": "saved-address limit of 5 enforced (6th refused)",
+  "result": "PASS",
+  "expected": "5x201 then 400",
+  "actual": "[201, 201, 201, 201, 201, 400]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CUSTOMER",
+  "name": "address list returns exactly the customer's own 5 addresses",
+  "result": "PASS",
+  "expected": "5",
+  "actual": "5",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CUSTOMER",
+  "name": "only one default address at any time",
+  "result": "PASS",
+  "expected": "single default",
+  "actual": "1",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CUSTOMER",
+  "name": "address delete works",
+  "result": "PASS",
+  "expected": "200",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CUSTOMER",
+  "name": "profile name update persists",
+  "result": "PASS",
+  "expected": "persisted",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "CUSTOMER",
+  "name": "phone number cannot be swapped without OTP verification",
+  "result": "PASS",
+  "expected": "refused",
+  "actual": "400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "NOTIFY",
+  "name": "artist has booking notifications after a booking",
+  "result": "PASS",
+  "expected": ">=1",
+  "actual": "2",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "NOTIFY",
+  "name": "mark one notification read",
+  "result": "PASS",
+  "expected": "read",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "NOTIFY",
+  "name": "mark all read",
+  "result": "PASS",
+  "expected": "all read",
+  "actual": "200",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "NOTIFY",
+  "name": "marking all read does not touch other users' notifications",
+  "result": "PASS",
+  "expected": "others untouched",
+  "actual": "checked",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "NOTIFY",
+  "name": "push delivery (FCM) and Firestore sync",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "BLOCKED in this environment: FCM is a stub (NotificationGateway.send returns \"FCM not yet configured\") and Firebase is deliberately disabled under test; in-app notification rows ARE stored",
+  "severity": "P2",
+  "note": ""
+ },
+ {
+  "flow": "NOTIFY",
+  "name": "real device push / Firestore realtime sync",
+  "result": "BLOCKED",
+  "expected": "",
+  "actual": "EXTERNAL DEPENDENCY: Firebase credentials unavailable",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "portfolio with a non-existent sub_category is refused",
+  "result": "PASS",
+  "expected": "4xx and nothing stored",
+  "actual": "HTTP 400: Foreign Key Error FOREIGN KEY constraint failed; rows=0",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "error text for the portfolio FK failure",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "Foreign Key Error FOREIGN KEY constraint failed",
+  "severity": "P3",
+  "note": "Common.exception_handler maps any \"foreign key constraint\" error to the DELETE message"
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "package with a non-existent sub_category is refused",
+  "result": "PASS",
+  "expected": "4xx and nothing stored",
+  "actual": "HTTP 400: Foreign Key Error FOREIGN KEY constraint failed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "service offering with a non-existent sub_category is refused",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "HTTP 400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "control: a valid booking still works under real transaction semantics",
+  "result": "PASS",
+  "expected": "201",
+  "actual": "201",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "booking with a non-existent location type is refused",
+  "result": "PASS",
+  "expected": "4xx",
+  "actual": "HTTP 400: Value Error The selected time slot is not available",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "malformed bodies / wrong content types never crash the server",
+  "result": "PASS",
+  "expected": "no 5xx",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "a 2 MB JSON body is handled (rejected or processed) without a crash",
+  "result": "PASS",
+  "expected": "<500",
+  "actual": "401",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/update/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/update/: 195 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/update/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/update/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/packages/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/packages/create/: 176 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/packages/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/packages/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/addons/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/addons/create/: 100 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/addons/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/addons/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/service_areas/add/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/service_areas/add/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/service_areas/add/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/service_areas/add/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/payout_account/set/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/payout_account/set/: 81 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/payout_account/set/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/payout_account/set/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/block/add/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/block/add/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/block/add/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/block/add/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/schedule/set/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/schedule/set/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/schedule/set/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/availability/schedule/set/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/portfolio/reorder/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/portfolio/reorder/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/portfolio/reorder/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/portfolio/reorder/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/specialities/set/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/specialities/set/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/specialities/set/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/specialities/set/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/update_status/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/update_status/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/update_status/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/update_status/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/arrived/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/arrived/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/arrived/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/bookings/arrived/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/bookings/reschedule/request/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/bookings/reschedule/request/: 81 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/bookings/reschedule/request/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/bookings/reschedule/request/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/clients/note/set/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/clients/note/set/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/clients/note/set/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/clients/note/set/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/brands/request/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/brands/request/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/brands/request/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/brands/request/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/accepting_bookings/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/accepting_bookings/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/accepting_bookings/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /artists/profile/accepting_bookings/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/bookings/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/bookings/create/: 157 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/bookings/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/bookings/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /users/address/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /users/address/create/: 100 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /users/address/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /users/address/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /users/profile/update/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /users/profile/update/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /users/profile/update/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /users/profile/update/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /chat/messages/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /chat/messages/create/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /chat/messages/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /chat/messages/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/messages/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/messages/create/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/messages/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/messages/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/reviews/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/reviews/create/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/reviews/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/reviews/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/cancel/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/cancel/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/cancel/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/cancel/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/reschedule/respond/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/reschedule/respond/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/reschedule/respond/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /customers/bookings/reschedule/respond/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/initiate/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/initiate/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/initiate/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/initiate/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/verify/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/verify/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/verify/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /customers/payments/verify/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /admin-panel/brands/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /admin-panel/brands/create/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /admin-panel/brands/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /admin-panel/brands/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/approve/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/approve/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/approve/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/approve/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/documents/verify/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/documents/verify/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/documents/verify/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "PUT /admin-panel/artists/documents/verify/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/register/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/register/: 81 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/register/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/register/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/login/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/login/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/login/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/login/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/request/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/request/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/request/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/request/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/verify/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/verify/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/verify/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/phone-otp/verify/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/forgot-password/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/forgot-password/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/forgot-password/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/forgot-password/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/reset-password/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/reset-password/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/reset-password/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/reset-password/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/token/refresh/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/token/refresh/: 24 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/token/refresh/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/token/refresh/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/google/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/google/: 43 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/google/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /auth/google/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "total hostile requests sent in the JSON fuzz matrix",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "2175",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/documents/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/documents/create/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/documents/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/documents/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/portfolio/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/portfolio/create/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/portfolio/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /artists/portfolio/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/tickets/create/: non-object JSON body ([], \"text\", 123, null) -> controlled 400, not 500",
+  "result": "PASS",
+  "expected": "400",
+  "actual": "HTTP 500 for []",
+  "severity": "",
+  "note": "SerializerValidations._copy_request_data returns list.copy() and then calls .update() on it"
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/tickets/create/: 62 hostile requests, no 5xx crash",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/tickets/create/: no traceback / path / SQL leakage to the client",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "POST /help_center/tickets/create/: error responses are JSON, never HTML",
+  "result": "PASS",
+  "expected": "JSON",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "multipart fuzz requests",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "186",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "query-parameter fuzz (980 requests across 20 list endpoints): no 5xx",
+  "result": "PASS",
+  "expected": "no 500",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "VALIDATION",
+  "name": "query-parameter fuzz: no internals / secrets leaked (incl. filter_key=password/access_token)",
+  "result": "PASS",
+  "expected": "clean",
+  "actual": "[]",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "a failure while issuing the booking OTP leaves no half-created booking",
+  "result": "PASS",
+  "expected": "rolled back",
+  "actual": "HTTP 400, bookings 0->0",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "a failure while saving the add-on snapshot rolls the whole booking back",
+  "result": "PASS",
+  "expected": "rolled back",
+  "actual": "HTTP 400, bookings=0",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "notification failure after commit: the API response matches what was stored",
+  "result": "PASS",
+  "expected": "consistent (success+stored OR failure+nothing stored)",
+  "actual": "HTTP 201 but bookings stored=1",
+  "severity": "",
+  "note": "create_booking sends notifications after the transaction commits and does not guard them: the slot IS booked while the client is told it failed"
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "Firebase/Firestore failure never blocks a booking (handled, logged)",
+  "result": "PASS",
+  "expected": "booking succeeds, failure logged",
+  "actual": "HTTP 201, firestore log lines=206",
+  "severity": "",
+  "note": "Business success + notification-sync failure is the implemented (and sensible) semantics"
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "deleting a package with bookings does not orphan or delete the booking",
+  "result": "PASS",
+  "expected": "booking intact",
+  "actual": "HTTP 400",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "package-with-bookings deletion message",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "Value Error Artist must have at least one active package",
+  "severity": "P3",
+  "note": "Generic message (or internal model text when DEBUG is on); a specific \"has bookings, deactivate it instead\" message would help"
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "no booking references a missing package/artist/customer after the run",
+  "result": "PASS",
+  "expected": "0",
+  "actual": "0",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "account deletion",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "No API exists to delete a user/account (cascade behaviour of Booking.customer=CASCADE is therefore unreachable via the API)",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "artist registration is all-or-nothing (no user without a profile)",
+  "result": "PASS",
+  "expected": "rolled back",
+  "actual": "HTTP 500",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "a failed KYC upload leaves no document row",
+  "result": "PASS",
+  "expected": "no row",
+  "actual": "0",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "a failed KYC upload leaves no orphaned identity file on disk",
+  "result": "PASS",
+  "expected": "no orphan",
+  "actual": "files 6->6",
+  "severity": "",
+  "note": "the file is written to storage before the surrounding DB transaction fails; rollback does not remove it"
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "accepting a booking: response and stored status agree when the notification step fails",
+  "result": "PASS",
+  "expected": "consistent",
+  "actual": "HTTP 200, stored confirmed",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "INTEGRITY",
+  "name": "wallet failure during completion rolls completion back and keeps the PIN usable for a retry",
+  "result": "PASS",
+  "expected": "in_progress + PIN intact",
+  "actual": "HTTP 400, in_progress, pin=4321",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "OTP codes are not written to stdout/logs",
+  "result": "PASS",
+  "expected": "no OTPs in logs",
+  "actual": "0 \"[SMS] OTP <code> sent to <phone>\" lines",
+  "severity": "",
+  "note": "authentication/utils.send_otp_sms is a stub that print()s the OTP and phone number; in production this would put live codes in the server log"
+ },
+ {
+  "flow": "LOGS",
+  "name": "no JWT access/refresh tokens in logs or stdout",
+  "result": "PASS",
+  "expected": "0",
+  "actual": "0",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "no passwords used by the QA flows in logs or stdout",
+  "result": "PASS",
+  "expected": "absent",
+  "actual": "{}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "no full ID / bank numbers in logs or stdout",
+  "result": "PASS",
+  "expected": "absent",
+  "actual": "{}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "phone numbers present in logs/stdout (PII)",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "0 distinct numbers (from the OTP stub print)",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "server-side tracebacks contain filesystem paths (normal for server logs; must never reach clients - verified in fuzz)",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "671",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "every logged \"Internal Server Error\" is accounted for by the known non-object-body defect",
+  "result": "PASS",
+  "expected": "listed",
+  "actual": "{'/auth/register/': 1}",
+  "severity": "",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "500 responses logged by Django (endpoint: count)",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "{'/auth/register/': 1}",
+  "severity": "P2",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "logged tracebacks vs the handled Firebase test-guard",
+  "result": "OBSERVATION",
+  "expected": "",
+  "actual": "222 tracebacks, 436 of them the expected handled Firebase guard",
+  "severity": "P3",
+  "note": ""
+ },
+ {
+  "flow": "LOGS",
+  "name": "Firestore sync failures are logged with ids only (no personal data)",
+  "result": "PASS",
+  "expected": "ids only",
+  "actual": "218 lines",
+  "severity": "",
+  "note": ""
+ }
+]

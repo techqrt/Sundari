@@ -24,6 +24,17 @@ class UserProfileView:
             user_data = User.get(user_id=params.profile_user_id)
             if not user_data:
                 raise ValueError(self.data_no_match)
+            caller = User.get(user_id=params.user_id)
+            is_self = user_data['user_id'] == params.user_id
+            is_admin = bool(caller) and caller['role'] == 'admin'
+            # Credentials never leave the server through this endpoint (not even for the owner,
+            # who already holds the token) and the device token is the owner's alone.
+            user_data = {k: v for k, v in user_data.items() if k != 'access_token'}
+            if not is_self:
+                user_data.pop('fcm_token', None)
+                if not is_admin:
+                    # Another user: only what is needed to label them. No contact details.
+                    user_data = {k: user_data[k] for k in ('user_id', 'name', 'role')}
             utils = UsersUtils(entity='profile', columns_required=[c for c in params.values.split(',') if c])
             data = json.loads(utils.mapper([user_data]))[0]
         return Response(
@@ -34,17 +45,19 @@ class UserProfileView:
     @Common().exception_handler
     def update_extract(self, params: UserProfileUpdateRequest):
         with transaction.atomic():
-            if not User.get(user_id=params.user_id):
+            current = User.get(user_id=params.user_id)
+            if not current:
                 raise ValueError(self.data_no_match)
-            if params.email and User.objects.filter(email=params.email).exclude(user_id=params.user_id).exists():
-                raise ValueError(Constants.email_not_unique)
-            if params.phone_number and User.objects.filter(phone_number=params.phone_number).exclude(user_id=params.user_id).exists():
-                raise ValueError(Constants.mobile_number_not_unique)
+            # An email/phone is a login identifier and a recovery channel: it can only be
+            # changed by proving ownership of the new one (users/contact/change/*), never by
+            # a plain profile edit. Re-sending the current value is harmless and allowed.
+            if (params.email and params.email != current['email']) or (
+                params.phone_number and params.phone_number != current['phone_number']
+            ):
+                raise ValueError(Constants.contact_change_requires_otp)
             User.update(
                 user_id=params.user_id,
                 name=params.name,
-                email=params.email,
-                phone_number=params.phone_number,
                 fcm_token=params.fcm_token,
             )
         return Response(

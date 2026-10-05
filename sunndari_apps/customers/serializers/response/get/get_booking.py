@@ -1,6 +1,13 @@
 from rest_framework import serializers
 
 
+class BookingAddOnSerializer(serializers.Serializer):
+    addOnId = serializers.IntegerField(allow_null=True)
+    name = serializers.CharField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    durationMinutes = serializers.IntegerField()
+
+
 class BookingSerializer(serializers.Serializer):
     bookingId = serializers.IntegerField()
     customerId = serializers.IntegerField()
@@ -14,6 +21,14 @@ class BookingSerializer(serializers.Serializer):
     endTime = serializers.TimeField()
     statusId = serializers.IntegerField()
     totalAmount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    # totalAmount = package + add-ons + travelFee (computed server-side at booking time)
+    travelFee = serializers.DecimalField(max_digits=8, decimal_places=2, required=False)
+    addOns = serializers.ListField(child=BookingAddOnSerializer(), required=False)
+    # Artist-side only (never present in customer responses)
+    platformFee = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True, required=False)
+    netAmount = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True, required=False)
+    travelMinutesBefore = serializers.IntegerField(allow_null=True, required=False)
+    returnBufferMinutes = serializers.IntegerField(allow_null=True, required=False)
     notes = serializers.CharField(allow_null=True, allow_blank=True)
     cancelledBy = serializers.CharField(allow_null=True, allow_blank=True)
     cancellationReason = serializers.CharField(allow_null=True, allow_blank=True)

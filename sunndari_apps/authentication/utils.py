@@ -1,8 +1,12 @@
+import logging
 import jwt
 import datetime
 from django.conf import settings
 from django.core.mail import send_mail
 from sunndari_apps.authentication.models import User
+
+
+logger = logging.getLogger(__name__)
 
 
 def generate_jwt_token(user: User) -> str:
@@ -34,7 +38,12 @@ def get_user_info_from_db(user_id: int) -> dict:
 
 def send_otp_sms(phone_number: str, otp: int) -> None:
     # TODO: integrate SMS gateway (Twilio / MSG91)
-    print(f"[SMS] OTP {otp} sent to {phone_number}")
+    from django.conf import settings
+    if settings.DEBUG:
+        # Local development only: lets a developer read the code without an SMS provider.
+        print(f"[SMS] OTP {otp} sent to {phone_number}")
+    else:
+        logger.info('SMS OTP requested for %s***%s (no SMS gateway configured)', phone_number[:3], phone_number[-2:])
 
 
 def send_otp_email(email: str, otp: int) -> None:

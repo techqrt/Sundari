@@ -13,6 +13,7 @@ from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.payments.models import Payment
 from sunndari_apps.wallet.models.customer_wallet import CustomerWallet
 from sunndari_apps.customers.utils import CustomersUtils
+from sunndari_apps.customers.booking_extras import BookingExtras
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.customers.dataclasses.request.get.get_booking import GetBookingRequest
@@ -32,8 +33,14 @@ class BookingView:
         if not booking or booking['customer_id'] != params.user_id:
             raise ValueError(Constants.booking_not_found)
         Booking.with_display_expiry([booking])
-        utils = CustomersUtils(entity='booking', columns_required=[c for c in params.values.split(',') if c])
-        data = json.loads(utils.mapper([booking]))[0]
+        columns = [c for c in params.values.split(',') if c]
+        mapper_columns, extra_columns = BookingExtras.split_columns(columns, for_artist=False)
+        utils = CustomersUtils(entity='booking', columns_required=mapper_columns)
+        data = BookingExtras.attach(
+            [booking], [json.loads(utils.mapper([booking]))[0]], for_artist=False, only=extra_columns or None,
+        )[0]
+        if columns:
+            data = {key: data[key] for key in data if key in columns}
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
@@ -56,7 +63,7 @@ class BookingView:
         page_data = list(pages.page(params.page_num))
         Booking.with_display_expiry(page_data)
         utils = CustomersUtils(entity='booking')
-        data = json.loads(utils.mapper(page_data))
+        data = BookingExtras.attach(page_data, json.loads(utils.mapper(page_data)), for_artist=False)
         data = Utils.add_page_parameter(
             final_data=data,
             page_num=params.page_num,
@@ -79,6 +86,11 @@ class BookingView:
         ).values_list('name', flat=True).first()
         if status_name not in Booking.ACTIVE_STATUSES:
             raise ValueError(f"This booking cannot be cancelled — it is already '{status_name}'.")
+        # ACTIVE_STATUSES is the "blocks the artist's calendar" set and includes in_progress; it is
+        # not the "customer may cancel and be refunded" set. Once the artist has arrived (start PIN
+        # issued) or the service is running, only the artist/support can end it.
+        if status_name == 'in_progress' or booking['arrived_at'] is not None:
+            raise ValueError(Constants.booking_not_cancellable)
         cancelled_status = BookingStatus.objects.filter(name='cancelled').first()
         Booking.update_status(
             booking_id=params.booking_id,

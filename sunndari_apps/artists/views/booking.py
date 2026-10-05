@@ -23,6 +23,7 @@ from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.payments.models import Payment
 from sunndari_apps.wallet.models.customer_wallet import CustomerWallet
 from sunndari_apps.customers.utils import CustomersUtils
+from sunndari_apps.customers.booking_extras import BookingExtras
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.chat.services import ChatService
@@ -48,8 +49,14 @@ class ArtistBookingView:
         if not booking or booking['artist_id'] != artist_id:
             raise ValueError(Constants.booking_not_found)
         Booking.with_display_expiry([booking])
-        utils = CustomersUtils(entity='booking', columns_required=[c for c in params.values.split(',') if c])
-        data = json.loads(utils.mapper([booking]))[0]
+        columns = [c for c in params.values.split(',') if c]
+        mapper_columns, extra_columns = BookingExtras.split_columns(columns, for_artist=True)
+        utils = CustomersUtils(entity='booking', columns_required=mapper_columns)
+        data = BookingExtras.attach(
+            [booking], [json.loads(utils.mapper([booking]))[0]], for_artist=True, only=extra_columns or None,
+        )[0]
+        if columns:
+            data = {key: data[key] for key in data if key in columns}
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
@@ -73,7 +80,7 @@ class ArtistBookingView:
         page_data = list(pages.page(params.page_num))
         Booking.with_display_expiry(page_data)
         utils = CustomersUtils(entity='booking')
-        data = json.loads(utils.mapper(page_data))
+        data = BookingExtras.attach(page_data, json.loads(utils.mapper(page_data)), for_artist=True)
         data = Utils.add_page_parameter(
             final_data=data,
             page_num=params.page_num,
@@ -88,6 +95,14 @@ class ArtistBookingView:
 
     @Common().exception_handler
     def update_status_extract(self, params: UpdateBookingStatusRequest):
+        # Accept/decline/cancel decisions are made under a row lock so two simultaneous
+        # requests (artist accepts while the customer cancels, or a double tap) can't both
+        # read the same state and both succeed.
+        with transaction.atomic():
+            Booking.objects.select_for_update().filter(booking_id=params.booking_id).first()
+            return self._update_status_locked(params)
+
+    def _update_status_locked(self, params: UpdateBookingStatusRequest):
         artist_id = self._get_artist_id(user_id=params.user_id)
         booking = Booking.get(booking_id=params.booking_id)
         if not booking or booking['artist_id'] != artist_id:

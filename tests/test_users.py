@@ -101,12 +101,26 @@ class UserProfileUpdateTest(TestCase):
         user.refresh_from_db()
         self.assertEqual(user.name, 'New Name')
 
-    def test_update_email_returns_200(self):
+    def test_update_email_directly_is_refused_and_changes_nothing(self):
         client, user = make_authenticated_client(phone_number='+919876543210')
         resp = client.put(self.url, {'email': 'newemail@example.com'})
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertIsNone(user.email)
+
+    def test_update_phone_directly_is_refused_and_changes_nothing(self):
+        client, user = make_authenticated_client(phone_number='+919876543210')
+        resp = client.put(self.url, {'phone_number': '+919999999999'})
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertEqual(user.phone_number, '+919876543210')
+
+    def test_name_still_updates_when_current_contacts_are_resent(self):
+        client, user = make_authenticated_client(phone_number='+919876543210')
+        resp = client.put(self.url, {'name': 'Renamed', 'phone_number': '+919876543210'})
         self.assertEqual(resp.status_code, 200)
         user.refresh_from_db()
-        self.assertEqual(user.email, 'newemail@example.com')
+        self.assertEqual(user.name, 'Renamed')
 
     def test_update_unauthenticated_returns_403(self):
         client = APIClient()
@@ -341,3 +355,144 @@ class AddressGetAllTest(TestCase):
         client = APIClient()
         resp = client.get(self.url)
         self.assertEqual(resp.status_code, 401)
+
+
+
+# ─── Verified email / phone change ────────────────────────────────────────────
+
+from datetime import timedelta
+from unittest.mock import patch
+
+
+class ContactChangeTest(TestCase):
+    request_url = '/users/contact/change/request/'
+    verify_url = '/users/contact/change/verify/'
+
+    def setUp(self):
+        self.client_a, self.user = make_authenticated_client(phone_number='+919876543210', email='old@example.com')
+
+    def _request(self, client=None, **payload):
+        with patch('sunndari_apps.users.views.contact_change.send_otp_email') as email, \
+                patch('sunndari_apps.users.views.contact_change.send_otp_sms') as sms:
+            resp = (client or self.client_a).post(self.request_url, payload, format='json')
+        return resp, email, sms
+
+    def _code(self):
+        self.user.refresh_from_db()
+        return self.user.contact_otp
+
+    def test_email_change_end_to_end_sends_code_to_the_new_address_only(self):
+        resp, email, sms = self._request(email='new@example.com')
+        self.assertEqual(resp.status_code, 200)
+        email.assert_called_once()
+        self.assertEqual(email.call_args[0][0], 'new@example.com')
+        sms.assert_not_called()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'old@example.com')              # nothing changed yet
+        resp = self.client_a.post(self.verify_url, {'otp': str(self._code())}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'new@example.com')
+        self.assertEqual(self.user.phone_number, '+919876543210')
+        self.assertIsNone(self.user.contact_otp)
+        self.assertIsNone(self.user.pending_email)
+
+    def test_phone_change_end_to_end(self):
+        resp, email, sms = self._request(phone_number='+919111111111')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(sms.call_args[0][0], '+919111111111')
+        self.client_a.post(self.verify_url, {'otp': str(self._code())}, format='json')
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.phone_number, '+919111111111')
+
+    def test_code_is_single_use(self):
+        self._request(email='new@example.com')
+        code = str(self._code())
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': code}, format='json').status_code, 200)
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': code}, format='json').status_code, 400)
+
+    def test_wrong_code_is_counted_and_five_burn_the_code(self):
+        self._request(email='new@example.com')
+        code = self._code()
+        wrong = '000000' if code != 0 else '111111'
+        for _ in range(4):
+            self.assertEqual(self.client_a.post(self.verify_url, {'otp': wrong}, format='json').status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.contact_otp_attempts, 4)
+        self.client_a.post(self.verify_url, {'otp': wrong}, format='json')
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': str(code)}, format='json').status_code, 400)  # burned
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'old@example.com')
+
+    def test_expired_code_is_rejected(self):
+        self._request(email='new@example.com')
+        code = self._code()
+        from django.utils import timezone
+        type(self.user).objects.filter(user_id=self.user.user_id).update(contact_otp_expiry=timezone.now() - timedelta(seconds=1))
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': str(code)}, format='json').status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'old@example.com')
+
+    def test_verifying_without_a_pending_request_fails(self):
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': '123456'}, format='json').status_code, 400)
+
+    def test_login_otp_cannot_be_used_to_confirm_and_vice_versa(self):
+        self._request(email='new@example.com')
+        contact_code = self._code()
+        login_code = self.user.generate_otp()
+        if login_code == contact_code:
+            login_code = (login_code % 899999) + 100000
+            self.user.otp = login_code
+            self.user.save()
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': str(login_code)}, format='json').status_code, 400)
+        self.assertEqual(self.client_a.post('/auth/phone-otp/verify/', {
+            'phone_number': '+919876543210', 'otp': str(contact_code)}, format='json').status_code, 400)
+
+    def test_requests_are_throttled_and_new_request_replaces_the_old_code(self):
+        self._request(email='first@example.com')
+        resp, _, _ = self._request(email='second@example.com')
+        self.assertEqual(resp.status_code, 400)
+        from django.utils import timezone
+        type(self.user).objects.filter(user_id=self.user.user_id).update(contact_otp_requested_at=timezone.now() - timedelta(minutes=2))
+        old_code = self._code()
+        resp, _, _ = self._request(email='second@example.com')
+        self.assertEqual(resp.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.pending_email, 'second@example.com')
+
+    def test_validation_rules(self):
+        self.assertEqual(self._request()[0].status_code, 400)                                         # neither
+        self.assertEqual(self._request(email='a@example.com', phone_number='+919000000001')[0].status_code, 400)   # both
+        self.assertEqual(self._request(email='not-an-email')[0].status_code, 400)
+        self.assertEqual(self._request(email='old@example.com')[0].status_code, 400)                  # unchanged
+        self.assertEqual(self._request(phone_number='+919876543210')[0].status_code, 400)
+        make_user(email='taken@example.com', phone_number='+910000000009')
+        self.assertEqual(self._request(email='taken@example.com')[0].status_code, 400)
+        self.assertEqual(self._request(phone_number='+910000000009')[0].status_code, 400)
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': '12ab56'}, format='json').status_code, 400)
+
+    def test_contact_taken_between_request_and_verify_is_rejected(self):
+        self._request(email='race@example.com')
+        code = self._code()
+        make_user(email='race@example.com', phone_number='+910000000010')
+        self.assertEqual(self.client_a.post(self.verify_url, {'otp': str(code)}, format='json').status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'old@example.com')
+
+    def test_users_cannot_confirm_each_others_changes_and_auth_required(self):
+        self._request(email='new@example.com')
+        code = self._code()
+        other_client, other = make_authenticated_client(phone_number='+919000000777')
+        self.assertEqual(other_client.post(self.verify_url, {'otp': str(code)}, format='json').status_code, 400)
+        self.assertEqual(APIClient().post(self.request_url, {'email': 'x@example.com'}, format='json').status_code, 401)
+        self.assertEqual(APIClient().post(self.verify_url, {'otp': str(code)}, format='json').status_code, 401)
+
+    def test_change_notifies_the_user_and_old_contact_no_longer_logs_in(self):
+        from sunndari_apps.notifications.models.notification import Notification
+        self.user.set_password('secret-pass-1')
+        self.user.save()
+        self._request(email='new@example.com')
+        self.client_a.post(self.verify_url, {'otp': str(self._code())}, format='json')
+        self.assertTrue(Notification.objects.filter(user_id=self.user.user_id, type='contact_changed').exists())
+        self.assertEqual(APIClient().post('/auth/login/', {'username': 'old@example.com', 'password': 'secret-pass-1'}).status_code, 401)
+        self.assertEqual(APIClient().post('/auth/login/', {'username': 'new@example.com', 'password': 'secret-pass-1'}).status_code, 200)

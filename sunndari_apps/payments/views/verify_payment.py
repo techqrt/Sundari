@@ -1,3 +1,4 @@
+import logging
 import razorpay
 from rest_framework import status
 from rest_framework.response import Response
@@ -10,6 +11,9 @@ from sunndari_apps.payments.gateway import RazorpayGateway
 from sunndari_apps.payments.dataclasses.request.update.verify_payment import VerifyPaymentRequest
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari.constants import Constants
+
+
+logger = logging.getLogger(__name__)
 
 
 class VerifyPaymentView:
@@ -107,11 +111,21 @@ class VerifyPaymentView:
             raise ValueError(Constants.payment_verification_mismatch)
 
         paid_status = PaymentStatus.objects.filter(name='paid').first()
-        Payment.mark_paid(
+        if not Payment.mark_paid_checked(
             payment_id=payment['payment_id'],
             gateway_payment_id=params.razorpay_payment_id,
             status_id=paid_status.status_id,
-        )
+        ):
+            failed_status = PaymentStatus.objects.filter(name='failed').first()
+            Payment.mark_failed(
+                payment_id=payment['payment_id'], status_id=failed_status.status_id,
+                failure_reason='Overpayment: captured by the gateway but exceeds the booking total; refund required',
+            )
+            logger.error(
+                'Overpayment captured: payment %s (gateway payment %s) exceeds booking %s total — manual refund required',
+                payment['payment_id'], params.razorpay_payment_id, payment['booking_id'],
+            )
+            raise ValueError(Constants.payment_overpaid)
         NotificationService.notify(
             user_id=payment['customer_id'],
             title='Payment status update',
@@ -184,11 +198,21 @@ class VerifyPaymentView:
             raise ValueError(Constants.payment_verification_mismatch)
 
         paid_status = PaymentStatus.objects.filter(name='paid').first()
-        PaymentOrder.mark_paid(
+        if not PaymentOrder.mark_paid_checked(
             order_id=order['order_id'],
             gateway_payment_id=params.razorpay_payment_id,
             status_id=paid_status.status_id,
-        )
+        ):
+            failed_status = PaymentStatus.objects.filter(name='failed').first()
+            PaymentOrder.mark_failed(
+                order_id=order['order_id'], status_id=failed_status.status_id,
+                failure_reason='Overpayment: captured by the gateway but exceeds a booking total; refund required',
+            )
+            logger.error(
+                'Overpayment captured: order %s (gateway payment %s) exceeds a booking total — manual refund required',
+                order['order_id'], params.razorpay_payment_id,
+            )
+            raise ValueError(Constants.payment_overpaid)
         # One notification per booking in the group, same as if each had been paid
         # individually — every Payment in a group belongs to the same customer
         # (validated at /initiate_group/ time), so this is just a fan-out, not a

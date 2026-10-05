@@ -18,6 +18,8 @@ from sunndari_apps.authentication.serializers_auth import (
     EmailOTPVerifySerializer,
     RegisterWithPasswordSerializer,
     LoginWithPasswordSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
     GoogleAuthSerializer,
     TokenRefreshSerializer,
 )
@@ -33,6 +35,11 @@ def _create_role_instance(user: User) -> None:
 
 
 def _issue_token(user: User) -> Response:
+    if not user.is_active:
+        return Response(
+            Utils.error_response_data(Constants.account_inactive, [Constants.account_inactive]),
+            status=status.HTTP_403_FORBIDDEN,
+        )
     access_token = generate_jwt_token(user)
     refresh_token = generate_refresh_token(user)
     user.access_token = access_token
@@ -280,6 +287,84 @@ class PasswordAuthView:
             )
 
         return _issue_token(user)
+
+    @staticmethod
+    def _find_user(username: str):
+        return (
+            User.objects.filter(email=username).first()
+            if '@' in username
+            else User.objects.filter(phone_number=username).first()
+        )
+
+    def forgot_password(self, params: dict) -> Response:
+        serializer = ForgotPasswordSerializer(data=params)
+        if not serializer.is_valid():
+            return Response(
+                Utils.error_response_data(Constants.validation_error, [serializer.errors]),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        username = serializer.validated_data['username']
+        user = self._find_user(username)
+
+        # Same response whether or not the account exists (or is locked) — this endpoint
+        # must not reveal which emails/phone numbers are registered.
+        if user and user.is_active and not user.is_locked_out():
+            otp = user.generate_otp()
+            if '@' in username:
+                send_otp_email(username, otp)
+            else:
+                send_otp_sms(username, otp)
+
+        return Response(
+            Utils.success_response_data(message=Constants.password_reset_otp_sent),
+            status=status.HTTP_200_OK
+        )
+
+    def reset_password(self, params: dict) -> Response:
+        serializer = ResetPasswordSerializer(data=params)
+        if not serializer.is_valid():
+            return Response(
+                Utils.error_response_data(Constants.validation_error, [serializer.errors]),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data = serializer.validated_data
+        user = self._find_user(data['username'])
+        if not user or not user.is_active:
+            return Response(
+                Utils.error_response_data(Constants.otp_invalid, [Constants.otp_invalid]),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if user.is_locked_out():
+            return Response(
+                Utils.error_response_data(Constants.account_locked, [Constants.account_locked]),
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if user.otp != int(data['otp']) or not user.otp_expiry or timezone.now() > user.otp_expiry:
+            user.increment_otp_attempts()
+            return Response(
+                Utils.error_response_data(Constants.otp_invalid, [Constants.otp_invalid]),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # OTP is single-use: nulled in the same write that changes the password. Existing
+        # sessions are revoked too — whoever held the old credentials must log in again.
+        user.set_password(data['new_password'])
+        user.otp = None
+        user.otp_expiry = None
+        user.otp_attempts = 0
+        user.lockout_until = None
+        user.access_token = ''
+        user.refresh_token = ''
+        user.save()
+
+        return Response(
+            Utils.success_response_data(message=Constants.password_reset_success),
+            status=status.HTTP_200_OK
+        )
 
 
 class GoogleAuthView:

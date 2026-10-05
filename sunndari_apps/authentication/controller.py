@@ -12,6 +12,8 @@ from sunndari_apps.authentication.serializers_auth import (
     EmailOTPVerifySerializer,
     RegisterWithPasswordSerializer,
     LoginWithPasswordSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
     GoogleAuthSerializer,
     TokenRefreshSerializer,
     AuthResponseSerializer,
@@ -105,6 +107,30 @@ class AuthController:
     @permission_classes([AllowAny])
     def login(request: Request) -> Response:
         return PasswordAuthView().login(params=request.data)
+
+    @extend_schema(
+        description='Request a password-reset OTP (sent by email or SMS). Always responds 200 so registered accounts are not revealed.',
+        request=ForgotPasswordSerializer,
+        responses=SwaggerPage.response(description='If the account exists, an OTP was sent'),
+        tags=['Authentication - Password'],
+    )
+    @csrf_exempt
+    @api_view(['POST'])
+    @permission_classes([AllowAny])
+    def forgot_password(request: Request) -> Response:
+        return PasswordAuthView().forgot_password(params=request.data)
+
+    @extend_schema(
+        description='Reset the password using the OTP from forgot-password. Revokes existing sessions; log in again afterwards.',
+        request=ResetPasswordSerializer,
+        responses=SwaggerPage.response(description='Password reset successfully'),
+        tags=['Authentication - Password'],
+    )
+    @csrf_exempt
+    @api_view(['POST'])
+    @permission_classes([AllowAny])
+    def reset_password(request: Request) -> Response:
+        return PasswordAuthView().reset_password(params=request.data)
 
     # ─── Google ───────────────────────────────────────────────────────────────
 

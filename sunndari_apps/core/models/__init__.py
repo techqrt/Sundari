@@ -4,3 +4,4 @@ from .location_type import LocationType
 from .booking_status import BookingStatus
 from .payment_status import PaymentStatus
 from .approval_status import ApprovalStatus
+from .brand import Brand

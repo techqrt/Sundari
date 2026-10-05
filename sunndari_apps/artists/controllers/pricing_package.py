@@ -14,6 +14,8 @@ from sunndari_apps.artists.serializers.request.get.get_package import GetPackage
 from sunndari_apps.artists.serializers.request.delete.delete_package import DeletePackageSerializer
 from sunndari_apps.artists.serializers.response.get.get_package import PackageResponseSerializer
 from sunndari_apps.artists.serializers.response.get_all.get_all_package import PackageResponseGetAllSerializer
+from sunndari_apps.artists.serializers.request.update.upload_package_photo import UploadPackagePhotoSerializer
+from sunndari_apps.artists.serializers.request.delete.delete_package_photo import DeletePackagePhotoSerializer
 from sunndari_apps.artists.views.pricing_package import PricingPackageView
 
 
@@ -83,3 +85,27 @@ class PricingPackageController:
     @SerializerValidations(serializer=GetAllSerializer).validate
     def get_all_packages(request: Request) -> Response:
         return PricingPackageView().get_all_extract(params=request.params)
+
+    @extend_schema(
+        description='Upload or replace the service photo of one of your packages (multipart: package_id, photo).',
+        request={'multipart/form-data': UploadPackagePhotoSerializer},
+        responses=SwaggerPage.response(description='Package photo uploaded successfully'),
+        tags=['Artists - Packages'],
+    )
+    @api_view(['PUT'])
+    @permission_classes([IsAuthenticated])
+    @SerializerValidations(serializer=UploadPackagePhotoSerializer).validate
+    def upload_photo(request: Request) -> Response:
+        return PricingPackageView().upload_photo_extract(params=request.params, photo=request.FILES.get('photo'))
+
+    @extend_schema(
+        description='Remove the service photo of one of your packages.',
+        parameters=DeletePackagePhotoSerializer.get_parameters(),
+        responses=SwaggerPage.response(description='Package photo removed successfully'),
+        tags=['Artists - Packages'],
+    )
+    @api_view(['DELETE'])
+    @permission_classes([IsAuthenticated])
+    @SerializerValidations(serializer=DeletePackagePhotoSerializer).validate
+    def delete_photo(request: Request) -> Response:
+        return PricingPackageView().delete_photo_extract(params=request.params)

@@ -1,0 +1,246 @@
+ M .gitignore
+ M db.sqlite3
+ M sunndari/config.py
+ M sunndari/constants.py
+ M sunndari/settings.py
+ M sunndari/urls.py
+ M sunndari_apps/admin_panel/urls.py
+ M sunndari_apps/artists/admin.py
+ M sunndari_apps/artists/controllers/artist_profile.py
+ M sunndari_apps/artists/controllers/portfolio.py
+ M sunndari_apps/artists/controllers/pricing_package.py
+ M sunndari_apps/artists/dataclasses/request/create/create_package.py
+ M sunndari_apps/artists/dataclasses/request/create/create_portfolio.py
+ M sunndari_apps/artists/dataclasses/request/update/update_package.py
+ M sunndari_apps/artists/dataclasses/request/update/update_profile.py
+ M sunndari_apps/artists/models/__init__.py
+ M sunndari_apps/artists/models/artist_profile.py
+ M sunndari_apps/artists/models/artist_service_offering.py
+ M sunndari_apps/artists/models/portfolio.py
+ M sunndari_apps/artists/models/pricing_package.py
+ M sunndari_apps/artists/serializers/request/create/create_package.py
+ M sunndari_apps/artists/serializers/request/create/create_portfolio.py
+ M sunndari_apps/artists/serializers/request/update/update_package.py
+ M sunndari_apps/artists/serializers/request/update/update_profile.py
+ M sunndari_apps/artists/serializers/response/get/get_package.py
+ M sunndari_apps/artists/serializers/response/get/get_portfolio.py
+ M sunndari_apps/artists/serializers/response/get/get_profile.py
+ M sunndari_apps/artists/urls.py
+ M sunndari_apps/artists/utils.py
+ M sunndari_apps/artists/views/artist_profile.py
+ M sunndari_apps/artists/views/booking.py
+ M sunndari_apps/artists/views/portfolio.py
+ M sunndari_apps/artists/views/pricing_package.py
+ M sunndari_apps/authentication/controller.py
+ M sunndari_apps/authentication/models.py
+ M sunndari_apps/authentication/serializers_auth.py
+ M sunndari_apps/authentication/urls.py
+ M sunndari_apps/authentication/views.py
+ M sunndari_apps/common/serializer_validations.py
+ M sunndari_apps/core/admin.py
+ M sunndari_apps/core/models/__init__.py
+ M sunndari_apps/core/urls.py
+ M sunndari_apps/customers/admin.py
+ M sunndari_apps/customers/dataclasses/request/create/create_booking.py
+ M sunndari_apps/customers/models/__init__.py
+ M sunndari_apps/customers/models/booking.py
+ M sunndari_apps/customers/models/review.py
+ M sunndari_apps/customers/serializers/request/create/create_booking.py
+ M sunndari_apps/customers/serializers/response/get/check_availability.py
+ M sunndari_apps/customers/serializers/response/get/get_artist_detail.py
+ M sunndari_apps/customers/serializers/response/get/get_booking.py
+ M sunndari_apps/customers/serializers/response/get/get_review.py
+ M sunndari_apps/customers/urls.py
+ M sunndari_apps/customers/utils.py
+ M sunndari_apps/customers/views/booking.py
+ M sunndari_apps/customers/views/check_availability.py
+ M sunndari_apps/customers/views/create_booking.py
+ M sunndari_apps/customers/views/get_artist_detail.py
+ M sunndari_apps/customers/views/search_artist.py
+ M sunndari_apps/help_center/admin.py
+ M sunndari_apps/help_center/models/__init__.py
+ M sunndari_apps/help_center/urls.py
+ M sunndari_apps/payments/views/initiate_group_payment.py
+ M sunndari_apps/payments/views/initiate_payment.py
+ M sunndari_apps/users/controllers/user_profile.py
+ M sunndari_apps/users/urls.py
+ M sunndari_apps/users/views/user_profile.py
+ M tests/test_artists.py
+ M tests/test_authentication.py
+ M tests/test_users.py
+?? .env.example
+?? "Beauty Booking \342\200\223 Backend Requirements.pdf"
+?? "SUNNDARI ARTIST APP - API LIST.pdf"
+?? db.sqlite3.bak-before-service-catalog-wipe-20260924043444
+?? docs/
+?? firestore.rules
+?? sunndari_apps/admin_panel/controllers/artist_document.py
+?? sunndari_apps/admin_panel/controllers/artist_review.py
+?? sunndari_apps/admin_panel/controllers/brand.py
+?? sunndari_apps/admin_panel/dataclasses/request/get/get_artist_documents.py
+?? sunndari_apps/admin_panel/dataclasses/request/update/approve_artist.py
+?? sunndari_apps/admin_panel/dataclasses/request/update/reject_artist.py
+?? sunndari_apps/admin_panel/dataclasses/request/update/verify_document.py
+?? sunndari_apps/admin_panel/serializers/request/get/get_artist_documents.py
+?? sunndari_apps/admin_panel/serializers/request/get/get_artist_review.py
+?? sunndari_apps/admin_panel/serializers/request/update/approve_artist.py
+?? sunndari_apps/admin_panel/serializers/request/update/reject_artist.py
+?? sunndari_apps/admin_panel/serializers/request/update/verify_document.py
+?? sunndari_apps/admin_panel/serializers/response/get_all/get_all_artist_document.py
+?? sunndari_apps/admin_panel/serializers/response/get_all/get_all_artist_review.py
+?? sunndari_apps/admin_panel/views/artist_document.py
+?? sunndari_apps/admin_panel/views/artist_review.py
+?? sunndari_apps/admin_panel/views/brand.py
+?? sunndari_apps/artists/controllers/addon.py
+?? sunndari_apps/artists/controllers/brand_request.py
+?? sunndari_apps/artists/controllers/client.py
+?? sunndari_apps/artists/controllers/customer_review.py
+?? sunndari_apps/artists/controllers/document.py
+?? sunndari_apps/artists/controllers/insights.py
+?? sunndari_apps/artists/controllers/onboarding.py
+?? sunndari_apps/artists/controllers/payout_account.py
+?? sunndari_apps/artists/controllers/public_profile.py
+?? sunndari_apps/artists/controllers/reschedule.py
+?? sunndari_apps/artists/controllers/review.py
+?? sunndari_apps/artists/controllers/service_area.py
+?? sunndari_apps/artists/dataclasses/request/create/add_service_area.py
+?? sunndari_apps/artists/dataclasses/request/create/create_addon.py
+?? sunndari_apps/artists/dataclasses/request/create/create_customer_review.py
+?? sunndari_apps/artists/dataclasses/request/create/create_document.py
+?? sunndari_apps/artists/dataclasses/request/create/request_reschedule.py
+?? sunndari_apps/artists/dataclasses/request/create/set_payout_account.py
+?? sunndari_apps/artists/dataclasses/request/delete/delete_addon.py
+?? sunndari_apps/artists/dataclasses/request/delete/delete_document.py
+?? sunndari_apps/artists/dataclasses/request/delete/delete_package_photo.py
+?? sunndari_apps/artists/dataclasses/request/delete/delete_profile_photo.py
+?? sunndari_apps/artists/dataclasses/request/delete/remove_service_area.py
+?? sunndari_apps/artists/dataclasses/request/get/download_document.py
+?? sunndari_apps/artists/dataclasses/request/get/get_addon.py
+?? sunndari_apps/artists/dataclasses/request/get/get_document.py
+?? sunndari_apps/artists/dataclasses/request/get/get_onboarding_status.py
+?? sunndari_apps/artists/dataclasses/request/get/get_payout_account.py
+?? sunndari_apps/artists/dataclasses/request/get/get_share_link.py
+?? sunndari_apps/artists/dataclasses/request/update/accept_agreement.py
+?? sunndari_apps/artists/dataclasses/request/update/cancel_reschedule.py
+?? sunndari_apps/artists/dataclasses/request/update/reorder_portfolio.py
+?? sunndari_apps/artists/dataclasses/request/update/reply_review.py
+?? sunndari_apps/artists/dataclasses/request/update/set_accepting_bookings.py
+?? sunndari_apps/artists/dataclasses/request/update/set_client_note.py
+?? sunndari_apps/artists/dataclasses/request/update/set_specialities.py
+?? sunndari_apps/artists/dataclasses/request/update/submit_onboarding.py
+?? sunndari_apps/artists/dataclasses/request/update/update_addon.py
+?? sunndari_apps/artists/dataclasses/request/update/update_service_area.py
+?? sunndari_apps/artists/dataclasses/request/update/upload_package_photo.py
+?? sunndari_apps/artists/dataclasses/request/update/upload_profile_photos.py
+?? sunndari_apps/artists/kyc.py
+?? sunndari_apps/artists/management/
+?? sunndari_apps/artists/migrations/0002_artistprofile_base_address_and_more.py
+?? sunndari_apps/artists/migrations/0003_artistprofile_rejection_reason.py
+?? sunndari_apps/artists/migrations/0004_kyc_documents_private_storage.py
+?? sunndari_apps/artists/migrations/0005_kyc_id_types_and_back_image.py
+?? sunndari_apps/artists/migrations/0006_registration_fields_specialities_work_samples.py
+?? sunndari_apps/artists/migrations/0007_profile_cover_photos.py
+?? sunndari_apps/artists/migrations/0008_review_feedback.py
+?? sunndari_apps/artists/migrations/0009_package_extras.py
+?? sunndari_apps/artists/migrations/0010_add_ons_service_areas_booking_snapshots.py
+?? sunndari_apps/artists/migrations/0011_payout_account_encrypted.py
+?? sunndari_apps/artists/migrations/0012_profile_switch_slug_views_sort_order.py
+?? sunndari_apps/artists/migrations/0013_reviews_replies_clients.py
+?? sunndari_apps/artists/migrations/0014_brands_and_requests.py
+?? sunndari_apps/artists/models/addon.py
+?? sunndari_apps/artists/models/artist_speciality.py
+?? sunndari_apps/artists/models/brand_request.py
+?? sunndari_apps/artists/models/client_note.py
+?? sunndari_apps/artists/models/document.py
+?? sunndari_apps/artists/models/payout_account.py
+?? sunndari_apps/artists/models/review_feedback.py
+?? sunndari_apps/artists/models/service_area.py
+?? sunndari_apps/artists/public_urls.py
+?? sunndari_apps/artists/serializers/request/create/add_service_area.py
+?? sunndari_apps/artists/serializers/request/create/create_addon.py
+?? sunndari_apps/artists/serializers/request/create/create_customer_review.py
+?? sunndari_apps/artists/serializers/request/create/create_document.py
+?? sunndari_apps/artists/serializers/request/create/request_reschedule.py
+?? sunndari_apps/artists/serializers/request/create/set_payout_account.py
+?? sunndari_apps/artists/serializers/request/delete/delete_addon.py
+?? sunndari_apps/artists/serializers/request/delete/delete_document.py
+?? sunndari_apps/artists/serializers/request/delete/delete_package_photo.py
+?? sunndari_apps/artists/serializers/request/delete/delete_profile_photo.py
+?? sunndari_apps/artists/serializers/request/delete/remove_service_area.py
+?? sunndari_apps/artists/serializers/request/get/download_document.py
+?? sunndari_apps/artists/serializers/request/get/get_addon.py
+?? sunndari_apps/artists/serializers/request/get/get_document.py
+?? sunndari_apps/artists/serializers/request/get/get_onboarding_status.py
+?? sunndari_apps/artists/serializers/request/get/get_payout_account.py
+?? sunndari_apps/artists/serializers/request/get/get_share_link.py
+?? sunndari_apps/artists/serializers/request/update/accept_agreement.py
+?? sunndari_apps/artists/serializers/request/update/cancel_reschedule.py
+?? sunndari_apps/artists/serializers/request/update/reorder_portfolio.py
+?? sunndari_apps/artists/serializers/request/update/reply_review.py
+?? sunndari_apps/artists/serializers/request/update/set_accepting_bookings.py
+?? sunndari_apps/artists/serializers/request/update/set_client_note.py
+?? sunndari_apps/artists/serializers/request/update/set_specialities.py
+?? sunndari_apps/artists/serializers/request/update/submit_onboarding.py
+?? sunndari_apps/artists/serializers/request/update/update_addon.py
+?? sunndari_apps/artists/serializers/request/update/update_service_area.py
+?? sunndari_apps/artists/serializers/request/update/upload_package_photo.py
+?? sunndari_apps/artists/serializers/request/update/upload_profile_photos.py
+?? sunndari_apps/artists/serializers/response/get/get_addon.py
+?? sunndari_apps/artists/serializers/response/get/get_document.py
+?? sunndari_apps/artists/serializers/response/get/get_onboarding_status.py
+?? sunndari_apps/artists/serializers/response/get/get_payout_account.py
+?? sunndari_apps/artists/serializers/response/get_all/get_all_addon.py
+?? sunndari_apps/artists/serializers/response/get_all/get_all_document.py
+?? sunndari_apps/artists/serializers/response/get_all/get_all_review_feedback.py
+?? sunndari_apps/artists/serializers/response/get_all/get_all_service_area.py
+?? sunndari_apps/artists/views/addon.py
+?? sunndari_apps/artists/views/brand_request.py
+?? sunndari_apps/artists/views/client.py
+?? sunndari_apps/artists/views/customer_review.py
+?? sunndari_apps/artists/views/document.py
+?? sunndari_apps/artists/views/insights.py
+?? sunndari_apps/artists/views/onboarding.py
+?? sunndari_apps/artists/views/payout_account.py
+?? sunndari_apps/artists/views/public_profile.py
+?? sunndari_apps/artists/views/reschedule.py
+?? sunndari_apps/artists/views/review.py
+?? sunndari_apps/artists/views/service_area.py
+?? sunndari_apps/authentication/migrations/0003_pending_contact_change.py
+?? sunndari_apps/common/crypto.py
+?? sunndari_apps/common/permissions.py
+?? sunndari_apps/common/storage.py
+?? sunndari_apps/common/uploads.py
+?? sunndari_apps/core/brand_requests.py
+?? sunndari_apps/core/controllers/brand.py
+?? sunndari_apps/core/controllers/pages.py
+?? sunndari_apps/core/migrations/0002_brands_and_requests.py
+?? sunndari_apps/core/models/brand.py
+?? sunndari_apps/core/views/brand.py
+?? sunndari_apps/customers/booking_extras.py
+?? sunndari_apps/customers/controllers/reschedule.py
+?? sunndari_apps/customers/dataclasses/request/update/respond_reschedule.py
+?? sunndari_apps/customers/migrations/0006_add_ons_service_areas_booking_snapshots.py
+?? sunndari_apps/customers/migrations/0007_booking_reschedules.py
+?? sunndari_apps/customers/migrations/0008_reviews_replies_clients.py
+?? sunndari_apps/customers/models/booking_addon.py
+?? sunndari_apps/customers/models/customer_review.py
+?? sunndari_apps/customers/models/reschedule.py
+?? sunndari_apps/customers/reschedule_listing.py
+?? sunndari_apps/customers/serializers/request/update/respond_reschedule.py
+?? sunndari_apps/customers/serializers/response/get_all/get_all_reschedule.py
+?? sunndari_apps/customers/slot_rules.py
+?? sunndari_apps/customers/views/reschedule.py
+?? sunndari_apps/help_center/controllers/ticket.py
+?? sunndari_apps/help_center/migrations/0002_support_tickets.py
+?? sunndari_apps/help_center/models/ticket.py
+?? sunndari_apps/help_center/ticket_requests.py
+?? sunndari_apps/help_center/views/ticket.py
+?? sunndari_apps/users/contact_change_requests.py
+?? sunndari_apps/users/controllers/contact_change.py
+?? sunndari_apps/users/views/contact_change.py
+?? tests/test_addons_and_travel.py
+?? tests/test_admin_panel.py
+?? tests/test_artist_engagement.py
+?? tests/test_brands_tickets_pages.py
+?? tests/test_profile_flags.py
+?? tests/test_reschedule.py

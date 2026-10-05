@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
+from sunndari_apps.common.uploads import validate_portfolio_media
 from sunndari_apps.common.dataclasses.request.get_all import GetAll
 from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.artists.models.portfolio import Portfolio
@@ -33,9 +34,13 @@ class PortfolioView:
     def create_extract(self, params, file):
         if not file:
             raise ValueError(Constants.file_required)
+        validate_portfolio_media(file, media_type=params.media_type)
         with transaction.atomic():
             profile = self._get_profile(user_id=params.user_id)
-            if Portfolio.count_active(artist_id=profile.artist_id) >= 20:
+            if params.is_work_sample:
+                if Portfolio.count_work_samples(artist_id=profile.artist_id) >= 5:
+                    raise ValueError(Constants.work_sample_limit_exceeded)
+            elif Portfolio.count_active(artist_id=profile.artist_id) >= 20:
                 raise ValueError(Constants.portfolio_limit_exceeded)
             obj = Portfolio()
             portfolio_id = obj.create(
@@ -44,6 +49,7 @@ class PortfolioView:
                 media_type=params.media_type,
                 sub_category_id=params.sub_category_id,
                 caption=params.caption,
+                is_work_sample=params.is_work_sample,
             )
         return Response(
             status=status.HTTP_201_CREATED,
@@ -97,15 +103,23 @@ class PortfolioView:
     @Common(response_handler=PortfolioResponseGetAllSerializer).exception_handler
     def get_all_extract(self, params: GetAll):
         profile = self._get_profile(user_id=params.user_id, artist_id=params.artist_id)
+        # Someone else's list: only an approved artist's active items — never drafts or
+        # hidden items of an artist who is still pending, rejected or suspended.
+        is_foreign = profile.user_id != params.user_id
+        if is_foreign and (not profile.approval_status or profile.approval_status.name != 'approved'):
+            raise ValueError(Constants.artist_not_found)
         reversed_mapped = ArtistsUtils.reverse_mapper('portfolio', [params.sort_by, params.filter_key])
         pages = Paginator(
             Portfolio.get_all(
                 artist_id=profile.artist_id,
+                only_active=is_foreign,
                 sort_by=reversed_mapped.get(params.sort_by, ''),
                 sort_order=params.sort_order,
                 filter_key=reversed_mapped.get(params.filter_key, ''),
                 filter_value=params.filter_value,
                 search_key=params.search_key,
+                # Work samples are for admin review only — other users never see them.
+                include_work_samples=profile.user_id == params.user_id,
             ),
             per_page=params.limit
         )
@@ -124,4 +138,17 @@ class PortfolioView:
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
+        )
+
+    @Common().exception_handler
+    def reorder_extract(self, params):
+        with transaction.atomic():
+            profile = self._get_profile(user_id=params.user_id)
+            owned = Portfolio.objects.filter(artist_id=profile.artist_id, portfolio_id__in=params.portfolio_ids).count()
+            if owned != len(params.portfolio_ids):
+                raise ValueError(self.data_no_match)
+            Portfolio.reorder(artist_id=profile.artist_id, ordered_ids=params.portfolio_ids)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Portfolio reordered successfully')
         )

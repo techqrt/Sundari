@@ -1,9 +1,14 @@
 import json
+import logging
+from django.db import transaction
 import pandas
 import numpy as np
 from sunndari_apps.common.common import Common
 from sunndari_apps.notifications.models.notification import Notification
 from sunndari_apps.notifications.firebase_utils import NotificationFirebaseUtils
+
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationGateway:
@@ -22,7 +27,20 @@ class NotificationGateway:
 class NotificationService:
 
     @staticmethod
-    def notify(user_id: int, title: str, message: str, type: str = 'generic', booking_id: int = None) -> int:
+    def notify(user_id: int, title: str, message: str, type: str = 'generic', booking_id: int = None):
+        """Best-effort: a notification problem (database, Firestore, push) is logged and swallowed.
+        The business action that triggered it has already happened, and reporting it as failed
+        (or rolling it back) because a notification could not be written would be worse. The inner
+        atomic() is a savepoint so a failed insert cannot poison the caller's transaction."""
+        try:
+            with transaction.atomic():
+                return NotificationService._notify(user_id, title, message, type, booking_id)
+        except Exception:
+            logger.exception('Notification %r for user %s could not be delivered', type, user_id)
+            return None
+
+    @staticmethod
+    def _notify(user_id: int, title: str, message: str, type: str = 'generic', booking_id: int = None) -> int:
         notification_id = Notification().create(
             user_id=user_id, title=title, message=message, type=type, booking_id=booking_id,
         )

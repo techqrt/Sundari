@@ -22,6 +22,7 @@ urlpatterns = [
 
     # Business Modules
     path('artists/', include('sunndari_apps.artists.urls')),
+    path('public/', include('sunndari_apps.artists.public_urls')),
     path('customers/', include('sunndari_apps.customers.urls')),
     path('customers/payments/', include('sunndari_apps.payments.urls')),
     path('customers/wallet/', include('sunndari_apps.wallet.urls')),

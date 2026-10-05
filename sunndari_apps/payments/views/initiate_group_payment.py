@@ -90,7 +90,13 @@ class InitiateGroupPaymentView:
                 # — the platform absorbs the discount, never the artist (same rule as
                 # a solo redeemed payment).
                 artist = ArtistProfile.objects.filter(artist_id=booking['artist_id']).first()
-                commission_amount = round(amount * artist.commission_rate / 100, 2)
+                # Rate snapshotted on the booking at creation (falls back to the artist's current
+                # rate for bookings that pre-date the snapshot) — same rule as a solo payment.
+                booking_rate = Booking.objects.filter(
+                    booking_id=booking['booking_id'],
+                ).values_list('commission_rate', flat=True).first()
+                commission_rate = booking_rate if booking_rate is not None else artist.commission_rate
+                commission_amount = round(amount * commission_rate / 100, 2)
                 artist_payout_amount = amount - commission_amount
                 payment_id = Payment().create(
                     booking_id=booking['booking_id'],

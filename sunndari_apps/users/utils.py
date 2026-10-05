@@ -68,6 +68,10 @@ class UsersUtils:
             return '[]'
         dataframe = pandas.DataFrame.from_records(data)
         dataframe.rename(columns=self.mapped_columns_name, inplace=True)
+        # Whitelist: DataFrame.rename passes unmapped columns straight through, which is how a
+        # raw `access_token` column once reached API responses. Only mapped columns may leave.
+        allowed = set(self.mapped_columns_name.values())
+        dataframe = dataframe[[column for column in dataframe.columns if column in allowed]]
         if self.columns_required:
             Common.mapper_value_error(
                 mapped_column_names=self.mapped_columns_name,

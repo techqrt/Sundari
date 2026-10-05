@@ -10,6 +10,9 @@ class UpdatePackageRequest:
     price: Decimal = None
     duration_minutes: int = None
     description: str = None
+    makeup_type: str = None
+    brands: list = None
+    product_details: str = None
     is_active: bool = None
     inclusions: list = dataclasses.field(default_factory=list)
     user_id: int = None

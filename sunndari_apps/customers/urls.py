@@ -5,6 +5,7 @@ from sunndari_apps.customers.controllers.check_availability import CheckAvailabi
 from sunndari_apps.customers.controllers.create_booking import CreateBookingController
 from sunndari_apps.customers.controllers.booking import BookingController
 from sunndari_apps.customers.controllers.review import ReviewController
+from sunndari_apps.customers.controllers.reschedule import RescheduleController
 from sunndari_apps.customers.controllers.service_pin import StartPinController, CompletionPinController
 
 urlpatterns = [
@@ -20,6 +21,8 @@ urlpatterns = [
     path('bookings/get/', BookingController.get_booking, name='customer_get_booking'),
     path('bookings/get_all/', BookingController.get_all_bookings, name='customer_get_all_bookings'),
     path('bookings/cancel/', BookingController.cancel_booking, name='customer_cancel_booking'),
+    path('bookings/reschedule/respond/', RescheduleController.respond_reschedule, name='customer_respond_reschedule'),
+    path('bookings/reschedule/get_all/', RescheduleController.get_all_reschedules, name='customer_get_all_reschedules'),
     path('bookings/start_pin/', StartPinController.get_start_pin, name='customer_get_start_pin'),
     path('bookings/completion_pin/', CompletionPinController.get_completion_pin, name='customer_get_completion_pin'),
 

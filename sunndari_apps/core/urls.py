@@ -3,8 +3,14 @@ from sunndari_apps.core.controllers.service_category import ServiceCategoryContr
 from sunndari_apps.core.controllers.service_sub_category import ServiceSubCategoryController
 from sunndari_apps.core.controllers.location_type import LocationTypeController
 from sunndari_apps.core.controllers.statuses import StatusesController
+from sunndari_apps.core.controllers.brand import BrandController
+from sunndari_apps.core.controllers.pages import PagesController
 
 urlpatterns = [
+    # Brands (admin-managed list) and static pages
+    path('brands/get_all/', BrandController.get_all_brands, name='get_all_brands'),
+    path('pages/get/', PagesController.get_pages, name='get_static_pages'),
+
     # Service Category
     path('service-category/get/', ServiceCategoryController.get_service_category, name='get_service_category'),
     path('service-category/get_all/', ServiceCategoryController.get_all_service_categories, name='get_all_service_categories'),

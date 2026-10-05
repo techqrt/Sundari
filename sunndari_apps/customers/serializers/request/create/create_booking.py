@@ -10,6 +10,7 @@ class CreateBookingSerializer(serializers.Serializer):
     start_time = serializers.TimeField()
     address_id = serializers.IntegerField(required=False)
     notes = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
+    addon_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list, max_length=10)
 
     def create(self, validated_data) -> CreateBookingRequest:
         return CreateBookingRequest(**validated_data)

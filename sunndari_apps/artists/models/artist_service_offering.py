@@ -45,6 +45,9 @@ class ArtistServiceOffering(models.Model):
             artist_id=artist_id,
             sub_category_id=sub_category_id,
         ).delete()
+        # A speciality is a subset of the offered services — it cannot outlive its service.
+        from sunndari_apps.artists.models.artist_speciality import ArtistSpeciality
+        ArtistSpeciality.objects.filter(artist_id=artist_id, sub_category_id=sub_category_id).delete()
 
     @staticmethod
     def get_all(artist_id: int) -> list:

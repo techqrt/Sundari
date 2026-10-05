@@ -1,0 +1,2117 @@
+{
+ "POST /auth/forgot-password/": [
+  200,
+  400
+ ],
+ "POST /auth/reset-password/": [
+  200,
+  400,
+  403
+ ],
+ "POST /auth/login/": [
+  200,
+  400,
+  401,
+  415
+ ],
+ "GET /users/profile/get/": [
+  200,
+  401
+ ],
+ "POST /auth/token/refresh/": [
+  200,
+  400,
+  401
+ ],
+ "POST /auth/phone-otp/request/": [
+  200,
+  400,
+  404
+ ],
+ "POST /auth/phone-otp/verify/": [
+  200,
+  400,
+  403
+ ],
+ "POST /auth/register/": [
+  200,
+  400,
+  500
+ ],
+ "POST /users/profile/get/": [
+  401
+ ],
+ "PUT /users/profile/get/": [
+  401
+ ],
+ "DELETE /users/profile/get/": [
+  401
+ ],
+ "GET /users/profile/update/": [
+  401
+ ],
+ "POST /users/profile/update/": [
+  401
+ ],
+ "PUT /users/profile/update/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /users/profile/update/": [
+  401
+ ],
+ "GET /users/contact/change/request/": [
+  401
+ ],
+ "POST /users/contact/change/request/": [
+  401
+ ],
+ "PUT /users/contact/change/request/": [
+  401
+ ],
+ "DELETE /users/contact/change/request/": [
+  401
+ ],
+ "GET /users/contact/change/verify/": [
+  401
+ ],
+ "POST /users/contact/change/verify/": [
+  401
+ ],
+ "PUT /users/contact/change/verify/": [
+  401
+ ],
+ "DELETE /users/contact/change/verify/": [
+  401
+ ],
+ "GET /users/address/create/": [
+  401
+ ],
+ "POST /users/address/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /users/address/create/": [
+  401
+ ],
+ "DELETE /users/address/create/": [
+  401
+ ],
+ "GET /users/address/update/": [
+  401
+ ],
+ "POST /users/address/update/": [
+  401
+ ],
+ "PUT /users/address/update/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /users/address/update/": [
+  401
+ ],
+ "GET /users/address/delete/": [
+  401
+ ],
+ "POST /users/address/delete/": [
+  401
+ ],
+ "PUT /users/address/delete/": [
+  401
+ ],
+ "DELETE /users/address/delete/": [
+  200,
+  400,
+  401
+ ],
+ "GET /users/address/get/": [
+  400,
+  401
+ ],
+ "POST /users/address/get/": [
+  401
+ ],
+ "PUT /users/address/get/": [
+  401
+ ],
+ "DELETE /users/address/get/": [
+  401
+ ],
+ "GET /users/address/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /users/address/get_all/": [
+  401
+ ],
+ "PUT /users/address/get_all/": [
+  401
+ ],
+ "DELETE /users/address/get_all/": [
+  401
+ ],
+ "GET /core/brands/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /core/brands/get_all/": [
+  401
+ ],
+ "PUT /core/brands/get_all/": [
+  401
+ ],
+ "DELETE /core/brands/get_all/": [
+  401
+ ],
+ "GET /core/service-category/get/": [
+  401
+ ],
+ "POST /core/service-category/get/": [
+  401
+ ],
+ "PUT /core/service-category/get/": [
+  401
+ ],
+ "DELETE /core/service-category/get/": [
+  401
+ ],
+ "GET /core/service-category/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /core/service-category/get_all/": [
+  401
+ ],
+ "PUT /core/service-category/get_all/": [
+  401
+ ],
+ "DELETE /core/service-category/get_all/": [
+  401
+ ],
+ "GET /core/service-sub-category/get/": [
+  401
+ ],
+ "POST /core/service-sub-category/get/": [
+  401
+ ],
+ "PUT /core/service-sub-category/get/": [
+  401
+ ],
+ "DELETE /core/service-sub-category/get/": [
+  401
+ ],
+ "GET /core/service-sub-category/get_all/": [
+  401
+ ],
+ "POST /core/service-sub-category/get_all/": [
+  401
+ ],
+ "PUT /core/service-sub-category/get_all/": [
+  401
+ ],
+ "DELETE /core/service-sub-category/get_all/": [
+  401
+ ],
+ "GET /core/location-type/get/": [
+  401
+ ],
+ "POST /core/location-type/get/": [
+  401
+ ],
+ "PUT /core/location-type/get/": [
+  401
+ ],
+ "DELETE /core/location-type/get/": [
+  401
+ ],
+ "GET /core/location-type/get_all/": [
+  401
+ ],
+ "POST /core/location-type/get_all/": [
+  401
+ ],
+ "PUT /core/location-type/get_all/": [
+  401
+ ],
+ "DELETE /core/location-type/get_all/": [
+  401
+ ],
+ "GET /core/booking-status/get_all/": [
+  401
+ ],
+ "POST /core/booking-status/get_all/": [
+  401
+ ],
+ "PUT /core/booking-status/get_all/": [
+  401
+ ],
+ "DELETE /core/booking-status/get_all/": [
+  401
+ ],
+ "GET /core/payment-status/get_all/": [
+  401
+ ],
+ "POST /core/payment-status/get_all/": [
+  401
+ ],
+ "PUT /core/payment-status/get_all/": [
+  401
+ ],
+ "DELETE /core/payment-status/get_all/": [
+  401
+ ],
+ "GET /core/approval-status/get_all/": [
+  401
+ ],
+ "POST /core/approval-status/get_all/": [
+  401
+ ],
+ "PUT /core/approval-status/get_all/": [
+  401
+ ],
+ "DELETE /core/approval-status/get_all/": [
+  401
+ ],
+ "GET /artists/profile/get/": [
+  200,
+  401
+ ],
+ "POST /artists/profile/get/": [
+  401
+ ],
+ "PUT /artists/profile/get/": [
+  401
+ ],
+ "DELETE /artists/profile/get/": [
+  401
+ ],
+ "GET /artists/profile/update/": [
+  401
+ ],
+ "POST /artists/profile/update/": [
+  401
+ ],
+ "PUT /artists/profile/update/": [
+  200,
+  400,
+  401,
+  415,
+  500
+ ],
+ "DELETE /artists/profile/update/": [
+  401
+ ],
+ "GET /artists/profile/agreement/accept/": [
+  401
+ ],
+ "POST /artists/profile/agreement/accept/": [
+  401
+ ],
+ "PUT /artists/profile/agreement/accept/": [
+  200,
+  401
+ ],
+ "DELETE /artists/profile/agreement/accept/": [
+  401
+ ],
+ "GET /artists/profile/specialities/set/": [
+  401
+ ],
+ "POST /artists/profile/specialities/set/": [
+  401
+ ],
+ "PUT /artists/profile/specialities/set/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /artists/profile/specialities/set/": [
+  401
+ ],
+ "GET /artists/profile/specialities/get_all/": [
+  401
+ ],
+ "POST /artists/profile/specialities/get_all/": [
+  401
+ ],
+ "PUT /artists/profile/specialities/get_all/": [
+  401
+ ],
+ "DELETE /artists/profile/specialities/get_all/": [
+  401
+ ],
+ "GET /artists/profile/photo/upload/": [
+  401
+ ],
+ "POST /artists/profile/photo/upload/": [
+  401
+ ],
+ "PUT /artists/profile/photo/upload/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /artists/profile/photo/upload/": [
+  401
+ ],
+ "GET /artists/profile/photo/delete/": [
+  401
+ ],
+ "POST /artists/profile/photo/delete/": [
+  401
+ ],
+ "PUT /artists/profile/photo/delete/": [
+  401
+ ],
+ "DELETE /artists/profile/photo/delete/": [
+  401
+ ],
+ "GET /artists/profile/accepting_bookings/": [
+  401
+ ],
+ "POST /artists/profile/accepting_bookings/": [
+  401
+ ],
+ "PUT /artists/profile/accepting_bookings/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /artists/profile/accepting_bookings/": [
+  401
+ ],
+ "GET /artists/profile/share_link/": [
+  401
+ ],
+ "POST /artists/profile/share_link/": [
+  401
+ ],
+ "PUT /artists/profile/share_link/": [
+  401
+ ],
+ "DELETE /artists/profile/share_link/": [
+  401
+ ],
+ "GET /artists/services/add/": [
+  401
+ ],
+ "POST /artists/services/add/": [
+  201,
+  400,
+  401
+ ],
+ "PUT /artists/services/add/": [
+  401
+ ],
+ "DELETE /artists/services/add/": [
+  401
+ ],
+ "GET /artists/services/remove/": [
+  401
+ ],
+ "POST /artists/services/remove/": [
+  401
+ ],
+ "PUT /artists/services/remove/": [
+  401
+ ],
+ "DELETE /artists/services/remove/": [
+  401
+ ],
+ "GET /artists/services/get_all/": [
+  401
+ ],
+ "POST /artists/services/get_all/": [
+  401
+ ],
+ "PUT /artists/services/get_all/": [
+  401
+ ],
+ "DELETE /artists/services/get_all/": [
+  401
+ ],
+ "GET /artists/locations/add/": [
+  401
+ ],
+ "POST /artists/locations/add/": [
+  201,
+  401
+ ],
+ "PUT /artists/locations/add/": [
+  401
+ ],
+ "DELETE /artists/locations/add/": [
+  401
+ ],
+ "GET /artists/locations/remove/": [
+  401
+ ],
+ "POST /artists/locations/remove/": [
+  401
+ ],
+ "PUT /artists/locations/remove/": [
+  401
+ ],
+ "DELETE /artists/locations/remove/": [
+  401
+ ],
+ "GET /artists/locations/get_all/": [
+  401
+ ],
+ "POST /artists/locations/get_all/": [
+  401
+ ],
+ "PUT /artists/locations/get_all/": [
+  401
+ ],
+ "DELETE /artists/locations/get_all/": [
+  401
+ ],
+ "GET /artists/portfolio/create/": [
+  401
+ ],
+ "POST /artists/portfolio/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/portfolio/create/": [
+  401
+ ],
+ "DELETE /artists/portfolio/create/": [
+  401
+ ],
+ "GET /artists/portfolio/update/": [
+  401
+ ],
+ "POST /artists/portfolio/update/": [
+  401
+ ],
+ "PUT /artists/portfolio/update/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /artists/portfolio/update/": [
+  401
+ ],
+ "GET /artists/portfolio/delete/": [
+  401
+ ],
+ "POST /artists/portfolio/delete/": [
+  401
+ ],
+ "PUT /artists/portfolio/delete/": [
+  401
+ ],
+ "DELETE /artists/portfolio/delete/": [
+  200,
+  400,
+  401
+ ],
+ "GET /artists/portfolio/reorder/": [
+  401
+ ],
+ "POST /artists/portfolio/reorder/": [
+  401
+ ],
+ "PUT /artists/portfolio/reorder/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /artists/portfolio/reorder/": [
+  401
+ ],
+ "GET /artists/portfolio/get/": [
+  400,
+  401
+ ],
+ "POST /artists/portfolio/get/": [
+  401
+ ],
+ "PUT /artists/portfolio/get/": [
+  401
+ ],
+ "DELETE /artists/portfolio/get/": [
+  401
+ ],
+ "GET /artists/portfolio/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/portfolio/get_all/": [
+  401
+ ],
+ "PUT /artists/portfolio/get_all/": [
+  401
+ ],
+ "DELETE /artists/portfolio/get_all/": [
+  401
+ ],
+ "GET /artists/packages/create/": [
+  401
+ ],
+ "POST /artists/packages/create/": [
+  201,
+  400,
+  401,
+  415,
+  500
+ ],
+ "PUT /artists/packages/create/": [
+  401
+ ],
+ "DELETE /artists/packages/create/": [
+  401
+ ],
+ "GET /artists/packages/update/": [
+  401
+ ],
+ "POST /artists/packages/update/": [
+  401
+ ],
+ "PUT /artists/packages/update/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /artists/packages/update/": [
+  401
+ ],
+ "GET /artists/packages/delete/": [
+  401
+ ],
+ "POST /artists/packages/delete/": [
+  401
+ ],
+ "PUT /artists/packages/delete/": [
+  401
+ ],
+ "DELETE /artists/packages/delete/": [
+  400,
+  401
+ ],
+ "GET /artists/packages/get/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/packages/get/": [
+  401
+ ],
+ "PUT /artists/packages/get/": [
+  401
+ ],
+ "DELETE /artists/packages/get/": [
+  401
+ ],
+ "GET /artists/packages/photo/upload/": [
+  401
+ ],
+ "POST /artists/packages/photo/upload/": [
+  401
+ ],
+ "PUT /artists/packages/photo/upload/": [
+  400,
+  401
+ ],
+ "DELETE /artists/packages/photo/upload/": [
+  401
+ ],
+ "GET /artists/packages/photo/delete/": [
+  401
+ ],
+ "POST /artists/packages/photo/delete/": [
+  401
+ ],
+ "PUT /artists/packages/photo/delete/": [
+  401
+ ],
+ "DELETE /artists/packages/photo/delete/": [
+  401
+ ],
+ "GET /artists/packages/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/packages/get_all/": [
+  401
+ ],
+ "PUT /artists/packages/get_all/": [
+  401
+ ],
+ "DELETE /artists/packages/get_all/": [
+  401
+ ],
+ "GET /artists/addons/create/": [
+  401
+ ],
+ "POST /artists/addons/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/addons/create/": [
+  401
+ ],
+ "DELETE /artists/addons/create/": [
+  401
+ ],
+ "GET /artists/addons/update/": [
+  401
+ ],
+ "POST /artists/addons/update/": [
+  401
+ ],
+ "PUT /artists/addons/update/": [
+  400,
+  401
+ ],
+ "DELETE /artists/addons/update/": [
+  401
+ ],
+ "GET /artists/addons/delete/": [
+  401
+ ],
+ "POST /artists/addons/delete/": [
+  401
+ ],
+ "PUT /artists/addons/delete/": [
+  401
+ ],
+ "DELETE /artists/addons/delete/": [
+  400,
+  401
+ ],
+ "GET /artists/addons/get/": [
+  400,
+  401
+ ],
+ "POST /artists/addons/get/": [
+  401
+ ],
+ "PUT /artists/addons/get/": [
+  401
+ ],
+ "DELETE /artists/addons/get/": [
+  401
+ ],
+ "GET /artists/addons/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/addons/get_all/": [
+  401
+ ],
+ "PUT /artists/addons/get_all/": [
+  401
+ ],
+ "DELETE /artists/addons/get_all/": [
+  401
+ ],
+ "GET /artists/service_areas/add/": [
+  401
+ ],
+ "POST /artists/service_areas/add/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/service_areas/add/": [
+  401
+ ],
+ "DELETE /artists/service_areas/add/": [
+  401
+ ],
+ "GET /artists/service_areas/update/": [
+  401
+ ],
+ "POST /artists/service_areas/update/": [
+  401
+ ],
+ "PUT /artists/service_areas/update/": [
+  400,
+  401
+ ],
+ "DELETE /artists/service_areas/update/": [
+  401
+ ],
+ "GET /artists/service_areas/remove/": [
+  401
+ ],
+ "POST /artists/service_areas/remove/": [
+  401
+ ],
+ "PUT /artists/service_areas/remove/": [
+  401
+ ],
+ "DELETE /artists/service_areas/remove/": [
+  400,
+  401
+ ],
+ "GET /artists/service_areas/get_all/": [
+  401
+ ],
+ "POST /artists/service_areas/get_all/": [
+  401
+ ],
+ "PUT /artists/service_areas/get_all/": [
+  401
+ ],
+ "DELETE /artists/service_areas/get_all/": [
+  401
+ ],
+ "GET /artists/availability/schedule/set/": [
+  401
+ ],
+ "POST /artists/availability/schedule/set/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/availability/schedule/set/": [
+  401
+ ],
+ "DELETE /artists/availability/schedule/set/": [
+  401
+ ],
+ "GET /artists/availability/schedule/remove/": [
+  401
+ ],
+ "POST /artists/availability/schedule/remove/": [
+  401
+ ],
+ "PUT /artists/availability/schedule/remove/": [
+  401
+ ],
+ "DELETE /artists/availability/schedule/remove/": [
+  200,
+  401
+ ],
+ "GET /artists/availability/schedule/get_all/": [
+  401
+ ],
+ "POST /artists/availability/schedule/get_all/": [
+  401
+ ],
+ "PUT /artists/availability/schedule/get_all/": [
+  401
+ ],
+ "DELETE /artists/availability/schedule/get_all/": [
+  401
+ ],
+ "GET /artists/availability/block/add/": [
+  401
+ ],
+ "POST /artists/availability/block/add/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/availability/block/add/": [
+  401
+ ],
+ "DELETE /artists/availability/block/add/": [
+  401
+ ],
+ "GET /artists/availability/block/remove/": [
+  401
+ ],
+ "POST /artists/availability/block/remove/": [
+  401
+ ],
+ "PUT /artists/availability/block/remove/": [
+  401
+ ],
+ "DELETE /artists/availability/block/remove/": [
+  200,
+  401
+ ],
+ "GET /artists/availability/block/get_all/": [
+  401
+ ],
+ "POST /artists/availability/block/get_all/": [
+  401
+ ],
+ "PUT /artists/availability/block/get_all/": [
+  401
+ ],
+ "DELETE /artists/availability/block/get_all/": [
+  401
+ ],
+ "GET /artists/bookings/get/": [
+  400,
+  401
+ ],
+ "POST /artists/bookings/get/": [
+  401
+ ],
+ "PUT /artists/bookings/get/": [
+  401
+ ],
+ "DELETE /artists/bookings/get/": [
+  401
+ ],
+ "GET /artists/bookings/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/bookings/get_all/": [
+  401
+ ],
+ "PUT /artists/bookings/get_all/": [
+  401
+ ],
+ "DELETE /artists/bookings/get_all/": [
+  401
+ ],
+ "GET /artists/bookings/update_status/": [
+  401
+ ],
+ "POST /artists/bookings/update_status/": [
+  401
+ ],
+ "PUT /artists/bookings/update_status/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /artists/bookings/update_status/": [
+  401
+ ],
+ "GET /artists/bookings/on_my_way/": [
+  401
+ ],
+ "POST /artists/bookings/on_my_way/": [
+  401
+ ],
+ "PUT /artists/bookings/on_my_way/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /artists/bookings/on_my_way/": [
+  401
+ ],
+ "GET /artists/bookings/arrived/": [
+  401
+ ],
+ "POST /artists/bookings/arrived/": [
+  401
+ ],
+ "PUT /artists/bookings/arrived/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /artists/bookings/arrived/": [
+  401
+ ],
+ "GET /artists/bookings/start_pin/verify/": [
+  401
+ ],
+ "POST /artists/bookings/start_pin/verify/": [
+  401
+ ],
+ "PUT /artists/bookings/start_pin/verify/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /artists/bookings/start_pin/verify/": [
+  401
+ ],
+ "GET /artists/bookings/completion_pin/verify/": [
+  401
+ ],
+ "POST /artists/bookings/completion_pin/verify/": [
+  401
+ ],
+ "PUT /artists/bookings/completion_pin/verify/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /artists/bookings/completion_pin/verify/": [
+  401
+ ],
+ "GET /artists/bookings/reschedule/request/": [
+  401
+ ],
+ "POST /artists/bookings/reschedule/request/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/bookings/reschedule/request/": [
+  401
+ ],
+ "DELETE /artists/bookings/reschedule/request/": [
+  401
+ ],
+ "GET /artists/bookings/reschedule/cancel/": [
+  401
+ ],
+ "POST /artists/bookings/reschedule/cancel/": [
+  401
+ ],
+ "PUT /artists/bookings/reschedule/cancel/": [
+  401
+ ],
+ "DELETE /artists/bookings/reschedule/cancel/": [
+  401
+ ],
+ "GET /artists/bookings/reschedule/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/bookings/reschedule/get_all/": [
+  401
+ ],
+ "PUT /artists/bookings/reschedule/get_all/": [
+  401
+ ],
+ "DELETE /artists/bookings/reschedule/get_all/": [
+  401
+ ],
+ "GET /artists/reviews/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/reviews/get_all/": [
+  401
+ ],
+ "PUT /artists/reviews/get_all/": [
+  401
+ ],
+ "DELETE /artists/reviews/get_all/": [
+  401
+ ],
+ "GET /artists/reviews/reply/": [
+  401
+ ],
+ "POST /artists/reviews/reply/": [
+  401
+ ],
+ "PUT /artists/reviews/reply/": [
+  401
+ ],
+ "DELETE /artists/reviews/reply/": [
+  401
+ ],
+ "GET /artists/customer_reviews/create/": [
+  401
+ ],
+ "POST /artists/customer_reviews/create/": [
+  201,
+  400,
+  401
+ ],
+ "PUT /artists/customer_reviews/create/": [
+  401
+ ],
+ "DELETE /artists/customer_reviews/create/": [
+  401
+ ],
+ "GET /artists/customer_reviews/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/customer_reviews/get_all/": [
+  401
+ ],
+ "PUT /artists/customer_reviews/get_all/": [
+  401
+ ],
+ "DELETE /artists/customer_reviews/get_all/": [
+  401
+ ],
+ "GET /artists/clients/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/clients/get_all/": [
+  401
+ ],
+ "PUT /artists/clients/get_all/": [
+  401
+ ],
+ "DELETE /artists/clients/get_all/": [
+  401
+ ],
+ "GET /artists/clients/note/set/": [
+  401
+ ],
+ "POST /artists/clients/note/set/": [
+  401
+ ],
+ "PUT /artists/clients/note/set/": [
+  400,
+  401,
+  500
+ ],
+ "DELETE /artists/clients/note/set/": [
+  401
+ ],
+ "GET /artists/insights/summary/": [
+  401
+ ],
+ "POST /artists/insights/summary/": [
+  401
+ ],
+ "PUT /artists/insights/summary/": [
+  401
+ ],
+ "DELETE /artists/insights/summary/": [
+  401
+ ],
+ "GET /artists/brands/request/": [
+  401
+ ],
+ "POST /artists/brands/request/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/brands/request/": [
+  401
+ ],
+ "DELETE /artists/brands/request/": [
+  401
+ ],
+ "GET /artists/brands/requests/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/brands/requests/get_all/": [
+  401
+ ],
+ "PUT /artists/brands/requests/get_all/": [
+  401
+ ],
+ "DELETE /artists/brands/requests/get_all/": [
+  401
+ ],
+ "GET /artists/documents/create/": [
+  401
+ ],
+ "POST /artists/documents/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /artists/documents/create/": [
+  401
+ ],
+ "DELETE /artists/documents/create/": [
+  401
+ ],
+ "GET /artists/documents/delete/": [
+  401
+ ],
+ "POST /artists/documents/delete/": [
+  401
+ ],
+ "PUT /artists/documents/delete/": [
+  401
+ ],
+ "DELETE /artists/documents/delete/": [
+  400,
+  401
+ ],
+ "GET /artists/documents/get/": [
+  400,
+  401
+ ],
+ "POST /artists/documents/get/": [
+  401
+ ],
+ "PUT /artists/documents/get/": [
+  401
+ ],
+ "DELETE /artists/documents/get/": [
+  401
+ ],
+ "GET /artists/documents/file/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/documents/file/": [
+  401
+ ],
+ "PUT /artists/documents/file/": [
+  401
+ ],
+ "DELETE /artists/documents/file/": [
+  401
+ ],
+ "GET /artists/documents/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/documents/get_all/": [
+  401
+ ],
+ "PUT /artists/documents/get_all/": [
+  401
+ ],
+ "DELETE /artists/documents/get_all/": [
+  401
+ ],
+ "GET /artists/payout_account/set/": [
+  401
+ ],
+ "POST /artists/payout_account/set/": [
+  401
+ ],
+ "PUT /artists/payout_account/set/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /artists/payout_account/set/": [
+  401
+ ],
+ "GET /artists/payout_account/get/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/payout_account/get/": [
+  401
+ ],
+ "PUT /artists/payout_account/get/": [
+  401
+ ],
+ "DELETE /artists/payout_account/get/": [
+  401
+ ],
+ "GET /artists/onboarding/status/": [
+  200,
+  401
+ ],
+ "POST /artists/onboarding/status/": [
+  401
+ ],
+ "PUT /artists/onboarding/status/": [
+  401
+ ],
+ "DELETE /artists/onboarding/status/": [
+  401
+ ],
+ "GET /artists/review/feedback/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /artists/review/feedback/get_all/": [
+  401
+ ],
+ "PUT /artists/review/feedback/get_all/": [
+  401
+ ],
+ "DELETE /artists/review/feedback/get_all/": [
+  401
+ ],
+ "GET /artists/onboarding/submit/": [
+  401
+ ],
+ "POST /artists/onboarding/submit/": [
+  200,
+  400,
+  401
+ ],
+ "PUT /artists/onboarding/submit/": [
+  401
+ ],
+ "DELETE /artists/onboarding/submit/": [
+  401
+ ],
+ "GET /customers/artists/search/": [
+  200,
+  400,
+  401
+ ],
+ "POST /customers/artists/search/": [
+  401
+ ],
+ "PUT /customers/artists/search/": [
+  401
+ ],
+ "DELETE /customers/artists/search/": [
+  401
+ ],
+ "GET /customers/artists/get/": [
+  200,
+  401
+ ],
+ "POST /customers/artists/get/": [
+  401
+ ],
+ "PUT /customers/artists/get/": [
+  401
+ ],
+ "DELETE /customers/artists/get/": [
+  401
+ ],
+ "GET /customers/artists/availability/": [
+  200,
+  401
+ ],
+ "POST /customers/artists/availability/": [
+  401
+ ],
+ "PUT /customers/artists/availability/": [
+  401
+ ],
+ "DELETE /customers/artists/availability/": [
+  401
+ ],
+ "GET /customers/bookings/create/": [
+  401
+ ],
+ "POST /customers/bookings/create/": [
+  201,
+  400,
+  401,
+  415,
+  500
+ ],
+ "PUT /customers/bookings/create/": [
+  401
+ ],
+ "DELETE /customers/bookings/create/": [
+  401
+ ],
+ "GET /customers/bookings/get/": [
+  400,
+  401
+ ],
+ "POST /customers/bookings/get/": [
+  401
+ ],
+ "PUT /customers/bookings/get/": [
+  401
+ ],
+ "DELETE /customers/bookings/get/": [
+  401
+ ],
+ "GET /customers/bookings/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /customers/bookings/get_all/": [
+  401
+ ],
+ "PUT /customers/bookings/get_all/": [
+  401
+ ],
+ "DELETE /customers/bookings/get_all/": [
+  401
+ ],
+ "GET /customers/bookings/cancel/": [
+  401
+ ],
+ "POST /customers/bookings/cancel/": [
+  401
+ ],
+ "PUT /customers/bookings/cancel/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /customers/bookings/cancel/": [
+  401
+ ],
+ "GET /customers/bookings/reschedule/respond/": [
+  401
+ ],
+ "POST /customers/bookings/reschedule/respond/": [
+  401
+ ],
+ "PUT /customers/bookings/reschedule/respond/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /customers/bookings/reschedule/respond/": [
+  401
+ ],
+ "GET /customers/bookings/reschedule/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /customers/bookings/reschedule/get_all/": [
+  401
+ ],
+ "PUT /customers/bookings/reschedule/get_all/": [
+  401
+ ],
+ "DELETE /customers/bookings/reschedule/get_all/": [
+  401
+ ],
+ "GET /customers/bookings/start_pin/": [
+  200,
+  400,
+  401
+ ],
+ "POST /customers/bookings/start_pin/": [
+  401
+ ],
+ "PUT /customers/bookings/start_pin/": [
+  401
+ ],
+ "DELETE /customers/bookings/start_pin/": [
+  401
+ ],
+ "GET /customers/bookings/completion_pin/": [
+  400,
+  401
+ ],
+ "POST /customers/bookings/completion_pin/": [
+  401
+ ],
+ "PUT /customers/bookings/completion_pin/": [
+  401
+ ],
+ "DELETE /customers/bookings/completion_pin/": [
+  401
+ ],
+ "GET /customers/reviews/create/": [
+  401
+ ],
+ "POST /customers/reviews/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /customers/reviews/create/": [
+  401
+ ],
+ "DELETE /customers/reviews/create/": [
+  401
+ ],
+ "GET /customers/reviews/get/": [
+  401
+ ],
+ "POST /customers/reviews/get/": [
+  401
+ ],
+ "PUT /customers/reviews/get/": [
+  401
+ ],
+ "DELETE /customers/reviews/get/": [
+  401
+ ],
+ "GET /customers/reviews/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /customers/reviews/get_all/": [
+  401
+ ],
+ "PUT /customers/reviews/get_all/": [
+  401
+ ],
+ "DELETE /customers/reviews/get_all/": [
+  401
+ ],
+ "GET /customers/payments/payment_types/": [
+  401
+ ],
+ "POST /customers/payments/payment_types/": [
+  401
+ ],
+ "PUT /customers/payments/payment_types/": [
+  401
+ ],
+ "DELETE /customers/payments/payment_types/": [
+  401
+ ],
+ "GET /customers/payments/initiate/": [
+  401
+ ],
+ "POST /customers/payments/initiate/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /customers/payments/initiate/": [
+  401
+ ],
+ "DELETE /customers/payments/initiate/": [
+  401
+ ],
+ "GET /customers/payments/initiate_group/": [
+  401
+ ],
+ "POST /customers/payments/initiate_group/": [
+  401
+ ],
+ "PUT /customers/payments/initiate_group/": [
+  401
+ ],
+ "DELETE /customers/payments/initiate_group/": [
+  401
+ ],
+ "GET /customers/payments/verify/": [
+  401
+ ],
+ "POST /customers/payments/verify/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "PUT /customers/payments/verify/": [
+  401
+ ],
+ "DELETE /customers/payments/verify/": [
+  401
+ ],
+ "GET /customers/payments/get/": [
+  401
+ ],
+ "POST /customers/payments/get/": [
+  401
+ ],
+ "PUT /customers/payments/get/": [
+  401
+ ],
+ "DELETE /customers/payments/get/": [
+  401
+ ],
+ "GET /customers/payments/get_all/": [
+  401
+ ],
+ "POST /customers/payments/get_all/": [
+  401
+ ],
+ "PUT /customers/payments/get_all/": [
+  401
+ ],
+ "DELETE /customers/payments/get_all/": [
+  401
+ ],
+ "GET /customers/wallet/eligible_tiers/": [
+  401
+ ],
+ "POST /customers/wallet/eligible_tiers/": [
+  401
+ ],
+ "PUT /customers/wallet/eligible_tiers/": [
+  401
+ ],
+ "DELETE /customers/wallet/eligible_tiers/": [
+  401
+ ],
+ "GET /customers/wallet/get/": [
+  401
+ ],
+ "POST /customers/wallet/get/": [
+  401
+ ],
+ "PUT /customers/wallet/get/": [
+  401
+ ],
+ "DELETE /customers/wallet/get/": [
+  401
+ ],
+ "GET /customers/wallet/transactions/": [
+  401
+ ],
+ "POST /customers/wallet/transactions/": [
+  401
+ ],
+ "PUT /customers/wallet/transactions/": [
+  401
+ ],
+ "DELETE /customers/wallet/transactions/": [
+  401
+ ],
+ "GET /notifications/get/": [
+  400,
+  401
+ ],
+ "POST /notifications/get/": [
+  401
+ ],
+ "PUT /notifications/get/": [
+  401
+ ],
+ "DELETE /notifications/get/": [
+  401
+ ],
+ "GET /notifications/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /notifications/get_all/": [
+  401
+ ],
+ "PUT /notifications/get_all/": [
+  401
+ ],
+ "DELETE /notifications/get_all/": [
+  401
+ ],
+ "GET /notifications/mark_read/": [
+  401
+ ],
+ "POST /notifications/mark_read/": [
+  401
+ ],
+ "PUT /notifications/mark_read/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /notifications/mark_read/": [
+  401
+ ],
+ "GET /notifications/mark_all_read/": [
+  401
+ ],
+ "POST /notifications/mark_all_read/": [
+  401
+ ],
+ "PUT /notifications/mark_all_read/": [
+  200,
+  401
+ ],
+ "DELETE /notifications/mark_all_read/": [
+  401
+ ],
+ "GET /chat/conversation/get/": [
+  200,
+  400,
+  401
+ ],
+ "POST /chat/conversation/get/": [
+  401
+ ],
+ "PUT /chat/conversation/get/": [
+  401
+ ],
+ "DELETE /chat/conversation/get/": [
+  401
+ ],
+ "GET /chat/messages/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /chat/messages/get_all/": [
+  401
+ ],
+ "PUT /chat/messages/get_all/": [
+  401
+ ],
+ "DELETE /chat/messages/get_all/": [
+  401
+ ],
+ "GET /chat/messages/create/": [
+  401
+ ],
+ "POST /chat/messages/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /chat/messages/create/": [
+  401
+ ],
+ "DELETE /chat/messages/create/": [
+  401
+ ],
+ "GET /help_center/conversation/get/": [
+  401
+ ],
+ "POST /help_center/conversation/get/": [
+  401
+ ],
+ "PUT /help_center/conversation/get/": [
+  401
+ ],
+ "DELETE /help_center/conversation/get/": [
+  401
+ ],
+ "GET /help_center/messages/get_all/": [
+  400,
+  401
+ ],
+ "POST /help_center/messages/get_all/": [
+  401
+ ],
+ "PUT /help_center/messages/get_all/": [
+  401
+ ],
+ "DELETE /help_center/messages/get_all/": [
+  401
+ ],
+ "GET /help_center/messages/create/": [
+  401
+ ],
+ "POST /help_center/messages/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /help_center/messages/create/": [
+  401
+ ],
+ "DELETE /help_center/messages/create/": [
+  401
+ ],
+ "GET /help_center/artist/conversation/get/": [
+  401
+ ],
+ "POST /help_center/artist/conversation/get/": [
+  401
+ ],
+ "PUT /help_center/artist/conversation/get/": [
+  401
+ ],
+ "DELETE /help_center/artist/conversation/get/": [
+  401
+ ],
+ "GET /help_center/artist/messages/get_all/": [
+  401
+ ],
+ "POST /help_center/artist/messages/get_all/": [
+  401
+ ],
+ "PUT /help_center/artist/messages/get_all/": [
+  401
+ ],
+ "DELETE /help_center/artist/messages/get_all/": [
+  401
+ ],
+ "GET /help_center/artist/messages/create/": [
+  401
+ ],
+ "POST /help_center/artist/messages/create/": [
+  401
+ ],
+ "PUT /help_center/artist/messages/create/": [
+  401
+ ],
+ "DELETE /help_center/artist/messages/create/": [
+  401
+ ],
+ "GET /help_center/admin/conversations/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /help_center/admin/conversations/get_all/": [
+  401,
+  405
+ ],
+ "PUT /help_center/admin/conversations/get_all/": [
+  401,
+  405
+ ],
+ "DELETE /help_center/admin/conversations/get_all/": [
+  401,
+  405
+ ],
+ "GET /help_center/admin/conversation/get/": [
+  400,
+  401
+ ],
+ "POST /help_center/admin/conversation/get/": [
+  401,
+  405
+ ],
+ "PUT /help_center/admin/conversation/get/": [
+  401,
+  405
+ ],
+ "DELETE /help_center/admin/conversation/get/": [
+  401,
+  405
+ ],
+ "GET /help_center/admin/conversation/close/": [
+  401,
+  405
+ ],
+ "POST /help_center/admin/conversation/close/": [
+  400,
+  401
+ ],
+ "PUT /help_center/admin/conversation/close/": [
+  401,
+  405
+ ],
+ "DELETE /help_center/admin/conversation/close/": [
+  401,
+  405
+ ],
+ "GET /help_center/admin/messages/get_all/": [
+  400,
+  401
+ ],
+ "POST /help_center/admin/messages/get_all/": [
+  401,
+  405
+ ],
+ "PUT /help_center/admin/messages/get_all/": [
+  401,
+  405
+ ],
+ "DELETE /help_center/admin/messages/get_all/": [
+  401,
+  405
+ ],
+ "GET /help_center/admin/messages/create/": [
+  401,
+  405
+ ],
+ "POST /help_center/admin/messages/create/": [
+  400,
+  401
+ ],
+ "PUT /help_center/admin/messages/create/": [
+  401,
+  405
+ ],
+ "DELETE /help_center/admin/messages/create/": [
+  401,
+  405
+ ],
+ "GET /help_center/tickets/create/": [
+  401
+ ],
+ "POST /help_center/tickets/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /help_center/tickets/create/": [
+  401
+ ],
+ "DELETE /help_center/tickets/create/": [
+  401
+ ],
+ "GET /help_center/tickets/get/": [
+  400,
+  401
+ ],
+ "POST /help_center/tickets/get/": [
+  401
+ ],
+ "PUT /help_center/tickets/get/": [
+  401
+ ],
+ "DELETE /help_center/tickets/get/": [
+  401
+ ],
+ "GET /help_center/tickets/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /help_center/tickets/get_all/": [
+  401
+ ],
+ "PUT /help_center/tickets/get_all/": [
+  401
+ ],
+ "DELETE /help_center/tickets/get_all/": [
+  401
+ ],
+ "GET /help_center/tickets/close/": [
+  401
+ ],
+ "POST /help_center/tickets/close/": [
+  401
+ ],
+ "PUT /help_center/tickets/close/": [
+  400,
+  401
+ ],
+ "DELETE /help_center/tickets/close/": [
+  401
+ ],
+ "GET /help_center/tickets/attachment/": [
+  400,
+  401
+ ],
+ "POST /help_center/tickets/attachment/": [
+  401
+ ],
+ "PUT /help_center/tickets/attachment/": [
+  401
+ ],
+ "DELETE /help_center/tickets/attachment/": [
+  401
+ ],
+ "GET /help_center/admin/tickets/get_all/": [
+  400,
+  401
+ ],
+ "POST /help_center/admin/tickets/get_all/": [
+  401,
+  405
+ ],
+ "PUT /help_center/admin/tickets/get_all/": [
+  401,
+  405
+ ],
+ "DELETE /help_center/admin/tickets/get_all/": [
+  401,
+  405
+ ],
+ "GET /help_center/admin/tickets/get/": [
+  400,
+  401
+ ],
+ "POST /help_center/admin/tickets/get/": [
+  401,
+  405
+ ],
+ "PUT /help_center/admin/tickets/get/": [
+  401,
+  405
+ ],
+ "DELETE /help_center/admin/tickets/get/": [
+  401,
+  405
+ ],
+ "GET /help_center/admin/tickets/update_status/": [
+  401,
+  405
+ ],
+ "POST /help_center/admin/tickets/update_status/": [
+  401,
+  405
+ ],
+ "PUT /help_center/admin/tickets/update_status/": [
+  400,
+  401
+ ],
+ "DELETE /help_center/admin/tickets/update_status/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/artists/review_queue/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /admin-panel/artists/review_queue/get_all/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/artists/review_queue/get_all/": [
+  401,
+  405
+ ],
+ "DELETE /admin-panel/artists/review_queue/get_all/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/artists/review/get/": [
+  200,
+  400,
+  401
+ ],
+ "POST /admin-panel/artists/review/get/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/artists/review/get/": [
+  401,
+  405
+ ],
+ "DELETE /admin-panel/artists/review/get/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/artists/approve/": [
+  401,
+  405
+ ],
+ "POST /admin-panel/artists/approve/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/artists/approve/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /admin-panel/artists/approve/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/artists/documents/get_all/": [
+  200,
+  400,
+  401
+ ],
+ "POST /admin-panel/artists/documents/get_all/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/artists/documents/get_all/": [
+  401,
+  405
+ ],
+ "DELETE /admin-panel/artists/documents/get_all/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/artists/documents/verify/": [
+  401,
+  405
+ ],
+ "POST /admin-panel/artists/documents/verify/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/artists/documents/verify/": [
+  200,
+  400,
+  401,
+  500
+ ],
+ "DELETE /admin-panel/artists/documents/verify/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/brands/create/": [
+  401,
+  405
+ ],
+ "POST /admin-panel/brands/create/": [
+  201,
+  400,
+  401,
+  500
+ ],
+ "PUT /admin-panel/brands/create/": [
+  401,
+  405
+ ],
+ "DELETE /admin-panel/brands/create/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/brands/update/": [
+  401,
+  405
+ ],
+ "POST /admin-panel/brands/update/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/brands/update/": [
+  400,
+  401
+ ],
+ "DELETE /admin-panel/brands/update/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/brands/requests/get_all/": [
+  400,
+  401
+ ],
+ "POST /admin-panel/brands/requests/get_all/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/brands/requests/get_all/": [
+  401,
+  405
+ ],
+ "DELETE /admin-panel/brands/requests/get_all/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/brands/requests/decide/": [
+  401,
+  405
+ ],
+ "POST /admin-panel/brands/requests/decide/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/brands/requests/decide/": [
+  400,
+  401
+ ],
+ "DELETE /admin-panel/brands/requests/decide/": [
+  401,
+  405
+ ],
+ "GET /admin-panel/artists/reject/": [
+  401,
+  405
+ ],
+ "POST /admin-panel/artists/reject/": [
+  401,
+  405
+ ],
+ "PUT /admin-panel/artists/reject/": [
+  200,
+  400,
+  401
+ ],
+ "DELETE /admin-panel/artists/reject/": [
+  401,
+  405
+ ],
+ "POST /auth/google/": [
+  400,
+  401
+ ]
+}

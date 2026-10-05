@@ -1,6 +1,14 @@
+import os
+import uuid
+
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+
+
+def package_photo_upload_path(instance, filename):
+    extension = os.path.splitext(filename)[1].lower()
+    return f'package_photos/artist_{instance.artist_id}/{uuid.uuid4().hex}{extension}'
 
 
 class PricingPackage(models.Model):
@@ -19,6 +27,11 @@ class PricingPackage(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     duration_minutes = models.PositiveIntegerField()
     description = models.TextField(null=True, blank=True)
+    makeup_type = models.CharField(max_length=50, null=True, blank=True)
+    # Free-text brand names for now; an admin-managed brand list is a post-launch item.
+    brands = models.JSONField(default=list, blank=True)
+    product_details = models.TextField(null=True, blank=True)
+    photo = models.FileField(upload_to=package_photo_upload_path, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -33,21 +46,25 @@ class PricingPackage(models.Model):
     def get(package_id: int) -> dict:
         return PricingPackage.objects.filter(package_id=package_id).values(
             'package_id', 'artist_id', 'sub_category_id', 'name',
-            'price', 'duration_minutes', 'description', 'is_active', 'created_at', 'updated_at',
+            'price', 'duration_minutes', 'description', 'makeup_type', 'brands', 'product_details', 'photo',
+            'is_active', 'created_at', 'updated_at',
         ).first()
 
-    def create(self, artist_id: int, sub_category_id: int, name: str, price, duration_minutes: int, description: str = None) -> int:
+    def create(self, artist_id: int, sub_category_id: int, name: str, price, duration_minutes: int, description: str = None, makeup_type: str = None, brands: list = None, product_details: str = None) -> int:
         self.artist_id = artist_id
         self.sub_category_id = sub_category_id
         self.name = name
         self.price = price
         self.duration_minutes = duration_minutes
         self.description = description
+        self.makeup_type = makeup_type or None
+        self.brands = brands or []
+        self.product_details = product_details or None
         self.save()
         return self.package_id
 
     @staticmethod
-    def update(package_id: int, name: str = None, price=None, duration_minutes: int = None, description: str = None, sub_category_id: int = None, is_active: bool = None) -> None:
+    def update(package_id: int, name: str = None, price=None, duration_minutes: int = None, description: str = None, sub_category_id: int = None, is_active: bool = None, makeup_type: str = None, brands: list = None, product_details: str = None) -> None:
         pkg = PricingPackage.objects.get(package_id=package_id)
         if name is not None:
             pkg.name = name
@@ -61,6 +78,12 @@ class PricingPackage(models.Model):
             pkg.sub_category_id = sub_category_id
         if is_active is not None:
             pkg.is_active = is_active
+        if makeup_type is not None:
+            pkg.makeup_type = makeup_type or None
+        if brands is not None:
+            pkg.brands = brands
+        if product_details is not None:
+            pkg.product_details = product_details or None
         pkg.save()
 
     @staticmethod
@@ -75,8 +98,11 @@ class PricingPackage(models.Model):
         filter_key: str = '',
         filter_value: str = '',
         search_key: str = '',
+        only_active: bool = False,
     ) -> list:
         data = PricingPackage.objects.filter(artist_id=artist_id)
+        if only_active:
+            data = data.filter(is_active=True)
         if filter_key and filter_value:
             lookup = '__exact' if filter_value.isdigit() else '__icontains'
             data = data.filter(**{f'{filter_key}{lookup}': filter_value})
@@ -86,8 +112,29 @@ class PricingPackage(models.Model):
             data = data.order_by(('-' if sort_order == 'desc' else '') + sort_by)
         return list(data.values(
             'package_id', 'artist_id', 'sub_category_id', 'name',
-            'price', 'duration_minutes', 'description', 'is_active', 'created_at', 'updated_at',
+            'price', 'duration_minutes', 'description', 'makeup_type', 'brands', 'product_details', 'photo',
+            'is_active', 'created_at', 'updated_at',
         ))
+
+    @staticmethod
+    def set_photo(package_id: int, photo) -> None:
+        pkg = PricingPackage.objects.get(package_id=package_id)
+        previous = (pkg.photo.storage, pkg.photo.name) if pkg.photo else None
+        pkg.photo = photo
+        pkg.save()
+        if previous:
+            previous[0].delete(previous[1])
+
+    @staticmethod
+    def remove_photo(package_id: int) -> bool:
+        pkg = PricingPackage.objects.get(package_id=package_id)
+        if not pkg.photo:
+            return False
+        storage, name = pkg.photo.storage, pkg.photo.name
+        pkg.photo = None
+        pkg.save()
+        storage.delete(name)
+        return True
 
     @staticmethod
     def active_count(artist_id: int) -> int:

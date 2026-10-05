@@ -27,7 +27,7 @@ class UserProfileController:
         return UserProfileView().get_extract(params=request.params)
 
     @extend_schema(
-        description='Update the logged-in user profile.',
+        description='Update the logged-in user profile (name, fcm_token). Email and phone number can only be changed through users/contact/change/*.',
         request=UserProfileUpdateSerializer,
         responses=SwaggerPage.response(description=UserProfileView().update_msg),
         tags=['Users - Profile'],

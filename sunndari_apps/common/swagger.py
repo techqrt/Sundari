@@ -13,7 +13,7 @@ class SwaggerPage:
     @staticmethod
     def get_all_parameters():
         return [
-            OpenApiParameter(name='value', description='Comma-separated column names to return',
+            OpenApiParameter(name='values', description='Comma-separated column names to return',
                              required=False, type=OpenApiTypes.STR, location=OpenApiParameter.QUERY),
             OpenApiParameter(name='page_num', description='Page number',
                              required=False, type=OpenApiTypes.INT, location=OpenApiParameter.QUERY),
@@ -40,7 +40,7 @@ class SwaggerPage:
     @staticmethod
     def get_parameters():
         return [
-            OpenApiParameter(name='value', description='Comma-separated column names to return',
+            OpenApiParameter(name='values', description='Comma-separated column names to return',
                              required=False, type=OpenApiTypes.STR, location=OpenApiParameter.QUERY),
         ]
 

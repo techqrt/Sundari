@@ -18,9 +18,10 @@ class CheckAvailabilityView:
 
     @Common(response_handler=AvailabilityResponseSerializer).exception_handler
     def get_extract(self, params: CheckAvailabilityRequest):
-        if not ArtistProfile.objects.filter(
+        artist = ArtistProfile.objects.filter(
             artist_id=params.artist_id, approval_status__name='approved',
-        ).exists():
+        ).first()
+        if not artist:
             raise ValueError(Constants.artist_not_found)
 
         day_of_week = params.booking_date.weekday()
@@ -50,6 +51,15 @@ class CheckAvailabilityView:
             'bookedRanges': [
                 {'startTime': r['start_time'], 'endTime': r['end_time']} for r in booked_ranges
             ],
+            # Booked ranges widened by each booking's travel/return buffers: a new appointment's own
+            # window (its start minus bufferBeforeMinutes, its end plus bufferAfterMinutes — both 0 for
+            # non-Home-Visit locations) must not overlap any of these.
+            'blockedRanges': [
+                {'startTime': r['start_time'], 'endTime': r['end_time']}
+                for r in Booking.get_blocked_ranges(artist_id=params.artist_id, booking_date=params.booking_date)
+            ],
+            'bufferBeforeMinutes': artist.travel_time_before_minutes,
+            'bufferAfterMinutes': artist.return_buffer_minutes,
         }
         return Response(
             status=status.HTTP_200_OK,

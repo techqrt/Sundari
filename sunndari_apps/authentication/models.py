@@ -37,6 +37,14 @@ class User(AbstractBaseUser):
     lockout_until = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     fcm_token = models.TextField(null=True, blank=True)
+    # Pending email/phone change (see users.ContactChangeView): the new contact only replaces the
+    # old one after the code sent to it is entered. Kept apart from the login OTP fields above.
+    pending_email = models.EmailField(null=True, blank=True)
+    pending_phone_number = models.CharField(max_length=20, null=True, blank=True)
+    contact_otp = models.IntegerField(null=True, blank=True)
+    contact_otp_expiry = models.DateTimeField(null=True, blank=True)
+    contact_otp_attempts = models.IntegerField(default=0)
+    contact_otp_requested_at = models.DateTimeField(null=True, blank=True)
     created_date_time = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = 'phone_number'

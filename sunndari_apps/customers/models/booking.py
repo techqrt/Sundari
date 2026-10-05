@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.db import models
@@ -72,6 +72,15 @@ class Booking(models.Model):
         related_name='bookings',
     )
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    # total_amount = package price + selected add-ons + travel_fee, all computed server-side
+    # at creation. The fields below are snapshots taken at that moment (null on bookings that
+    # pre-date them) so later changes to the artist's rates/settings never rewrite history.
+    travel_fee = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    platform_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    net_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    travel_minutes_before = models.PositiveIntegerField(null=True, blank=True)
+    return_buffer_minutes = models.PositiveIntegerField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     cancelled_by = models.CharField(max_length=10, choices=CANCELLED_BY_CHOICES, null=True, blank=True)
     cancellation_reason = models.CharField(max_length=300, null=True, blank=True)
@@ -163,6 +172,12 @@ class Booking(models.Model):
         address_id: int = None,
         notes: str = None,
         lock_minutes: int = 15,
+        travel_fee=0,
+        commission_rate=None,
+        platform_fee=None,
+        net_amount=None,
+        travel_minutes_before: int = None,
+        return_buffer_minutes: int = None,
     ) -> int:
         self.customer_id = customer_id
         self.artist_id = artist_id
@@ -176,6 +191,12 @@ class Booking(models.Model):
         self.status_id = status_id
         self.total_amount = total_amount
         self.notes = notes
+        self.travel_fee = travel_fee
+        self.commission_rate = commission_rate
+        self.platform_fee = platform_fee
+        self.net_amount = net_amount
+        self.travel_minutes_before = travel_minutes_before
+        self.return_buffer_minutes = return_buffer_minutes
         self.expires_at = timezone.now() + timedelta(minutes=lock_minutes)
         self.save()
         return self.booking_id
@@ -288,6 +309,21 @@ class Booking(models.Model):
                 status__name__in=Booking.ACTIVE_STATUSES,
             ).values('start_time', 'end_time')
         )
+
+    @staticmethod
+    def get_blocked_ranges(artist_id: int, booking_date) -> list:
+        """Each active booking widened by the travel/return buffers it was made with, clamped to
+        the day — the windows other appointments must stay clear of."""
+        def shift(moment, minutes):
+            total = max(0, min(24 * 60 - 1, moment.hour * 60 + moment.minute + minutes))
+            return time(total // 60, total % 60)
+        return [
+            {'start_time': shift(row['start_time'], -(row['travel_minutes_before'] or 0)),
+             'end_time': shift(row['end_time'], row['return_buffer_minutes'] or 0)}
+            for row in Booking.objects.filter(
+                artist_id=artist_id, booking_date=booking_date, status__name__in=Booking.ACTIVE_STATUSES,
+            ).values('start_time', 'end_time', 'travel_minutes_before', 'return_buffer_minutes')
+        ]
 
     @staticmethod
     def generate_booking_otp(booking_id: int, booking_date, end_time, buffer_hours: int = 2) -> int:
@@ -445,6 +481,9 @@ class Booking(models.Model):
             booking.start_pin_expiry = None
             booking.completion_pin = None
             booking.completion_pin_expiry = None
+            # A dead booking can't be rescheduled — close any open request on it.
+            from sunndari_apps.customers.models.reschedule import BookingReschedule
+            BookingReschedule.cancel_pending_for_booking(booking_id)
         booking.save()
 
     @staticmethod
@@ -453,6 +492,8 @@ class Booking(models.Model):
         elapsed with nobody acting on it. Reuses the existing 'no_show' status rather
         than a new one — voids every outstanding credential, same as a cancellation,
         since none of them can legitimately be used against a dead booking anymore."""
+        from sunndari_apps.customers.models.reschedule import BookingReschedule
+        BookingReschedule.cancel_pending_for_booking(booking_id)
         return Booking.objects.filter(booking_id=booking_id).update(
             status_id=no_show_status_id,
             booking_otp=None,
@@ -463,6 +504,19 @@ class Booking(models.Model):
             completion_pin_expiry=None,
             updated_at=timezone.now(),
         )
+
+    @staticmethod
+    def reschedule_slot(booking_id: int, booking_date, start_time, end_time, buffer_hours: int = 2) -> None:
+        """Moves a booking to a new slot. The Booking OTP already delivered to the artist is
+        kept, but its expiry follows the new appointment (it was computed from the old end
+        time, so left alone it would expire before — or long after — the new slot)."""
+        booking = Booking.objects.get(booking_id=booking_id)
+        booking.booking_date = booking_date
+        booking.start_time = start_time
+        booking.end_time = end_time
+        if booking.booking_otp is not None:
+            booking.booking_otp_expiry = Booking.to_aware(booking_date, end_time) + timedelta(hours=buffer_hours)
+        booking.save()
 
     @staticmethod
     def mark_on_my_way(booking_id: int) -> None:

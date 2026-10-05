@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
 from sunndari_apps.common.utils import Utils
+from sunndari_apps.common.uploads import validate_image
 from sunndari_apps.common.dataclasses.request.get_all import GetAll
 from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.artists.models.pricing_package import PricingPackage
@@ -30,9 +31,8 @@ class PricingPackageView:
             raise ValueError(Constants.artist_not_found)
         return profile
 
-    def _build_package_response(self, package_dict: dict) -> dict:
-        utils = ArtistsUtils(entity='package')
-        pkg = json.loads(utils.mapper([package_dict]))[0]
+    def _build_package_response(self, package_dict: dict, present_url: str = None) -> dict:
+        pkg = ArtistsUtils.map_packages([package_dict], present_url)[0]
         inclusions_raw = PackageInclusion.get_for_package(package_id=package_dict['package_id'])
         inc_utils = ArtistsUtils(entity='inclusion')
         pkg['inclusions'] = json.loads(inc_utils.mapper(inclusions_raw))
@@ -50,6 +50,9 @@ class PricingPackageView:
                 price=params.price,
                 duration_minutes=params.duration_minutes,
                 description=params.description,
+                makeup_type=params.makeup_type,
+                brands=params.brands,
+                product_details=params.product_details,
             )
             if params.inclusions:
                 PackageInclusion.set_for_package(package_id=package_id, inclusions=params.inclusions)
@@ -73,6 +76,9 @@ class PricingPackageView:
                 description=params.description,
                 sub_category_id=params.sub_category_id,
                 is_active=params.is_active,
+                makeup_type=params.makeup_type,
+                brands=params.brands,
+                product_details=params.product_details,
             )
             if params.inclusions is not None:
                 PackageInclusion.set_for_package(package_id=params.package_id, inclusions=params.inclusions)
@@ -102,7 +108,7 @@ class PricingPackageView:
         pkg = PricingPackage.get(package_id=params.package_id)
         if not pkg or pkg['artist_id'] != profile.artist_id:
             raise ValueError(self.data_no_match)
-        data = self._build_package_response(pkg)
+        data = self._build_package_response(pkg, params.present_url)
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
@@ -111,10 +117,16 @@ class PricingPackageView:
     @Common(response_handler=PackageResponseGetAllSerializer).exception_handler
     def get_all_extract(self, params: GetAll):
         profile = self._get_profile(user_id=params.user_id, artist_id=params.artist_id)
+        # Someone else's list: only an approved artist's active items — never drafts or
+        # hidden items of an artist who is still pending, rejected or suspended.
+        is_foreign = profile.user_id != params.user_id
+        if is_foreign and (not profile.approval_status or profile.approval_status.name != 'approved'):
+            raise ValueError(Constants.artist_not_found)
         reversed_mapped = ArtistsUtils.reverse_mapper('package', [params.sort_by, params.filter_key])
         pages = Paginator(
             PricingPackage.get_all(
                 artist_id=profile.artist_id,
+                only_active=is_foreign,
                 sort_by=reversed_mapped.get(params.sort_by, ''),
                 sort_order=params.sort_order,
                 filter_key=reversed_mapped.get(params.filter_key, ''),
@@ -126,8 +138,7 @@ class PricingPackageView:
         if pages.num_pages < params.page_num:
             raise ValueError('Page limit exceeded!')
         page_data = list(pages.page(params.page_num))
-        utils = ArtistsUtils(entity='package')
-        data = json.loads(utils.mapper(page_data))
+        data = ArtistsUtils.map_packages(page_data, params.present_url)
         for i, pkg_dict in enumerate(page_data):
             inclusions_raw = PackageInclusion.get_for_package(package_id=pkg_dict['package_id'])
             inc_utils = ArtistsUtils(entity='inclusion')
@@ -142,4 +153,34 @@ class PricingPackageView:
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
+        )
+
+    @Common().exception_handler
+    def upload_photo_extract(self, params, photo):
+        if not photo:
+            raise ValueError(Constants.file_required)
+        validate_image(photo)
+        with transaction.atomic():
+            profile = self._get_profile(user_id=params.user_id)
+            pkg = PricingPackage.get(package_id=params.package_id)
+            if not pkg or pkg['artist_id'] != profile.artist_id:
+                raise ValueError(self.data_no_match)
+            PricingPackage.set_photo(package_id=params.package_id, photo=photo)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Package photo uploaded successfully')
+        )
+
+    @Common().exception_handler
+    def delete_photo_extract(self, params):
+        with transaction.atomic():
+            profile = self._get_profile(user_id=params.user_id)
+            pkg = PricingPackage.get(package_id=params.package_id)
+            if not pkg or pkg['artist_id'] != profile.artist_id:
+                raise ValueError(self.data_no_match)
+            if not PricingPackage.remove_photo(package_id=params.package_id):
+                raise ValueError(self.data_no_match)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Package photo removed successfully')
         )

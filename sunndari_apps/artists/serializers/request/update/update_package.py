@@ -9,6 +9,9 @@ class UpdatePackageSerializer(serializers.Serializer):
     price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=500, required=False)
     duration_minutes = serializers.IntegerField(min_value=1, required=False)
     description = serializers.CharField(required=False, allow_blank=True)
+    makeup_type = serializers.CharField(required=False, allow_blank=True, max_length=50)
+    brands = serializers.ListField(child=serializers.CharField(max_length=50), required=False, max_length=10, allow_empty=True)
+    product_details = serializers.CharField(required=False, allow_blank=True)
     is_active = serializers.BooleanField(required=False)
     inclusions = serializers.ListField(child=serializers.CharField(max_length=300), required=False)
 

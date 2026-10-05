@@ -28,6 +28,7 @@ class SearchArtistView:
     def search_extract(self, params: SearchArtistRequest):
         qs = ArtistProfile.objects.filter(
             approval_status__name='approved',
+            is_accepting_bookings=True,
         ).annotate(
             starting_price=Min('pricing_packages__price', filter=Q(pricing_packages__is_active=True)),
         ).filter(starting_price__isnull=False)
