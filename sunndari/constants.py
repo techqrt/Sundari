@@ -15,6 +15,9 @@ class Constants:
     otp_invalid = 'Invalid or expired OTP'
     password_reset_otp_sent = 'If the account exists, a verification code has been sent'
     password_reset_success = 'Password reset successfully'
+    password_mismatch = 'Password and confirm password do not match'
+    password_set_success = 'Password set successfully'
+    password_already_set = 'A password is already set for this account. Use forgot password to change it'
     otp_max_attempts = 'Maximum OTP attempts exceeded'
     account_locked = 'Account locked. Please try again after 30 minutes'
 

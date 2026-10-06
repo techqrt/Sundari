@@ -20,6 +20,7 @@ from sunndari_apps.authentication.serializers_auth import (
     LoginWithPasswordSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
+    SetPasswordSerializer,
     GoogleAuthSerializer,
     TokenRefreshSerializer,
 )
@@ -318,6 +319,32 @@ class PasswordAuthView:
 
         return Response(
             Utils.success_response_data(message=Constants.password_reset_otp_sent),
+            status=status.HTTP_200_OK
+        )
+
+    def set_password(self, user: User, params: dict) -> Response:
+        serializer = SetPasswordSerializer(data=params)
+        if not serializer.is_valid():
+            return Response(
+                Utils.error_response_data(Constants.validation_error, [serializer.errors]),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Only for accounts that have no password yet (OTP/Google sign-ups). Replacing an
+        # existing one must go through forgot/reset, which proves ownership with a fresh OTP.
+        # The row is re-read under a lock so two parallel calls cannot both pass this check.
+        with transaction.atomic():
+            locked = User.objects.select_for_update().get(pk=user.pk)
+            if locked.has_password():
+                return Response(
+                    Utils.error_response_data(Constants.password_already_set, [Constants.password_already_set]),
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            locked.set_password(serializer.validated_data['new_password'])
+            locked.save(update_fields=['password'])
+
+        return Response(
+            Utils.success_response_data(message=Constants.password_set_success),
             status=status.HTTP_200_OK
         )
 

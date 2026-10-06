@@ -1,7 +1,7 @@
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -14,6 +14,7 @@ from sunndari_apps.authentication.serializers_auth import (
     LoginWithPasswordSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
+    SetPasswordSerializer,
     GoogleAuthSerializer,
     TokenRefreshSerializer,
     AuthResponseSerializer,
@@ -131,6 +132,18 @@ class AuthController:
     @permission_classes([AllowAny])
     def reset_password(request: Request) -> Response:
         return PasswordAuthView().reset_password(params=request.data)
+
+    @extend_schema(
+        description='Set a first password for the logged-in account (phone OTP / Google sign-ups have none). Refused with 400 if a password already exists; use forgot-password to change it. The current session stays valid.',
+        request=SetPasswordSerializer,
+        responses=SwaggerPage.response(description='Password set successfully'),
+        tags=['Authentication - Password'],
+    )
+    @csrf_exempt
+    @api_view(['POST'])
+    @permission_classes([IsAuthenticated])
+    def set_password(request: Request) -> Response:
+        return PasswordAuthView().set_password(user=request.user, params=request.data)
 
     # ─── Google ───────────────────────────────────────────────────────────────
 

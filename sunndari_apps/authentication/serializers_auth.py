@@ -90,6 +90,19 @@ class LoginWithPasswordSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+class SetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(min_length=8, write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        return validate_new_password(value)
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': Constants.password_mismatch})
+        return data
+
+
 class ForgotPasswordSerializer(serializers.Serializer):
     username = serializers.CharField(help_text='Email or phone number')
 

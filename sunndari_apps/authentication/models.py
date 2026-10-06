@@ -55,6 +55,11 @@ class User(AbstractBaseUser):
     class Meta:
         db_table = 'users'
 
+    def has_password(self) -> bool:
+        # OTP/Google accounts are created with User.objects.create(), which stores password=''.
+        # Django calls a blank value "usable", so has_usable_password() alone is not enough.
+        return bool(self.password) and self.has_usable_password()
+
     def __str__(self):
         return f"{self.name or 'Unnamed'} ({self.phone_number or self.email or 'No contact'})"
 
