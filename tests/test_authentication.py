@@ -817,3 +817,63 @@ class ForgotResetPasswordTest(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.user.refresh_from_db()
         self.assertIsNotNone(self.user.otp)
+
+
+# ─── Set first password (OTP / Google sign-ups) ──────────────────────────────
+
+class SetPasswordTest(TestCase):
+    url = '/auth/password/set/'
+
+    def _otp_user_client(self):
+        # Same creation path as the OTP views: objects.create() leaves password=''.
+        return make_authenticated_client(phone_number='+919800000001', role='artist')
+
+    def test_otp_user_sets_password_then_logs_in_with_it(self):
+        client, user = self._otp_user_client()
+        self.assertFalse(user.has_password())
+        resp = client.post(self.url, {'new_password': 'Sundari@2026', 'confirm_password': 'Sundari@2026'}, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data['status'])
+        user.refresh_from_db()
+        self.assertTrue(user.has_password())
+        login = APIClient().post('/auth/login/', {'username': '+919800000001', 'password': 'Sundari@2026'}, format='json')
+        self.assertEqual(login.status_code, 200)
+
+    def test_current_session_stays_valid(self):
+        client, user = self._otp_user_client()
+        client.post(self.url, {'new_password': 'Sundari@2026', 'confirm_password': 'Sundari@2026'}, format='json')
+        self.assertEqual(client.post(self.url, {'new_password': 'Other@2026x', 'confirm_password': 'Other@2026x'}, format='json').status_code, 400)
+        self.assertEqual(client.get(f'/users/profile/get/?user_id={user.user_id}').status_code, 200)
+
+    def test_existing_password_cannot_be_overwritten(self):
+        user = User.objects.create_user(phone_number='+919800000002', password='Original@2026', role='customer', name='A')
+        client, user = make_authenticated_client(user=user)
+        resp = client.post(self.url, {'new_password': 'Hijack@2026x', 'confirm_password': 'Hijack@2026x'}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('Original@2026'))
+
+    def test_requires_authentication(self):
+        self.assertEqual(APIClient().post(self.url, {'new_password': 'Sundari@2026', 'confirm_password': 'Sundari@2026'}, format='json').status_code, 401)
+
+    def test_weak_or_short_passwords_rejected(self):
+        client, user = self._otp_user_client()
+        for bad in ('12345678', 'password', 'Ab1!'):
+            self.assertEqual(client.post(self.url, {'new_password': bad, 'confirm_password': bad}, format='json').status_code, 400, bad)
+        user.refresh_from_db()
+        self.assertFalse(user.has_password())
+
+    def test_missing_field_rejected(self):
+        client, _ = self._otp_user_client()
+        self.assertEqual(client.post(self.url, {}, format='json').status_code, 400)
+
+    def test_mismatched_confirm_password_rejected(self):
+        client, user = self._otp_user_client()
+        resp = client.post(self.url, {'new_password': 'Sundari@2026', 'confirm_password': 'Sundari@2027'}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertFalse(user.has_password())
+
+    def test_missing_confirm_password_rejected(self):
+        client, _ = self._otp_user_client()
+        self.assertEqual(client.post(self.url, {'new_password': 'Sundari@2026'}, format='json').status_code, 400)

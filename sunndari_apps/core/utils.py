@@ -17,6 +17,7 @@ class CoreUtils:
         'service_sub_category': {
             'sub_category_id': 'subCategoryId',
             'category_id': 'categoryId',
+            'category__name': 'categoryName',
             'name': 'name',
             'description': 'description',
             'is_active': 'isActive',

@@ -30,9 +30,21 @@ class ServiceSubCategoryView:
             data=Utils.success_response_data(message=self.data_get, data=data)
         )
 
+    @staticmethod
+    def _api_key(key: str) -> str:
+        # Filters and sorting are named after the response keys (categoryId). The database
+        # names (category_id) are accepted as an alias, so both spellings behave the same.
+        names = CoreUtils.MAPS['service_sub_category']
+        return names.get(key, key)
+
     @Common(response_handler=ServiceSubCategoryResponseGetAllSerializer).exception_handler
     def get_all_extract(self, params: GetAll):
+        params.filter_key = self._api_key(params.filter_key)
+        params.sort_by = self._api_key(params.sort_by)
         reversed_mapped = CoreUtils.reverse_mapper('service_sub_category', [params.sort_by, params.filter_key])
+        # A filter that cannot be applied must not quietly return every row.
+        if params.filter_key and not reversed_mapped[params.filter_key]:
+            raise ValueError(f'{params.filter_key} not a proper filter_key')
         pages = Paginator(
             ServiceSubCategory.get_all(
                 sort_by=reversed_mapped.get(params.sort_by, ''),

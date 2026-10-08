@@ -26,7 +26,7 @@ class ServiceSubCategory(models.Model):
     @staticmethod
     def get(sub_category_id: int) -> dict:
         return ServiceSubCategory.objects.filter(sub_category_id=sub_category_id).values(
-            'sub_category_id', 'category_id', 'name', 'description', 'is_active', 'created_at', 'updated_at'
+            'sub_category_id', 'category_id', 'category__name', 'name', 'description', 'is_active', 'created_at', 'updated_at'
         ).first()
 
     @staticmethod
@@ -46,5 +46,5 @@ class ServiceSubCategory(models.Model):
         if sort_by:
             data = data.order_by(('-' if sort_order == 'desc' else '') + sort_by)
         return list(data.values(
-            'sub_category_id', 'category_id', 'name', 'description', 'is_active', 'created_at', 'updated_at'
+            'sub_category_id', 'category_id', 'category__name', 'name', 'description', 'is_active', 'created_at', 'updated_at'
         ))
