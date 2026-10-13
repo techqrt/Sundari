@@ -119,6 +119,8 @@ class ArtistsUtils:
             'block_id': 'blockId',
             'artist_id': 'artistId',
             'block_date': 'blockDate',
+            'start_time': 'startTime',
+            'end_time': 'endTime',
             'note': 'note',
             'created_at': 'createdAt',
         },

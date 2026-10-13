@@ -10,21 +10,25 @@ class ArtistAvailabilityBlock(models.Model):
         related_name='availability_blocks',
     )
     block_date = models.DateField()
+    # Both null = the whole day is blocked; both set = only that range of the day.
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
     note = models.CharField(max_length=300, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = 'artist_availability_blocks'
-        unique_together = ('artist', 'block_date')
 
     def __str__(self):
         return f"Artist #{self.artist_id} blocked {self.block_date}"
 
     @staticmethod
-    def add(artist_id: int, block_date, note: str = None) -> int:
+    def add(artist_id: int, block_date, note: str = None, start_time=None, end_time=None) -> int:
         obj, _ = ArtistAvailabilityBlock.objects.get_or_create(
             artist_id=artist_id,
             block_date=block_date,
+            start_time=start_time,
+            end_time=end_time,
             defaults={'note': note},
         )
         return obj.block_id
@@ -39,6 +43,6 @@ class ArtistAvailabilityBlock(models.Model):
     def get_all(artist_id: int) -> list:
         return list(
             ArtistAvailabilityBlock.objects.filter(artist_id=artist_id).values(
-                'block_id', 'artist_id', 'block_date', 'note', 'created_at',
+                'block_id', 'artist_id', 'block_date', 'start_time', 'end_time', 'note', 'created_at',
             )
         )

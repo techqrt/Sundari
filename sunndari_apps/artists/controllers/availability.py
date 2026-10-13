@@ -52,7 +52,7 @@ class AvailabilityController:
         return AvailabilityView().get_all_schedules_extract(params=request.params)
 
     @extend_schema(
-        description='Block a specific date (overrides recurring schedule).',
+        description='Block a date (overrides recurring schedule). Send start_time and end_time (HH:MM:SS) together to block only those hours; leave both out to block the whole day. A date can hold several blocks.',
         request=AddBlockSerializer,
         responses=SwaggerPage.response(description='Date blocked successfully'),
         tags=['Artists - Availability'],
@@ -64,7 +64,7 @@ class AvailabilityController:
         return AvailabilityView().add_block_extract(params=request.params)
 
     @extend_schema(
-        description='Unblock a previously blocked date.',
+        description='Unblock a date: removes every block on block_date, whole-day and timed.',
         parameters=RemoveBlockSerializer.get_parameters(),
         responses=SwaggerPage.response(description='Date unblocked successfully'),
         tags=['Artists - Availability'],
@@ -76,7 +76,7 @@ class AvailabilityController:
         return AvailabilityView().remove_block_extract(params=request.params)
 
     @extend_schema(
-        description='Get all blocked dates for own artist profile.',
+        description='Get all blocks for own artist profile. startTime/endTime are null for a whole-day block.',
         responses=SwaggerPage.response(description='Data fetched successfully'),
         tags=['Artists - Availability'],
     )

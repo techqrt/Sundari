@@ -70,11 +70,13 @@ class AvailabilityView:
             ArtistAvailabilityBlock.add(
                 artist_id=profile.artist_id,
                 block_date=params.block_date,
+                start_time=params.start_time,
+                end_time=params.end_time,
                 note=params.note,
             )
         return Response(
             status=status.HTTP_201_CREATED,
-            data=Utils.success_response_data(message='Date blocked successfully')
+            data=Utils.success_response_data(message='Time blocked successfully' if params.start_time else 'Date blocked successfully')
         )
 
     @Common().exception_handler

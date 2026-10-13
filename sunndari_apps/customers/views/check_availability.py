@@ -26,9 +26,11 @@ class CheckAvailabilityView:
 
         day_of_week = params.booking_date.weekday()
 
-        is_blocked = ArtistAvailabilityBlock.objects.filter(
+        day_blocks = ArtistAvailabilityBlock.objects.filter(
             artist_id=params.artist_id, block_date=params.booking_date,
-        ).exists()
+        )
+        # isBlocked = the whole day is blocked; blocked hours are listed in blockedRanges instead.
+        is_blocked = day_blocks.filter(start_time__isnull=True).exists()
 
         schedule = ArtistAvailabilitySchedule.objects.filter(
             artist_id=params.artist_id, day_of_week=day_of_week, is_active=True,
@@ -57,6 +59,9 @@ class CheckAvailabilityView:
             'blockedRanges': [
                 {'startTime': r['start_time'], 'endTime': r['end_time']}
                 for r in Booking.get_blocked_ranges(artist_id=params.artist_id, booking_date=params.booking_date)
+            ] + [
+                {'startTime': b['start_time'], 'endTime': b['end_time']}
+                for b in day_blocks.filter(start_time__isnull=False).values('start_time', 'end_time')
             ],
             'bufferBeforeMinutes': artist.travel_time_before_minutes,
             'bufferAfterMinutes': artist.return_buffer_minutes,
