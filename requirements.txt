@@ -19,3 +19,4 @@ channels-redis
 daphne
 firebase-admin
 razorpay
+requests
