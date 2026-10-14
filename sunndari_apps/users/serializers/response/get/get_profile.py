@@ -3,7 +3,8 @@ from rest_framework import serializers
 
 class UserProfileGetSerializer(serializers.Serializer):
     userId = serializers.IntegerField()
-    name = serializers.CharField()
+    # A phone/Google sign-up has no name until the user sets one (model default is '').
+    name = serializers.CharField(allow_blank=True)
     role = serializers.CharField(allow_null=True, allow_blank=True)
     # Present only when you view your own profile (or you are an admin); see UserProfileView.
     email = serializers.EmailField(allow_null=True, allow_blank=True, required=False)

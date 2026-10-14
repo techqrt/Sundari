@@ -1,8 +1,33 @@
+import re
 from rest_framework import serializers
 from django.contrib.auth.password_validation import CommonPasswordValidator, NumericPasswordValidator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from sunndari_apps.authentication.models import User
 from sunndari.constants import Constants
+
+
+def clean_phone_number(value: str) -> str:
+    """Separators removed, nothing else judged: accounts created before number validation existed
+    (odd formats) must still be able to log in. Strictness applies only when an account is created."""
+    cleaned = re.sub(r'[\s\-()]', '', value)
+    if not cleaned:
+        raise serializers.ValidationError('Phone number is required.')
+    return cleaned
+
+
+def normalize_indian_mobile(value: str) -> str:
+    """Validates an Indian mobile number and returns it without separators, in the form it was
+    sent (+91…, 91… or plain 10 digits) so existing accounts and exact-match logins keep working.
+    A leading 0 is dropped. Anything that is not an Indian mobile number is rejected: it would
+    only create a junk account and cost an SMS."""
+    cleaned = re.sub(r'[\s\-()]', '', value)
+    digits = cleaned[1:] if cleaned.startswith('+') else cleaned
+    if len(digits) == 11 and digits.startswith('0'):
+        cleaned = digits = digits[1:]
+    national = digits[2:] if len(digits) == 12 and digits.startswith('91') else digits
+    if not re.fullmatch(r'[6-9][0-9]{9}', national):
+        raise serializers.ValidationError(Constants.phone_invalid)
+    return cleaned
 
 
 def validate_new_password(value: str) -> str:
@@ -23,6 +48,10 @@ PUBLIC_ROLE_CHOICES = [c[0] for c in User.ROLE_CHOICES if c[0] != 'admin']
 
 class PhoneOTPRequestSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=20)
+
+    def validate_phone_number(self, value):
+        return clean_phone_number(value)
+
     role = serializers.ChoiceField(
         choices=PUBLIC_ROLE_CHOICES,
         required=False,
@@ -36,6 +65,10 @@ class PhoneOTPRequestSerializer(serializers.Serializer):
 
 class PhoneOTPVerifySerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=20)
+
+    def validate_phone_number(self, value):
+        return clean_phone_number(value)
+
     otp = serializers.CharField(max_length=6)
 
     def validate(self, data):

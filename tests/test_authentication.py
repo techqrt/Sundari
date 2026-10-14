@@ -55,7 +55,7 @@ class PhoneOTPRequestTest(TestCase):
         self.assertTrue(resp.data['status'])
 
     def test_unknown_user_without_role_returns_404(self):
-        resp = self.client.post(self.url, {'phone_number': '+910000000000'})
+        resp = self.client.post(self.url, {'phone_number': '+919876500000'})
         self.assertEqual(resp.status_code, 404)
         self.assertFalse(resp.data['status'])
 
@@ -116,7 +116,7 @@ class PhoneOTPVerifyTest(TestCase):
         self.assertFalse(resp.data['status'])
 
     def test_unknown_user_returns_404(self):
-        resp = self.client.post(self.url, {'phone_number': '+910000000000', 'otp': '123456'})
+        resp = self.client.post(self.url, {'phone_number': '+919876500000', 'otp': '123456'})
         self.assertEqual(resp.status_code, 404)
 
     def test_locked_account_returns_403(self):

@@ -1,6 +1,8 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.response import Response
 
 from sunndari_apps.authentication.models import User
@@ -9,6 +11,7 @@ from sunndari_apps.authentication.utils import (
     generate_refresh_token,
     send_otp_sms,
     send_otp_email,
+    SMSDeliveryError,
     verify_google_token,
 )
 from sunndari_apps.authentication.serializers_auth import (
@@ -21,11 +24,23 @@ from sunndari_apps.authentication.serializers_auth import (
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
     SetPasswordSerializer,
+    normalize_indian_mobile,
     GoogleAuthSerializer,
     TokenRefreshSerializer,
 )
 from sunndari_apps.common.utils import Utils
+from sunndari.config import Configurations
 from sunndari.constants import Constants
+
+
+def _find_phone_user(phone_number: str):
+    """The account for a validated number, whichever way it was stored (plain, +91… or 91…), so
+    one handset cannot get several accounts. The oldest wins if duplicates already exist."""
+    national = phone_number[-10:]
+    return User.objects.filter(
+        # the exact string too, so accounts stored in some odd legacy format are still found
+        phone_number__in=[phone_number, national, '+91' + national, '91' + national]
+    ).order_by('user_id').first()
 
 
 def _create_role_instance(user: User) -> None:
@@ -76,17 +91,32 @@ class PhoneOTPView:
         phone_number = serializer.validated_data['phone_number']
         role = serializer.validated_data.get('role')
 
-        try:
-            user = User.objects.get(phone_number=phone_number)
-        except User.DoesNotExist:
+        user = _find_phone_user(phone_number)
+        if user is None:
             if not role:
                 return Response(
                     Utils.error_response_data(Constants.user_not_found, [Constants.user_not_found]),
                     status=status.HTTP_404_NOT_FOUND
                 )
+            # Only a NEW account needs a real Indian mobile number; existing ones are left alone.
+            try:
+                phone_number = normalize_indian_mobile(phone_number)
+            except serializers.ValidationError:
+                return Response(
+                    Utils.error_response_data(Constants.validation_error, [{'phone_number': [Constants.phone_invalid]}]),
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             with transaction.atomic():
                 user = User.objects.create(phone_number=phone_number, role=role)
                 _create_role_instance(user)
+
+        if not user.is_active:
+            # Same response, no SMS: a deactivated account can never use the code (verify refuses
+            # it), so sending one only costs money. Nothing new is revealed — verify already says 403.
+            return Response(
+                Utils.success_response_data(message=Constants.otp_sent),
+                status=status.HTTP_200_OK
+            )
 
         if user.is_locked_out():
             return Response(
@@ -94,8 +124,26 @@ class PhoneOTPView:
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # The last request time is the saved expiry minus the validity window (no new column).
+        if user.otp_expiry:
+            requested_at = user.otp_expiry - timedelta(minutes=Configurations.otp_expiry_minutes)
+            if timezone.now() - requested_at < timedelta(seconds=Configurations.otp_resend_seconds):
+                return Response(
+                    Utils.error_response_data(Constants.contact_change_wait, [Constants.contact_change_wait]),
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         otp = user.generate_otp()
-        send_otp_sms(phone_number, otp)
+        try:
+            send_otp_sms(phone_number, otp, via_gateway=True)
+        except SMSDeliveryError:
+            # Not a false "OTP sent". The code was not (reliably) delivered, so it is dropped: it
+            # must not stay valid, and the resend cooldown must not block the retry.
+            User.objects.filter(pk=user.pk).update(otp=None, otp_expiry=None)
+            return Response(
+                Utils.error_response_data(Constants.sms_send_failed, [Constants.sms_send_failed]),
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         return Response(
             Utils.success_response_data(message=Constants.otp_sent),
@@ -113,9 +161,8 @@ class PhoneOTPView:
         phone_number = serializer.validated_data['phone_number']
         otp = int(serializer.validated_data['otp'])
 
-        try:
-            user = User.objects.get(phone_number=phone_number)
-        except User.DoesNotExist:
+        user = _find_phone_user(phone_number)
+        if user is None:
             return Response(
                 Utils.error_response_data(Constants.user_not_found, [Constants.user_not_found]),
                 status=status.HTTP_404_NOT_FOUND

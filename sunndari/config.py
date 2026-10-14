@@ -13,6 +13,8 @@ class Configurations:
     debug = config('DEBUG', cast=bool)
     pagination_count = 10
     otp_expiry_minutes = 10
+    # Minimum gap between two OTP requests for the same account (phone login).
+    otp_resend_seconds = 60
     otp_max_attempts = 3
     account_lockout_attempts = 5
     account_lockout_minutes = 30
@@ -45,3 +47,22 @@ class Configurations:
     razorpay_key_id = config('RAZORPAY_KEY_ID')
     razorpay_key_secret = config('RAZORPAY_KEY_SECRET')
     razorpay_currency = 'INR'
+    # SMS gateway (HTTP GET, query-string API) used for the phone login/register OTP. Everything
+    # secret or environment-specific comes from the environment; empty = gateway not configured.
+    sms_gateway_url = config('SMS_GATEWAY_URL', default='')
+    sms_gateway_user = config('SMS_GATEWAY_USER', default='')
+    sms_gateway_password = config('SMS_GATEWAY_PASSWORD', default='')
+    sms_gateway_sender_id = config('SMS_GATEWAY_SENDER_ID', default='')
+    sms_gateway_route = config('SMS_GATEWAY_ROUTE', default='')
+    sms_gateway_channel = config('SMS_GATEWAY_CHANNEL', default='Trans')
+    sms_gateway_dcs = config('SMS_GATEWAY_DCS', default='0')
+    sms_gateway_flashsms = config('SMS_GATEWAY_FLASHSMS', default='0')
+    # ErrorCode the gateway returns in its JSON body when it accepted the message for sending.
+    sms_gateway_success_code = config('SMS_GATEWAY_SUCCESS_CODE', default='000')
+    sms_gateway_connect_timeout_seconds = 3
+    sms_gateway_read_timeout_seconds = 10
+    sms_otp_template = (
+        'Sunndari par aapka swagat hai! Aapka SUNNDARI CODE hai: {otp} Ye agle {expiry_minutes} '
+        'minutes tak valid hai. Apna account safe rakhne ke liye ise kisi ke saath share mat '
+        'kariyega. - Sunndari'
+    )

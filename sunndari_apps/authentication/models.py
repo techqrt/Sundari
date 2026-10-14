@@ -72,7 +72,8 @@ class User(AbstractBaseUser):
         otp = random.randint(100000, 999999)
         self.otp = otp
         self.otp_expiry = timezone.now() + timezone.timedelta(minutes=10)
-        self.otp_attempts = 0
+        # otp_attempts is deliberately NOT reset here: a new code must not give a guesser a fresh
+        # budget. It resets on a successful verification and when a lockout expires.
         self.save()
         return otp
 

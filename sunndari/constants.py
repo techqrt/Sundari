@@ -12,6 +12,8 @@ class Constants:
 
     # OTP
     otp_sent = 'OTP sent successfully'
+    phone_invalid = 'Enter a valid 10-digit Indian mobile number'
+    sms_send_failed = 'Unable to send OTP right now, please try again'
     otp_invalid = 'Invalid or expired OTP'
     password_reset_otp_sent = 'If the account exists, a verification code has been sent'
     password_reset_success = 'Password reset successfully'
