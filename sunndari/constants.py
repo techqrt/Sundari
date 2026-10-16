@@ -61,6 +61,8 @@ class Constants:
     completion_pin_not_available = 'Completion PIN is not available yet'
     completion_pin_verify_not_allowed = 'Service must be in progress to mark it as completed'
     completion_pin_invalid = 'Invalid or expired Completion PIN'
+    completion_pin_request_not_allowed = 'Service must be in progress to request the Completion PIN'
+    completion_pin_not_requested = 'Request the Completion PIN first (tap Complete service)'
     past_date_booking = 'Cannot book a date in the past'
     booking_too_soon = 'Bookings must be made at least 2 hours in advance'
     booking_expired = 'This booking has expired and cannot be updated'

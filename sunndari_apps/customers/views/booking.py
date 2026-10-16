@@ -32,6 +32,10 @@ class BookingView:
         booking = Booking.get(booking_id=params.booking_id)
         if not booking or booking['customer_id'] != params.user_id:
             raise ValueError(Constants.booking_not_found)
+        if params.filter_key in Booking.PAYMENT_FILTER_KEYS and not Booking.filter_by_payment(
+            Booking.objects.filter(booking_id=params.booking_id), params.filter_value,
+        ).exists():
+            raise ValueError(Constants.booking_not_found)
         Booking.with_display_expiry([booking])
         columns = [c for c in params.values.split(',') if c]
         mapper_columns, extra_columns = BookingExtras.split_columns(columns, for_artist=False)
@@ -51,6 +55,7 @@ class BookingView:
         reversed_mapped = CustomersUtils.reverse_mapper('booking', [params.sort_by, params.filter_key])
         raw = Booking.get_all(
             customer_id=params.user_id,
+            payment_status=params.filter_value if params.filter_key in Booking.PAYMENT_FILTER_KEYS else '',
             sort_by=reversed_mapped.get(params.sort_by, ''),
             sort_order=params.sort_order,
             filter_key=reversed_mapped.get(params.filter_key, ''),

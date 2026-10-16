@@ -81,6 +81,7 @@ urlpatterns = [
     path('bookings/on_my_way/', ArtistBookingController.on_my_way, name='artist_on_my_way'),
     path('bookings/arrived/', ArtistBookingController.arrived, name='artist_arrived'),
     path('bookings/start_pin/verify/', ArtistBookingController.verify_start_pin, name='artist_verify_start_pin'),
+    path('bookings/completion_pin/request/', ArtistBookingController.request_completion_pin, name='artist_request_completion_pin'),
     path('bookings/completion_pin/verify/', ArtistBookingController.verify_completion_pin, name='artist_verify_completion_pin'),
 
     # Onboarding — Documents

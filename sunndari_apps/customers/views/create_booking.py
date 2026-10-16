@@ -150,13 +150,15 @@ class CreateBookingView:
             type='new_booking_alert',
             booking_id=booking_id,
         )
-        NotificationService.notify(
-            user_id=artist.user_id,
-            title='Booking verification code',
-            message=f'Your booking OTP is {booking_otp}. Share it with the customer to verify arrival.',
-            type='booking_otp_issued',
-            booking_id=booking_id,
-        )
+        # The artist no longer enters a Booking OTP on arrival (arrived goes straight to the Start
+        # PIN), so this "Booking verification code" notification is switched off.
+        # NotificationService.notify(
+        #     user_id=artist.user_id,
+        #     title='Booking verification code',
+        #     message=f'Your booking OTP is {booking_otp}. Share it with the customer to verify arrival.',
+        #     type='booking_otp_issued',
+        #     booking_id=booking_id,
+        # )
         try:
             if artist.user.phone_number:
                 send_otp_sms(artist.user.phone_number, booking_otp)

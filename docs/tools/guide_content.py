@@ -108,8 +108,9 @@ ENDPOINT_NOTES = {
     '/artists/profile/share_link/': 'Creates the artist\'s share handle on first call; the same link is returned afterwards. Open it in a browser or share it — see <a href="#get-public-artists-get">the public page</a>.',
     '/public/artists/get/': 'No login needed. Works only for approved artists. Each call counts as a profile view.',
     '/customers/bookings/start_pin/': 'The customer reads the PIN and tells it to the artist, who enters it with the artist start-PIN endpoint.',
-    '/customers/bookings/completion_pin/': 'Same idea as the start PIN, issued when the service starts.',
-    '/artists/bookings/arrived/': 'The artist enters the <b>booking OTP</b> (shown to the artist in their notification when the booking is created). The OTP is single-use.',
+    '/customers/bookings/completion_pin/': 'Same idea as the start PIN, but issued only after the artist taps <b>Complete service</b> (<code>PUT /artists/bookings/completion_pin/request/</code>); until then it answers 400 "not available yet". The customer gets a <code>completion_pin_ready</code> notification when it is ready.',
+    '/artists/bookings/arrived/': 'No booking OTP is needed any more: tapping <b>Arrived</b> immediately issues the <b>Start Service PIN</b> to the customer (<code>start_pin_ready</code> notification). Send only <code>booking_id</code>; <code>booking_otp</code> is optional and ignored.',
+    '/artists/bookings/completion_pin/request/': 'Call this when the artist taps <b>Complete service</b> (booking must be <code>in_progress</code>). It creates the Completion PIN and notifies the customer; the PIN is <b>not</b> returned to the artist. Calling again re-sends the notification (same PIN) but not more than once a minute (400 "please wait a minute"). Then the artist types the PIN the customer shows into <code>PUT /artists/bookings/completion_pin/verify/</code>.',
     '/artists/documents/create/': 'For <code>document_type=id_proof</code> you must also send <code>id_type</code> and <code>document_number</code>; a new ID proof <b>replaces</b> the previous one and goes back to <code>pending</code> verification.',
     '/artists/onboarding/status/': 'Drive the onboarding checklist UI from <code>steps</code>. <code>status</code> is one of <code>not_started</code>, <code>in_progress</code>, <code>submitted</code>, <code>approved</code>, <code>rejected</code>, <code>suspended</code>.',
     '/auth/reset-password/': 'Succeeds with 200 and revokes existing sessions: send the user to the login screen afterwards.',
@@ -126,6 +127,9 @@ FIELD_NOTES = {
 B, CH = 'breaking', 'changed'
 CHANGED = {
     '/auth/register/': (CH, 'Only <code>customer</code> and <code>artist</code> are accepted for <code>role</code> (<code>admin</code> → 400). Password must be ≥ 8 chars and not purely numeric or a common password (e.g. <code>12345678</code>, <code>password</code>) → 400 with a field error.'),
+    '/artists/bookings/arrived/': (B, '<b>Booking OTP step removed:</b> send only <code>booking_id</code> (<code>booking_otp</code> is now optional and ignored; a wrong or expired one no longer matters). The Start Service PIN is created right away and the customer gets <code>start_pin_ready</code>. Hide the "enter booking OTP" screen; the <code>booking_otp_issued</code> notification to the artist is no longer needed.'),
+    '/artists/bookings/start_pin/verify/': (B, 'No longer creates the Completion PIN and no longer sends <code>completion_pin_ready</code> (the customer still gets <code>service_started</code>). Show a <b>Complete service</b> button on the in-progress screen and call [[PUT /artists/bookings/completion_pin/request/]] when it is tapped.'),
+    '/artists/bookings/completion_pin/verify/': (B, 'If the PIN has not been requested yet it returns 400 "Request the Completion PIN first (tap Complete service)" (not counted as a wrong try). Call [[PUT /artists/bookings/completion_pin/request/]] first.'),
     '/auth/phone-otp/request/': (B, '<code>role</code> may only be <code>customer</code> or <code>artist</code>. <b>The code is now really sent by SMS.</b> New responses to handle: <b>HTTP 400</b> "Enter a valid 10-digit Indian mobile number" when a <i>new</i> account is created with an invalid number (<code>+91…</code>, <code>91…</code>, <code>0…</code> and plain 10 digits are all accepted; spaces and dashes are ignored); <b>HTTP 400</b> "A code was just sent; please wait a minute…" if the same number asks again within <b>60 seconds</b> (show a resend timer); <b>HTTP 503</b> "Unable to send OTP right now, please try again" when the SMS provider failed (nothing was sent; retrying immediately is fine). A deactivated account still gets 200 but no SMS. The same handset can no longer create several accounts by changing the number format.'),
     '/auth/email-otp/request/': (CH, '<code>role</code> may only be <code>customer</code> or <code>artist</code>. A resend no longer resets the wrong-guess counter (5 wrong guesses in total lock the account for 30 minutes).'),
     '/auth/google/': (CH, '<code>role</code> may only be <code>customer</code> or <code>artist</code>.'),
@@ -164,11 +168,11 @@ CHANGED = {
     '/customers/artists/get/': (CH, 'Adds <code>addOns</code> (active, each with <code>packageIds</code>) and <code>serviceAreas</code> (active); <code>profile</code> gains <code>displayName</code>, <code>instagramUrl</code>, <code>profileType</code>, <code>isAcceptingBookings</code>; packages gain the new package fields; portfolio is in the artist\'s chosen order and excludes work samples. Each successful call counts as a profile view.'),
     '/customers/artists/availability/': (CH, 'Adds <code>blockedRanges</code>, <code>bufferBeforeMinutes</code>, <code>bufferAfterMinutes</code> — use these (not just <code>bookedRanges</code>) to decide which times to offer.'),
     '/customers/bookings/create/': (CH, 'New optional <code>addon_ids</code>. The <b>total is computed on the server</b> (package + add-ons + travel fee); any price you send is ignored. Response now includes <code>total_amount</code> and <code>travel_fee</code>. New refusals: your own services, an artist who switched bookings off, an add-on that is inactive/not linked to the package, a Home Visit address outside the artist\'s service areas (or no address when the artist has areas), a slot that clashes with another booking\'s travel/return buffers.'),
-    '/customers/bookings/get/': (CH, 'Adds <code>travelFee</code> and <code>addOns</code> (each <code>{addOnId, name, price, durationMinutes}</code>). <code>totalAmount</code> already includes both.'),
-    '/customers/bookings/get_all/': (CH, 'Each booking adds <code>travelFee</code> and <code>addOns</code>.'),
+    '/customers/bookings/get/': (CH, 'Adds <code>travelFee</code> and <code>addOns</code> (each <code>{addOnId, name, price, durationMinutes}</code>). <code>totalAmount</code> already includes both. Optional <code>filter_key=paymentStatus</code> + <code>filter_value=paid|unpaid</code>: returned only if it matches, otherwise 400 "Booking not found".'),
+    '/customers/bookings/get_all/': (CH, 'Each booking adds <code>travelFee</code> and <code>addOns</code>. New filter: <code>filter_key=paymentStatus</code> with <code>filter_value=paid</code> returns only paid bookings (money held), <code>unpaid</code> only bookings that never received a successful payment (awaiting payment or failed); a booking that was paid and then refunded is in neither list. Combines with paging, sorting and other filters; any other value → 400.'),
     '/customers/bookings/cancel/': (CH, 'Refused (400) once the booking is <code>in_progress</code> or the artist has arrived. Cancelling a paid booking now asks the payment gateway for a refund (see Payments flow).'),
-    '/artists/bookings/get/': (CH, 'Adds artist-only <code>platformFee</code>, <code>netAmount</code>, <code>travelMinutesBefore</code>, <code>returnBufferMinutes</code> plus <code>travelFee</code> and <code>addOns</code>.'),
-    '/artists/bookings/get_all/': (CH, 'Same additions per booking.'),
+    '/artists/bookings/get/': (CH, 'Adds artist-only <code>platformFee</code>, <code>netAmount</code>, <code>travelMinutesBefore</code>, <code>returnBufferMinutes</code> plus <code>travelFee</code> and <code>addOns</code>. Optional <code>filter_key=paymentStatus</code> + <code>filter_value=paid|unpaid</code>: returned only if it matches, otherwise 400 "Booking not found".'),
+    '/artists/bookings/get_all/': (CH, 'Same additions per booking. New filter: <code>filter_key=paymentStatus</code> with <code>filter_value=paid</code> returns only paid bookings (money held), <code>unpaid</code> only bookings that never received a successful payment (awaiting payment or failed); a booking that was paid and then refunded is in neither list. Combines with paging, sorting and other filters; any other value → 400.'),
     '/artists/bookings/update_status/': (CH, 'Cancelling/declining a paid booking now triggers a real gateway refund (the customer gets a "refund initiated" or "refund being processed" notification).'),
     '/customers/payments/initiate/': (CH, 'Idempotent: an identical open order is returned again (HTTP <b>200</b>, same order id). A second order that would exceed what is still owed is refused (400 "A payment for this booking is already in progress…"). Open orders older than 30 minutes no longer block.'),
     '/customers/payments/verify/': (CH, 'A capture that would push the booking above its total is refused (400 "…exceed the booking total… will be refunded") and the payment is marked failed.'),
@@ -479,11 +483,12 @@ file=@front.jpg  back_file=@back.jpg</pre>
 
 <section class="flow" id="flow-lifecycle"><h3>6 · Booking day (artist app)</h3>
 <ol>
- <li><b>Incoming</b> — the artist gets a <code>new_booking_alert</code> and a <code>booking_otp_issued</code> notification. The booking OTP (6 digits) is what they will enter on arrival. [[GET /artists/bookings/get_all/]] lists bookings; each shows <code>platformFee</code>, <code>netAmount</code>, <code>addOns</code>, <code>travelFee</code>.</li>
+ <li><b>Incoming</b> — the artist gets a <code>new_booking_alert</code> notification (the <code>booking_otp_issued</code> notification is switched off: there is no booking OTP step any more). Note the alert arrives when the customer books, <i>before</i> payment, so filter the list with <code>filter_key=paymentStatus&amp;filter_value=paid</code> to show only paid bookings. [[GET /artists/bookings/get_all/]] lists bookings; each shows <code>platformFee</code>, <code>netAmount</code>, <code>addOns</code>, <code>travelFee</code>.</li>
  <li><b>Accept or decline</b> — [[PUT /artists/bookings/update_status/]] with <code>status=confirmed</code> (only after the customer has paid in full; otherwise 400 “…cannot be confirmed until payment has been completed”) or <code>status=cancelled</code> + <code>reason</code> (decline/cancel; a paid booking is refunded).</li>
  <li><b>On my way</b> — [[PUT /artists/bookings/on_my_way/]], only within <b>2 hours before the start</b>.</li>
- <li><b>Arrived</b> — [[PUT /artists/bookings/arrived/]] with the <code>booking_otp</code>. Wrong codes are counted (5 → locked 30 min).</li>
+ <li><b>Arrived</b> — [[PUT /artists/bookings/arrived/]] with just the <code>booking_id</code>. The customer is told their Start PIN is ready.</li>
  <li><b>Start</b> — the customer reads their Start PIN; the artist enters it in [[PUT /artists/bookings/start_pin/verify/]] → booking becomes <code>in_progress</code>.</li>
+ <li><b>Complete service</b> — when the artist taps it, call [[PUT /artists/bookings/completion_pin/request/]] (<code>booking_id</code>): the Completion PIN is created and the customer is notified (<code>completion_pin_ready</code>). It is no longer created when the service starts.</li>
  <li><b>Finish</b> — the customer reads their Completion PIN; the artist enters it in [[PUT /artists/bookings/completion_pin/verify/]] → <code>completed</code> (cashback is credited to the customer once).</li>
  <li><b>After</b> — rate the customer with [[POST /artists/customer_reviews/create/]] (once per completed booking; private to artists), and reply to the customer's review with [[PUT /artists/reviews/reply/]].</li>
 </ol>
@@ -662,9 +667,9 @@ FLOW_DIAGRAMS = {
   [*] --> pending: customer creates, slot locked 15 min
   pending --> confirmed: artist accepts (after full payment)
   pending --> cancelled: declined, unpaid after 15 min, or customer cancels
-  confirmed --> confirmed: on my way, then arrived (OTP)
+  confirmed --> confirmed: on my way, then arrived (start PIN to customer)
   confirmed --> in_progress: start PIN
-  in_progress --> completed: completion PIN
+  in_progress --> completed: complete service tapped, then completion PIN
   confirmed --> cancelled: cancelled before the artist arrives
   confirmed --> no_show: nobody acted 2 h after start
   completed --> [*]""",

@@ -5,3 +5,5 @@ from dataclasses import dataclass
 class GetArtistBookingRequest:
     booking_id: int
     values: str = ''
+    filter_key: str = ''
+    filter_value: str = ''

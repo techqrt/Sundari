@@ -99,9 +99,8 @@ class FullBookingLifecycleTest(TestCase):
         self.assertTrue(
             Notification.objects.filter(booking_id=booking_id, type='new_booking_alert', user_id=artist_user.user_id).exists()
         )
-        self.assertTrue(
-            Notification.objects.filter(booking_id=booking_id, type='booking_otp_issued', user_id=artist_user.user_id).exists()
-        )
+        # The "Booking verification code" notification is switched off (arrival no longer needs the OTP).
+        self.assertFalse(Notification.objects.filter(booking_id=booking_id, type='booking_otp_issued').exists())
 
         # ── Customer pays — required before the artist can confirm ─────────
         self._pay_for_booking(customer_client, booking_id)
@@ -133,9 +132,9 @@ class FullBookingLifecycleTest(TestCase):
             Notification.objects.filter(booking_id=booking_id, type='artist_on_the_way', user_id=customer.user_id).exists()
         )
 
-        # ── Arrived (Booking OTP verified, Start PIN minted) ───────────────
+        # ── Arrived (no Booking OTP needed; Start PIN minted for the customer) ─
         arrived_resp = artist_client.put('/artists/bookings/arrived/', {
-            'booking_id': booking_id, 'booking_otp': booking_otp,
+            'booking_id': booking_id,
         }, format='json')
         self.assertEqual(arrived_resp.status_code, 200)
         booking.refresh_from_db()
@@ -165,10 +164,21 @@ class FullBookingLifecycleTest(TestCase):
         self.assertEqual(booking.status.name, 'in_progress')
         self.assertIsNotNone(booking.service_started_at)
         self.assertIsNone(booking.start_service_pin)
-        self.assertIsNotNone(booking.completion_pin)
         self.assertTrue(
             Notification.objects.filter(booking_id=booking_id, type='service_started', user_id=customer.user_id).exists()
         )
+        # Starting the service no longer issues the Completion PIN or tells the customer about it.
+        self.assertIsNone(booking.completion_pin)
+        self.assertFalse(
+            Notification.objects.filter(booking_id=booking_id, type='completion_pin_ready').exists()
+        )
+        self.assertEqual(customer_client.get('/customers/bookings/completion_pin/', {'booking_id': booking_id}).status_code, 400)
+
+        # ── Artist taps "Complete service": the Completion PIN is issued and sent ─
+        request_resp = artist_client.put('/artists/bookings/completion_pin/request/', {'booking_id': booking_id}, format='json')
+        self.assertEqual(request_resp.status_code, 200)
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.completion_pin)
         self.assertTrue(
             Notification.objects.filter(booking_id=booking_id, type='completion_pin_ready', user_id=customer.user_id).exists()
         )

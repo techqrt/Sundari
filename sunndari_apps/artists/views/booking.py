@@ -17,6 +17,7 @@ from sunndari_apps.artists.dataclasses.request.update.on_my_way import OnMyWayRe
 from sunndari_apps.artists.dataclasses.request.update.arrived import ArrivedRequest
 from sunndari_apps.artists.dataclasses.request.update.verify_start_pin import VerifyStartPinRequest
 from sunndari_apps.artists.dataclasses.request.update.verify_completion_pin import VerifyCompletionPinRequest
+from sunndari_apps.artists.dataclasses.request.update.request_completion_pin import RequestCompletionPinRequest
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
@@ -25,6 +26,7 @@ from sunndari_apps.wallet.models.customer_wallet import CustomerWallet
 from sunndari_apps.customers.utils import CustomersUtils
 from sunndari_apps.customers.booking_extras import BookingExtras
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
+from sunndari_apps.notifications.models.notification import Notification
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.chat.services import ChatService
 from sunndari_apps.customers.serializers.response.get.get_booking import BookingResponseSerializer
@@ -48,6 +50,10 @@ class ArtistBookingView:
         booking = Booking.get(booking_id=params.booking_id)
         if not booking or booking['artist_id'] != artist_id:
             raise ValueError(Constants.booking_not_found)
+        if params.filter_key in Booking.PAYMENT_FILTER_KEYS and not Booking.filter_by_payment(
+            Booking.objects.filter(booking_id=params.booking_id), params.filter_value,
+        ).exists():
+            raise ValueError(Constants.booking_not_found)
         Booking.with_display_expiry([booking])
         columns = [c for c in params.values.split(',') if c]
         mapper_columns, extra_columns = BookingExtras.split_columns(columns, for_artist=True)
@@ -68,6 +74,7 @@ class ArtistBookingView:
         reversed_mapped = CustomersUtils.reverse_mapper('booking', [params.sort_by, params.filter_key])
         raw = Booking.get_all(
             artist_id=artist_id,
+            payment_status=params.filter_value if params.filter_key in Booking.PAYMENT_FILTER_KEYS else '',
             sort_by=reversed_mapped.get(params.sort_by, ''),
             sort_order=params.sort_order,
             filter_key=reversed_mapped.get(params.filter_key, ''),
@@ -244,18 +251,20 @@ class ArtistBookingView:
         if Booking.is_past_missed_deadline(booking['booking_date'], booking['start_time']):
             raise ValueError(Constants.booking_expired)
 
-        if Booking.is_booking_otp_locked(booking_id=params.booking_id):
-            raise ValueError(Constants.account_locked)
-
-        otp_valid = (
-            booking['booking_otp'] is not None
-            and booking['booking_otp'] == params.booking_otp
-            and booking['booking_otp_expiry'] is not None
-            and timezone.now() <= booking['booking_otp_expiry']
-        )
-        if not otp_valid:
-            Booking.record_booking_otp_failure(booking_id=params.booking_id)
-            raise ValueError(Constants.otp_invalid)
+        # The artist no longer enters the Booking OTP: arriving now goes straight to the Start
+        # Service PIN for the customer. Kept (commented) so the step can be switched back on.
+        # if Booking.is_booking_otp_locked(booking_id=params.booking_id):
+        #     raise ValueError(Constants.account_locked)
+        #
+        # otp_valid = (
+        #     booking['booking_otp'] is not None
+        #     and booking['booking_otp'] == params.booking_otp
+        #     and booking['booking_otp_expiry'] is not None
+        #     and timezone.now() <= booking['booking_otp_expiry']
+        # )
+        # if not otp_valid:
+        #     Booking.record_booking_otp_failure(booking_id=params.booking_id)
+        #     raise ValueError(Constants.otp_invalid)
 
         Booking.confirm_arrival(
             booking_id=params.booking_id, booking_date=booking['booking_date'], end_time=booking['end_time'],
@@ -327,17 +336,49 @@ class ArtistBookingView:
             type='service_started',
             booking_id=params.booking_id,
         )
+        # The Completion PIN is issued (and the customer told) only when the artist taps
+        # "Complete service" — see request_completion_pin_extract.
+        BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message='Service started')
+        )
+
+    @Common().exception_handler
+    def request_completion_pin_extract(self, params: RequestCompletionPinRequest):
+        artist_id = self._get_artist_id(user_id=params.user_id)
+        booking = Booking.get_lifecycle_state(booking_id=params.booking_id)
+        if not booking or booking['artist_id'] != artist_id:
+            raise ValueError(Constants.booking_not_found)
+
+        current_status = BookingStatus.objects.filter(
+            status_id=booking['status_id'],
+        ).values_list('name', flat=True).first()
+        if current_status != 'in_progress':
+            raise ValueError(Constants.completion_pin_request_not_allowed)
+
+        # Asking again re-sends the notification (the PIN itself is kept), but not more than once
+        # a minute. The last send time is read from the notifications already stored.
+        if Notification.objects.filter(
+            booking_id=params.booking_id, type='completion_pin_ready',
+            created_at__gte=timezone.now() - timedelta(seconds=Configurations.otp_resend_seconds),
+        ).exists():
+            raise ValueError(Constants.contact_change_wait)
+
+        Booking.issue_completion_pin(
+            booking_id=params.booking_id, booking_date=booking['booking_date'], end_time=booking['end_time'],
+        )
         NotificationService.notify(
             user_id=booking['customer_id'],
             title='Completion PIN ready',
-            message='Share your Completion PIN with the artist once the service is finished.',
+            message='Your artist has finished the service. Share your Completion PIN with them to complete it.',
             type='completion_pin_ready',
             booking_id=params.booking_id,
         )
         BookingFirebaseUtils.sync_booking(booking_id=params.booking_id)
         return Response(
             status=status.HTTP_200_OK,
-            data=Utils.success_response_data(message='Service started')
+            data=Utils.success_response_data(message='Completion PIN sent to the customer')
         )
 
     @Common().exception_handler
@@ -352,6 +393,9 @@ class ArtistBookingView:
         ).values_list('name', flat=True).first()
         if current_status != 'in_progress':
             raise ValueError(Constants.completion_pin_verify_not_allowed)
+
+        if booking['completion_pin'] is None:
+            raise ValueError(Constants.completion_pin_not_requested)
 
         if Booking.is_completion_pin_locked(booking_id=params.booking_id):
             raise ValueError(Constants.account_locked)

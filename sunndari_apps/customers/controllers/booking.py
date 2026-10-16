@@ -17,7 +17,7 @@ from sunndari_apps.customers.views.booking import BookingView
 class BookingController:
 
     @extend_schema(
-        description='Get a single booking belonging to the logged-in customer.',
+        description="Get a single booking belonging to the logged-in customer. Optional filter_key=paymentStatus with filter_value paid|unpaid returns it only if it matches (otherwise 'booking not found').",
         parameters=GetBookingSerializer.get_parameters(),
         responses=SwaggerPage.response(response=BookingResponseSerializer),
         tags=['Customers - Booking'],
@@ -29,7 +29,7 @@ class BookingController:
         return BookingView().get_extract(params=request.params)
 
     @extend_schema(
-        description='List all bookings for the logged-in customer.',
+        description="List all bookings for the logged-in customer. filter_key=paymentStatus with filter_value=paid returns only paid bookings, filter_value=unpaid only unpaid ones.",
         parameters=SwaggerPage.get_all_parameters(),
         responses=SwaggerPage.response(response=BookingResponseGetAllSerializer),
         tags=['Customers - Booking'],

@@ -13,6 +13,7 @@ from sunndari_apps.artists.serializers.request.update.on_my_way import OnMyWaySe
 from sunndari_apps.artists.serializers.request.update.arrived import ArrivedSerializer
 from sunndari_apps.artists.serializers.request.update.verify_start_pin import VerifyStartPinSerializer
 from sunndari_apps.artists.serializers.request.update.verify_completion_pin import VerifyCompletionPinSerializer
+from sunndari_apps.artists.serializers.request.update.request_completion_pin import RequestCompletionPinSerializer
 from sunndari_apps.customers.serializers.response.get.get_booking import BookingResponseSerializer
 from sunndari_apps.customers.serializers.response.get_all.get_all_booking import BookingResponseGetAllSerializer
 from sunndari_apps.artists.views.booking import ArtistBookingView
@@ -21,7 +22,7 @@ from sunndari_apps.artists.views.booking import ArtistBookingView
 class ArtistBookingController:
 
     @extend_schema(
-        description='Get a single booking belonging to own artist profile.',
+        description="Get a single booking belonging to own artist profile. Optional filter_key=paymentStatus with filter_value paid|unpaid returns it only if it matches (otherwise 'booking not found').",
         parameters=GetArtistBookingSerializer.get_parameters(),
         responses=SwaggerPage.response(response=BookingResponseSerializer),
         tags=['Artists - Bookings'],
@@ -33,7 +34,7 @@ class ArtistBookingController:
         return ArtistBookingView().get_extract(params=request.params)
 
     @extend_schema(
-        description='List all bookings for own artist profile.',
+        description="List all bookings for own artist profile. filter_key=paymentStatus with filter_value=paid returns only paid bookings, filter_value=unpaid only unpaid ones.",
         parameters=SwaggerPage.get_all_parameters(),
         responses=SwaggerPage.response(response=BookingResponseGetAllSerializer),
         tags=['Artists - Bookings'],
@@ -76,8 +77,8 @@ class ArtistBookingController:
 
     @extend_schema(
         description=(
-            "Confirm the artist has arrived. Requires the Booking OTP issued to the artist "
-            "at booking creation. On success, generates the Start Service PIN for the customer."
+            "Confirm the artist has arrived. No Booking OTP is needed any more (booking_otp is "
+            "optional and ignored). On success, generates the Start Service PIN for the customer."
         ),
         request=ArrivedSerializer,
         responses=SwaggerPage.response(description='Arrival confirmed'),
@@ -92,7 +93,7 @@ class ArtistBookingController:
     @extend_schema(
         description=(
             "Verify the Start Service PIN shown to the customer. On success transitions "
-            "the booking to 'in_progress' and generates the Completion PIN."
+            "the booking to 'in_progress'. The Completion PIN is issued later, by completion_pin/request."
         ),
         request=VerifyStartPinSerializer,
         responses=SwaggerPage.response(description='Service started'),
@@ -103,6 +104,23 @@ class ArtistBookingController:
     @SerializerValidations(serializer=VerifyStartPinSerializer).validate
     def verify_start_pin(request: Request) -> Response:
         return ArtistBookingView().verify_start_pin_extract(params=request.params)
+
+    @extend_schema(
+        description=(
+            "The artist taps 'Complete service'. Generates the Completion PIN and notifies the customer "
+            "(who reads it via customers/bookings/completion_pin/). Only for an in_progress booking. "
+            "Calling it again re-sends the notification (same PIN), at most once a minute. "
+            "The artist then enters the PIN with completion_pin/verify."
+        ),
+        request=RequestCompletionPinSerializer,
+        responses=SwaggerPage.response(description='Completion PIN sent to the customer'),
+        tags=['Artists - Bookings'],
+    )
+    @api_view(['PUT'])
+    @permission_classes([IsAuthenticated])
+    @SerializerValidations(serializer=RequestCompletionPinSerializer).validate
+    def request_completion_pin(request: Request) -> Response:
+        return ArtistBookingView().request_completion_pin_extract(params=request.params)
 
     @extend_schema(
         description=(

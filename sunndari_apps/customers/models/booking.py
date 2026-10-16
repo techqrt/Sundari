@@ -2,8 +2,8 @@ import random
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from django.db import models
-from django.db.models import Q
+from django.db import models, transaction
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 # booking_date/start_time/end_time are entered and displayed as IST wall-clock
@@ -270,12 +270,15 @@ class Booking(models.Model):
         filter_key: str = '',
         filter_value: str = '',
         search_key: str = '',
+        payment_status: str = '',
     ) -> list:
         data = Booking.objects.all()
         if customer_id:
             data = data.filter(customer_id=customer_id)
         if artist_id:
             data = data.filter(artist_id=artist_id)
+        if payment_status:
+            data = Booking.filter_by_payment(data, payment_status)
         if filter_key and filter_value:
             lookup = '__exact' if filter_value.isdigit() else '__icontains'
             data = data.filter(**{f'{filter_key}{lookup}': filter_value})
@@ -286,6 +289,24 @@ class Booking(models.Model):
         else:
             data = data.order_by('-created_at')
         return list(data.values(*Booking.VALUES_FIELDS))
+
+    # filter_key values that select by payment: filter_value is 'paid' or 'unpaid'.
+    PAYMENT_FILTER_KEYS = ('paymentStatus', 'payment_status')
+
+    @staticmethod
+    def filter_by_payment(queryset, value: str):
+        """'paid' = money is held for the booking (a 'paid' or 'partially_refunded' payment).
+        'unpaid' = it never received a successful payment (still awaiting payment, or the payment
+        failed). A booking that was paid and then fully refunded is in neither list."""
+        from sunndari_apps.payments.models import Payment
+        value = (value or '').lower()
+        if value not in ('paid', 'unpaid'):
+            raise ValueError("filter_value for paymentStatus must be 'paid' or 'unpaid'")
+        def has(*names):
+            return Exists(Payment.objects.filter(booking_id=OuterRef('booking_id'), status__name__in=names))
+        if value == 'paid':
+            return queryset.filter(has('paid', 'partially_refunded'))
+        return queryset.exclude(has('paid', 'partially_refunded', 'refunded'))
 
     @staticmethod
     def has_overlap(artist_id: int, booking_date, start_time, end_time, exclude_booking_id: int = None) -> bool:
@@ -405,13 +426,11 @@ class Booking(models.Model):
         booking.save()
 
     @staticmethod
-    def start_service(booking_id: int, in_progress_status_id: int, booking_date, end_time, buffer_hours: int = 2) -> int:
+    def start_service(booking_id: int, in_progress_status_id: int, booking_date, end_time, buffer_hours: int = 2) -> None:
         """Called only after the Start Service PIN has already been validated by the
-        caller. Consumes the Start PIN (single-use) and mints the Completion PIN in the
-        same write — mirrors confirm_arrival()'s eager-generation convention rather than
-        generating it lazily on first customer read."""
-        completion_pin = random.randint(1000, 9999)
-        expiry = Booking.to_aware(booking_date, end_time) + timedelta(hours=buffer_hours)
+        caller. Consumes the Start PIN (single-use). The Completion PIN is NOT minted here
+        any more: the artist asks for it when the service is finished (issue_completion_pin),
+        and only then is it sent to the customer."""
         booking = Booking.objects.get(booking_id=booking_id)
         booking.status_id = in_progress_status_id
         booking.service_started_at = timezone.now()
@@ -419,12 +438,29 @@ class Booking(models.Model):
         booking.start_pin_expiry = None
         booking.start_pin_attempts = 0
         booking.start_pin_locked_until = None
-        booking.completion_pin = completion_pin
-        booking.completion_pin_expiry = expiry
-        booking.completion_pin_attempts = 0
-        booking.completion_pin_locked_until = None
         booking.save()
-        return completion_pin
+
+    @staticmethod
+    def issue_completion_pin(booking_id: int, booking_date, end_time, buffer_hours: int = 2) -> bool:
+        """Mints the Completion PIN when the artist asks to complete the service. Returns True
+        if a new PIN was minted, False if a still-valid one already exists (kept as it is, so a
+        repeated request can never refresh the attempt counter). The PIN stays valid through the
+        scheduled end plus the running-late buffer, but never for less than that buffer from now
+        (the service may have overrun its slot)."""
+        with transaction.atomic():
+            booking = Booking.objects.select_for_update().get(booking_id=booking_id)
+            now = timezone.now()
+            if booking.completion_pin is not None and booking.completion_pin_expiry and now <= booking.completion_pin_expiry:
+                return False
+            booking.completion_pin = random.randint(1000, 9999)
+            booking.completion_pin_expiry = max(
+                Booking.to_aware(booking_date, end_time) + timedelta(hours=buffer_hours),
+                now + timedelta(hours=buffer_hours),
+            )
+            booking.completion_pin_attempts = 0
+            booking.completion_pin_locked_until = None
+            booking.save()
+            return True
 
     @staticmethod
     def is_completion_pin_locked(booking_id: int) -> bool:
