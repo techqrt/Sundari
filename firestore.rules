@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Sundari — Firestore Security Rules
+//
+// Server-side writes (Django backend, via the Admin SDK service account)
+// always bypass these rules entirely — they only govern what the Flutter
+// client can read/write directly.
+//
+// PREREQUISITE: these rules assume the Flutter app is signed in to Firebase
+// Auth with uid == the Django `user_id` (as a string). Sundari's own auth is
+// a custom JWT (sunndari_apps/authentication), not Firebase Auth — so unless
+// the mobile team already solved this (they may have, since fcm_tokens/{userId}
+// already exists and is written directly by the client), request.auth.uid
+// will not automatically line up with user_id. The usual fix: after a
+// successful JWT login, the backend also mints a Firebase custom token via
+// firebase_admin.auth.create_custom_token(uid=str(user_id)) and returns it
+// alongside access_token/refresh_token; Flutter then calls
+// FirebaseAuth.instance.signInWithCustomToken(token). Confirm with whoever
+// built the fcm_tokens write path how they're currently authenticating —
+// if it's not this, these rules will deny everyone (fail closed, safe but
+// unusable) until it's wired up.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // users/{userId}/notifications/{notificationId}
+    // Written by the backend only. A client may read its own feed and toggle
+    // isRead on its own notifications — nothing else.
+    match /users/{userId}/notifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create, delete: if false;
+    }
+
+    // bookings/{bookingId}
+    // Written by the backend only. Readable by the customer or the artist
+    // on that booking.
+    //
+    // GAP: the mirrored document currently stores `artistId`, which is the
+    // ArtistProfile primary key, NOT the artist's User/auth uid — those are
+    // different id spaces in Sundari's schema (see sunndari_apps/artists/models/
+    // artist_profile.py: artist_id is its own PK, distinct from user_id).
+    // `customerId` IS the User id and lines up with request.auth.uid fine.
+    // For the artist side of this rule to work without an extra Firestore
+    // lookup per read, the backend needs to also write an `artistUserId`
+    // field (cheap — every call site already has ArtistProfile.get() or the
+    // artist object in hand). Until that field exists, the artist-side clause
+    // below will not match anything — flagging rather than silently shipping
+    // a rule that looks correct but never grants the artist access.
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null &&
+                  (request.auth.uid == string(resource.data.customerId) ||
+                   ('artistUserId' in resource.data && request.auth.uid == string(resource.data.artistUserId)));
+      allow write: if false;
+    }
+
+    // fcm_tokens/{userId}
+    // Written directly by the Flutter app on token refresh — backend never
+    // writes here. A user may only manage their own token document.
+    match /fcm_tokens/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
