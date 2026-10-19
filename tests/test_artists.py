@@ -140,6 +140,27 @@ class ArtistProfileAutoCreateTest(TestCase):
         ArtistProfile.create_for_user(user_id=user.user_id)
         profile = ArtistProfile.objects.get(user_id=user.user_id)
         self.assertEqual(profile.approval_status_id, pending.status_id)
+        self.assertFalse(profile.portfolio_approval_status)
+
+    def test_portfolio_approval_status_is_independent_of_artist_approval(self):
+        pending, _ = ApprovalStatus.objects.get_or_create(name='pending', defaults={'description': 'Pending'})
+        approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
+        user = User.objects.create(phone_number='+919000000004', role='artist')
+        ArtistProfile.create_for_user(user_id=user.user_id)
+        profile = ArtistProfile.objects.get(user_id=user.user_id)
+
+        profile.portfolio_approval_status = True
+        profile.save()
+        profile.refresh_from_db()
+        self.assertTrue(profile.portfolio_approval_status)
+        self.assertEqual(profile.approval_status_id, pending.status_id)
+
+        profile.approval_status = approved
+        profile.portfolio_approval_status = False
+        profile.save()
+        profile.refresh_from_db()
+        self.assertFalse(profile.portfolio_approval_status)
+        self.assertEqual(profile.approval_status_id, approved.status_id)
 
     def test_auth_registration_creates_artist_profile(self):
         ApprovalStatus.objects.get_or_create(name='pending', defaults={'description': 'Pending'})
@@ -235,6 +256,7 @@ class ArtistProfileGetTest(TestCase):
         resp = client.get(self.url, {'artist_id': profile.artist_id})
         self.assertEqual(resp.data['data']['commissionRate'], '10.00')
         self.assertEqual(resp.data['data']['rejectionReason'], 'internal note')
+        self.assertNotIn('portfolioApprovalStatus', resp.data['data'])
 
 
 class ArtistProfileUpdateTest(TestCase):
