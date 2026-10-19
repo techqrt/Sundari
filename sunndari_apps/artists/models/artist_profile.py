@@ -42,6 +42,7 @@ class ArtistProfile(models.Model):
         null=True,
         blank=True,
     )
+    portfolio_approval_status = models.BooleanField(default=False)
     base_address = models.ForeignKey(
         'users.CustomerAddress',
         on_delete=models.SET_NULL,

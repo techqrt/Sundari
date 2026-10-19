@@ -1,3 +1,5 @@
+from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.test import TestCase
 
 from sunndari_apps.core.models import ApprovalStatus
@@ -21,6 +23,49 @@ def verify_id_proof(admin_client, artist_profile):
         'document_id': id_proof['documentId'], 'decision': 'approved',
     }, format='json')
     assert resp.status_code == 200, resp.data
+
+
+# ─── Django Admin — ArtistProfile ──────────────────────────────────────────────
+
+class ArtistProfileDjangoAdminTest(TestCase):
+
+    def test_portfolio_approval_status_is_editable(self):
+        _, artist_user = make_authenticated_client(phone_number='+919400000099')
+        profile = get_artist_profile(artist_user)
+        admin_user = get_user_model().objects.create_superuser(
+            username='site-admin', email='site-admin@example.com', password='test-password',
+        )
+        self.client.force_login(admin_user)
+
+        change_url = reverse('admin:artists_artistprofile_change', args=[profile.artist_id])
+        response = self.client.get(change_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="portfolio_approval_status"')
+
+        created_at = profile.created_at
+        approval_status_id = profile.approval_status_id
+        response = self.client.post(change_url, {
+            'user': profile.user_id,
+            'years_experience': '0',
+            'service_radius_km': '10',
+            'travel_time_before_minutes': '0',
+            'return_buffer_minutes': '0',
+            'avg_rating': '0.00',
+            'total_reviews': '0',
+            'commission_rate': '10.00',
+            'profile_view_count': '0',
+            'created_at_0': created_at.strftime('%Y-%m-%d'),
+            'created_at_1': created_at.strftime('%H:%M:%S'),
+            'approval_status': approval_status_id,
+            'portfolio_approval_status': 'on',
+            '_save': 'Save',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        profile.refresh_from_db()
+        self.assertTrue(profile.portfolio_approval_status)
+        self.assertEqual(profile.approval_status_id, approval_status_id)
 
 
 # ─── Admin Artist Review — Access Control ──────────────────────────────────────
