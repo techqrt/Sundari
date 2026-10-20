@@ -167,6 +167,7 @@ class AdminArtistReviewView:
                 ).order_by('portfolio_id')
             ],
             'approvalStatus': artist.approval_status.name if artist.approval_status else None,
+            'portfolioApprovalStatus': artist.portfolio_approval_status,
             'submittedForReviewAt': artist.submitted_for_review_at,
             'rejectionReason': artist.rejection_reason,
         }

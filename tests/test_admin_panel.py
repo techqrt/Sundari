@@ -29,6 +29,23 @@ def verify_id_proof(admin_client, artist_profile):
 
 class ArtistProfileDjangoAdminTest(TestCase):
 
+    def test_artist_profile_list_shows_id_name_and_phone_number(self):
+        _, artist_user = make_authenticated_client(phone_number='+919400000098')
+        profile = get_artist_profile(artist_user)
+        artist_user.name = 'Artist List Name'
+        artist_user.save(update_fields=['name'])
+        admin_user = get_user_model().objects.create_superuser(
+            username='list-admin', email='list-admin@example.com', password='test-password',
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse('admin:artists_artistprofile_changelist'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, str(profile.artist_id))
+        self.assertContains(response, 'Artist List Name')
+        self.assertContains(response, '+919400000098')
+
     def test_portfolio_approval_status_is_editable(self):
         _, artist_user = make_authenticated_client(phone_number='+919400000099')
         profile = get_artist_profile(artist_user)
@@ -319,11 +336,15 @@ class AdminReviewDetailTest(TestCase):
         artist_client, artist_user = make_authenticated_client(phone_number='+919000000710')
         complete_onboarding_steps(artist_client, artist_user)
         profile = get_artist_profile(artist_user)
+        profile.portfolio_approval_status = True
+        profile.save(update_fields=['portfolio_approval_status'])
         admin_client, _ = make_admin_client(phone_number='+919400000140')
         data = admin_client.get(self.url, {'artist_id': profile.artist_id}).data['data']
         self.assertEqual(data['displayName'], 'Glam by Test')
         self.assertEqual(data['dateOfBirth'], '1995-05-20')
         self.assertEqual(data['profileType'], 'freelance')
+        self.assertTrue(data['portfolioApprovalStatus'])
+        self.assertEqual(data['approvalStatus'], profile.approval_status.name)
         self.assertEqual(len(data['workSamples']), 1)
         self.assertTrue(data['workSamples'][0]['fileUrl'])
         self.assertEqual(data['fullName'], 'Test Artist')

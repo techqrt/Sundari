@@ -27,6 +27,7 @@ class ArtistProfileSerializer(serializers.Serializer):
     # Internal (own-profile only; omitted when another user views the artist)
     commissionRate = serializers.DecimalField(max_digits=5, decimal_places=2, required=False)
     approvalStatusId = serializers.IntegerField(allow_null=True, required=False)
+    portfolioApprovalStatus = serializers.BooleanField(required=False)
     # Internal onboarding fields — not populated by cross-app views (e.g. customers'
     # get_artist_detail) that deliberately show a stripped-down profile of other artists.
     baseAddressId = serializers.IntegerField(allow_null=True, required=False)

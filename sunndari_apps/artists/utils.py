@@ -29,6 +29,7 @@ class ArtistsUtils:
             'total_reviews': 'totalReviews',
             'commission_rate': 'commissionRate',
             'approval_status_id': 'approvalStatusId',
+            'portfolio_approval_status': 'portfolioApprovalStatus',
             'base_address_id': 'baseAddressId',
             'terms_accepted_at': 'termsAcceptedAt',
             'submitted_for_review_at': 'submittedForReviewAt',

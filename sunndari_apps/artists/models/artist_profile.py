@@ -92,7 +92,7 @@ class ArtistProfile(models.Model):
             'profile_photo', 'cover_photo', 'travel_time_before_minutes', 'return_buffer_minutes',
             'is_accepting_bookings', 'public_slug', 'profile_view_count', 'agreement_version', 'bio', 'years_experience', 'city',
             'service_radius_km', 'avg_rating', 'total_reviews',
-            'commission_rate', 'approval_status_id', 'base_address_id',
+            'commission_rate', 'approval_status_id', 'portfolio_approval_status', 'base_address_id',
             'terms_accepted_at', 'submitted_for_review_at', 'rejection_reason',
             'created_at', 'updated_at',
         ).first()

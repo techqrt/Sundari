@@ -1293,6 +1293,18 @@ class ArtistRegistrationFieldsTest(TestCase):
         self.assertEqual(data['profileType'], 'studio')
         self.assertEqual(data['specialities'], [])
 
+    def test_get_exposes_portfolio_approval_independently(self):
+        client, user = make_authenticated_client(phone_number='+919000000906')
+        profile = get_artist_profile(user)
+        self.assertFalse(profile.portfolio_approval_status)
+
+        profile.portfolio_approval_status = True
+        profile.save(update_fields=['portfolio_approval_status'])
+        data = client.get(self.get_url).data['data']
+
+        self.assertTrue(data['portfolioApprovalStatus'])
+        self.assertEqual(data['approvalStatusId'], profile.approval_status_id)
+
     def test_validation_rejects_bad_values(self):
         client, _ = make_authenticated_client(phone_number='+919000000901')
         too_young = (timezone.now().date().replace(year=timezone.now().year - 17)).isoformat()
