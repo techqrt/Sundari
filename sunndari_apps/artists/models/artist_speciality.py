@@ -39,9 +39,11 @@ class ArtistSpeciality(models.Model):
         ])
 
     @staticmethod
-    def get_all(artist_id: int) -> list:
+    def get_all(artist_id: int, only_live: bool = False) -> list:
+        from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
+        live = ServiceSubCategory.live_filter('sub_category__') if only_live else {}
         return list(
-            ArtistSpeciality.objects.filter(artist_id=artist_id).order_by('sub_category_id').values(
+            ArtistSpeciality.objects.filter(artist_id=artist_id, **live).order_by('sub_category_id').values(
                 'sub_category_id', 'sub_category__name',
             )
         )

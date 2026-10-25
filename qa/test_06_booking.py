@@ -65,18 +65,16 @@ class BookingE2EQA(TestCase):
             record(F, 'on-my-way accepted inside the 2h window', r.status_code == 200 and Booking.objects.get(booking_id=bid).on_my_way_at, 'ok', r.status_code, sev='P0')
             r = A.client.put('/artists/bookings/on_my_way/', {'booking_id': bid}, format='json')
             record(F, 'on-my-way cannot be repeated', r.status_code == 400, 400, r.status_code, sev='P3')
-            # --- arrived (booking OTP)
-            otp = Booking.objects.get(booking_id=bid).booking_otp
-            r = A.client.put('/artists/bookings/arrived/', {'booking_id': bid, 'booking_otp': (otp % 900000) + 100000 if otp != 111111 else 222222}, format='json')
-            record(F, 'arrival with a wrong booking OTP is refused and counted', r.status_code == 400 and Booking.objects.get(booking_id=bid).booking_otp_attempts == 1, 'refused', (r.status_code, Booking.objects.get(booking_id=bid).booking_otp_attempts), sev='P0')
+            # --- arrived: the booking-OTP step is switched off in the app; arrival goes straight to the start PIN
             r = A.client.put('/artists/bookings/start_pin/verify/', {'booking_id': bid, 'start_service_pin': 1234}, format='json')
             record(F, 'start PIN cannot be used before arrival', r.status_code == 400, 400, r.status_code, sev='P0')
-            r = A.client.put('/artists/bookings/arrived/', {'booking_id': bid, 'booking_otp': otp}, format='json')
-            record(F, 'arrival with the correct OTP is accepted', r.status_code == 200 and Booking.objects.get(booking_id=bid).arrived_at, 'ok', r.status_code, sev='P0')
+            r = A.client.put('/artists/bookings/arrived/', {'booking_id': bid}, format='json')
+            record(F, 'arrival is accepted without a booking OTP', r.status_code == 200 and Booking.objects.get(booking_id=bid).arrived_at, 'ok', r.status_code, sev='P0')
+            observe(F, 'arrival has no proof of presence', 'artists/views/booking.py: booking-OTP check is commented out, so any confirmed booking inside the on-my-way window can be marked arrived from anywhere', sev='P2', note='product decision pending; see memory: open logic gaps')
             b = Booking.objects.get(booking_id=bid)
-            record(F, 'booking OTP is nulled after use and a start PIN is issued', b.booking_otp is None and b.start_service_pin is not None, 'single-use', (b.booking_otp, bool(b.start_service_pin)), sev='P0')
-            r = A.client.put('/artists/bookings/arrived/', {'booking_id': bid, 'booking_otp': otp}, format='json')
-            record(F, 'used booking OTP cannot be replayed', r.status_code == 400, 400, r.status_code, sev='P0')
+            record(F, 'a start PIN is issued on arrival', b.start_service_pin is not None, 'issued', bool(b.start_service_pin), sev='P0')
+            r = A.client.put('/artists/bookings/arrived/', {'booking_id': bid}, format='json')
+            record(F, 'arrival cannot be repeated', r.status_code == 400, 400, r.status_code, sev='P0')
             # --- start PIN
             mine = data(C.client.get('/customers/bookings/start_pin/', {'booking_id': bid})) or {}
             pin = Booking.objects.get(booking_id=bid).start_service_pin
@@ -86,10 +84,15 @@ class BookingE2EQA(TestCase):
             record(F, 'wrong start PIN refused', r.status_code == 400 and Booking.objects.get(booking_id=bid).status.name == 'confirmed', 'refused', r.status_code, sev='P0')
             r = A.client.put('/artists/bookings/start_pin/verify/', {'booking_id': bid, 'start_service_pin': pin}, format='json')
             b = Booking.objects.get(booking_id=bid)
-            record(F, 'correct start PIN moves the booking to in_progress and consumes the PIN', r.status_code == 200 and b.status.name == 'in_progress' and b.start_service_pin is None and b.completion_pin, 'in_progress, pin nulled', (r.status_code, b.status.name), sev='P0')
+            record(F, 'correct start PIN moves the booking to in_progress and consumes the PIN', r.status_code == 200 and b.status.name == 'in_progress' and b.start_service_pin is None, 'in_progress, pin nulled', (r.status_code, b.status.name), sev='P0')
             r = A.client.put('/artists/bookings/start_pin/verify/', {'booking_id': bid, 'start_service_pin': pin}, format='json')
             record(F, 'start PIN cannot be reused', r.status_code == 400, 400, r.status_code, sev='P0')
-            # --- completion
+            # --- completion: the PIN is issued only when the artist taps "Complete service"
+            record(F, 'no completion PIN exists before the artist requests it', Booking.objects.get(booking_id=bid).completion_pin is None, 'none yet', 'checked', sev='P1')
+            r = A.client.put('/artists/bookings/completion_pin/verify/', {'booking_id': bid, 'completion_pin': 1}, format='json')
+            record(F, 'completion cannot be verified before the PIN is requested', r.status_code == 400 and Booking.objects.get(booking_id=bid).status.name == 'in_progress', 'refused', r.status_code, sev='P0')
+            r = A.client.put('/artists/bookings/completion_pin/request/', {'booking_id': bid}, format='json')
+            record(F, 'artist requests the completion PIN', r.status_code == 200 and Booking.objects.get(booking_id=bid).completion_pin is not None, 'issued', r.status_code, sev='P0')
             r = A.client.put('/artists/bookings/completion_pin/verify/', {'booking_id': bid, 'completion_pin': 1}, format='json')
             record(F, 'a wrong completion PIN is refused', r.status_code == 400 and Booking.objects.get(booking_id=bid).status.name == 'in_progress', 'refused', r.status_code, sev='P0')
             cpin = Booking.objects.get(booking_id=bid).completion_pin

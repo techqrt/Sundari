@@ -1,10 +1,10 @@
 import json
 import logging
+import uuid
 import jwt
 import datetime
 import requests
 from django.conf import settings
-from django.core.mail import send_mail
 from sunndari_apps.authentication.models import User
 from sunndari.config import Configurations
 
@@ -13,10 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 def generate_jwt_token(user: User) -> str:
+    # jti makes every token unique. Without it two logins (or a refresh) in the same second produced
+    # byte-identical tokens, so "the old token stops working after a new login / refresh" silently did not hold.
     payload = {
         'user_id': user.user_id,
         'role': user.role,
-        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7),
+        'type': 'access',
+        'jti': uuid.uuid4().hex,
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=Configurations.jwt_expiry_days),
         'iat': datetime.datetime.now(datetime.timezone.utc),
     }
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
@@ -28,6 +32,7 @@ def generate_refresh_token(user: User) -> str:
         'user_id': user.user_id,
         'role': user.role,
         'type': 'refresh',
+        'jti': uuid.uuid4().hex,
         'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30),
         'iat': datetime.datetime.now(datetime.timezone.utc),
     }
@@ -106,13 +111,11 @@ def send_otp_sms(phone_number: str, otp: int, via_gateway: bool = False) -> None
 
 
 def send_otp_email(email: str, otp: int) -> None:
-    send_mail(
-        subject='Your SUNNDARI OTP',
-        message=f'Your OTP is {otp}. It is valid for 10 minutes.',
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[email],
-        fail_silently=False,
-    )
+    """Emails a one-time code through Brevo. Raises EmailDeliveryError when the mail server does not accept it,
+    which callers treat like SMSDeliveryError: the code was not delivered, so it must not stay valid."""
+    from sunndari_apps.common.emailing import send_email, otp_message
+    subject, text, page = otp_message(otp, Configurations.otp_expiry_minutes)
+    send_email(to=email, subject=subject, text=text, html_body=page, tag='otp')
 
 
 def verify_google_token(id_token: str) -> dict:

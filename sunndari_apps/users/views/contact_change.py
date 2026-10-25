@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
+from sunndari_apps.common.emailing import EmailDeliveryError
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.authentication.models import User
 from sunndari_apps.authentication.utils import send_otp_sms, send_otp_email
@@ -57,7 +58,20 @@ class ContactChangeView:
             user.save()
         # Sent to the NEW contact, after the state is committed.
         if params.email:
-            send_otp_email(params.email, otp)
+            try:
+                send_otp_email(params.email, otp)
+            except EmailDeliveryError:
+                # Not delivered, so the pending change is dropped: the code must not stay valid and the
+                # one-request-a-minute limit must not block the retry.
+                with transaction.atomic():
+                    user = User.objects.select_for_update().get(user_id=params.user_id)
+                    self._clear_pending(user)
+                    user.contact_otp_requested_at = None
+                    user.save()
+                return Response(
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    data=Utils.error_response_data(Constants.email_send_failed, [Constants.email_send_failed]),
+                )
         else:
             send_otp_sms(params.phone_number, otp)
         return Response(status=status.HTTP_200_OK, data=Utils.success_response_data(message=Constants.otp_sent))

@@ -403,7 +403,9 @@ class _Gateway:
         return self
 
     def __exit__(self, *exc):
-        for p in self.patches:
+        # Reverse order: the three targets are the SAME attribute, so each patch saved the previous patch's mock as
+        # its "original". Stopping them first-to-last leaves a mock behind for every later test in the process.
+        for p in reversed(self.patches):
             p.stop()
 
 
@@ -469,9 +471,12 @@ class Q04_NoOverpaymentTest(_MoneyBase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 400)
         self.assertEqual(self._settled(), Decimal('2000.00'))
-        failed = Payment.objects.get(gateway_order_id='order_dup_2')
-        self.assertEqual(failed.status.name, 'failed')
-        self.assertIn('Overpayment', failed.failure_reason)
+        # The second capture is not applied and is not kept either: the gateway is asked to return it.
+        refused = Payment.objects.get(gateway_order_id='order_dup_2')
+        self.assertEqual(refused.status.name, 'refunded')
+        self.assertIn('Overpayment', refused.failure_reason)
+        self.assertIsNotNone(refused.refund_requested_at)
+        gw.client.payment.refund.assert_called_once()
 
     def test_group_order_that_would_overpay_is_refused_atomically(self):
         pending, paid = PaymentStatus.objects.get(name='pending'), PaymentStatus.objects.get(name='paid')

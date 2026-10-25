@@ -6,6 +6,7 @@ class SupportConversationSerializer(serializers.Serializer):
     customerId = serializers.IntegerField()
     role = serializers.CharField(help_text="The other participant's role — 'customer' or 'artist'")
     status = serializers.CharField()
+    subject = serializers.CharField(allow_null=True, help_text='Null for conversations started without one')
     createdAt = serializers.DateTimeField()
     closedAt = serializers.DateTimeField(allow_null=True)
 

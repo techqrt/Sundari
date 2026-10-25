@@ -12,6 +12,13 @@ class Configurations:
     # DEBUG=false silently turned debug ON in production.
     debug = config('DEBUG', cast=bool)
     pagination_count = 10
+    # Largest page a client may ask for (the admin chat page loads up to 200 messages at once).
+    pagination_max = 200
+    # How long a service keeps counting as "new" after it goes live (the client-side "new services" popup).
+    recent_service_days = 15
+    # A service whose activation notification was never sent (broker down, worker crashed, a recipient failed)
+    # is re-dispatched by a periodic job, but only for this long after it went live; after that it is stale news.
+    service_notify_redispatch_hours = 24
     otp_expiry_minutes = 10
     # Minimum gap between two OTP requests for the same account (phone login).
     otp_resend_seconds = 60
@@ -47,6 +54,21 @@ class Configurations:
     razorpay_key_id = config('RAZORPAY_KEY_ID')
     razorpay_key_secret = config('RAZORPAY_KEY_SECRET')
     razorpay_currency = 'INR'
+    # Emails for account notifications (booking, payment, refund, approval, support updates...). Only the transactional
+    # types listed in notifications/email_channel.py are ever emailed; this is the master switch.
+    email_notifications_enabled = config('EMAIL_NOTIFICATIONS_ENABLED', default=True, cast=bool)
+    # Shared secret configured on the Razorpay dashboard's webhook; the webhook endpoint refuses every
+    # request while it is empty (an unsigned webhook would let anyone mark payments paid).
+    razorpay_webhook_secret = config('RAZORPAY_WEBHOOK_SECRET', default='')
+    # Refunds owed to customers are retried with exponential backoff (60s, 120s, 240s ... capped) and
+    # escalated to the admins once attempts run out.
+    refund_max_attempts = 8
+    refund_backoff_base_seconds = 60
+    refund_backoff_max_seconds = 6 * 60 * 60
+    # Payments still pending at the gateway are re-checked after this long (so a webhook or a verify call
+    # that never arrived cannot leave a paid order unsettled) and are given up on after the upper bound.
+    payment_reconcile_min_age_minutes = 10
+    payment_reconcile_max_age_hours = 72
     # SMS gateway (HTTP GET, query-string API) used for the phone login/register OTP. Everything
     # secret or environment-specific comes from the environment; empty = gateway not configured.
     sms_gateway_url = config('SMS_GATEWAY_URL', default='')

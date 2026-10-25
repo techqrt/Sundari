@@ -142,8 +142,9 @@ class CustomerWallet(models.Model):
     @staticmethod
     def award_cashback(customer_id: int, booking_id: int, service_amount) -> 'CoinTransaction':
         """₹→coins conversion for cashback, kept in one place rather than duplicated at
-        every call site: cashback_percentage of service_amount, converted to coins at
-        the current coin value, floored to a whole coin (rounds in the platform's
+        every call site: cashback_percentage is PAISE of cashback per ₹100 of service_amount
+        (10 → ₹2 on a ₹2000 booking), converted to coins at the current coin value, floored
+        to a whole coin (rounds in the platform's
         favor rather than inventing a round-up policy that would silently overpay on
         every booking). Returns None without crediting anything if that rounds down to
         zero coins — e.g. an unexpectedly tiny service_amount — rather than raising
@@ -151,7 +152,8 @@ class CustomerWallet(models.Model):
         from sunndari_apps.wallet.models.coin_config import CoinConfig
 
         config = CoinConfig.get_active()
-        cashback_rupees = (Decimal(service_amount) * config.cashback_percentage) / Decimal('100')
+        # cashback_percentage is paise per ₹100: amount × paise ÷ 100 gives paise, ÷ 100 again gives ₹.
+        cashback_rupees = (Decimal(service_amount) * config.cashback_percentage) / Decimal('10000')
         cashback_coins = int((cashback_rupees / config.coin_value_rupees).to_integral_value(rounding=ROUND_FLOOR))
         if cashback_coins <= 0:
             return None

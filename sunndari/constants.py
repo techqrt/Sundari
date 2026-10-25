@@ -14,6 +14,7 @@ class Constants:
     otp_sent = 'OTP sent successfully'
     phone_invalid = 'Enter a valid 10-digit Indian mobile number'
     sms_send_failed = 'Unable to send OTP right now, please try again'
+    email_send_failed = 'Unable to send the email right now, please try again'
     otp_invalid = 'Invalid or expired OTP'
     password_reset_otp_sent = 'If the account exists, a verification code has been sent'
     password_reset_success = 'Password reset successfully'
@@ -127,6 +128,10 @@ class Constants:
     password_too_common = 'This password is too common or too simple'
     payment_in_progress = 'A payment for this booking is already in progress; complete or wait for it before starting another'
     payment_overpaid = 'This payment would exceed the booking total and was not applied; it will be refunded'
+    service_unavailable = 'This service is currently unavailable'
+    payment_booking_closed = 'This booking is no longer active, so the payment was not applied; it will be refunded'
+    webhook_not_configured = 'Payment webhook is not configured'
+    webhook_signature_invalid = 'Invalid webhook signature'
     upload_empty = 'The uploaded file is empty'
     upload_too_large = 'The uploaded file is too large'
     upload_invalid_image = 'Only genuine JPEG, PNG or WEBP images are allowed'
@@ -141,3 +146,8 @@ class Constants:
     conversation_closed = 'This conversation is closed and no longer accepts new messages'
     chat_not_eligible = 'Chat is only available for confirmed or in-progress bookings'
     message_empty = 'Message content cannot be empty'
+
+
+# Choice lists the API docs need to tell apart: several unrelated fields are all called `decision`.
+REVIEW_DECISION_CHOICES = [('approved', 'approved'), ('rejected', 'rejected')]
+RESCHEDULE_DECISION_CHOICES = [('accepted', 'accepted'), ('rejected', 'rejected')]

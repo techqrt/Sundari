@@ -246,12 +246,28 @@ class RegisterTest(TestCase):
     def test_register_with_phone_returns_200(self):
         resp = self.client.post(self.url, {
             'name': 'Bob',
-            'phone_number': '+911234567890',
+            'phone_number': '+919234567890',
             'password': 'securepass123',
             'role': 'artist',
         })
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data['data']['phone_number'], '+911234567890')
+        self.assertEqual(resp.data['data']['phone_number'], '+919234567890')
+
+    def test_register_with_invalid_phone_returns_400_and_creates_no_user(self):
+        for junk in ('abc', '12', 'x' * 15, '+911234567890', '12345678901'):
+            resp = self.client.post(self.url, {
+                'name': 'Junk', 'phone_number': junk, 'password': 'securepass123', 'role': 'customer',
+            })
+            self.assertEqual(resp.status_code, 400, junk)
+            self.assertFalse(resp.data['status'])
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_register_normalizes_separators_in_phone(self):
+        resp = self.client.post(self.url, {
+            'name': 'Spaced', 'phone_number': '+91 98765-43210', 'password': 'securepass123', 'role': 'customer',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['data']['phone_number'], '+919876543210')
 
     def test_register_without_email_or_phone_returns_400(self):
         resp = self.client.post(self.url, {

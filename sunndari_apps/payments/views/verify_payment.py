@@ -8,6 +8,7 @@ from sunndari_apps.common.utils import Utils
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.payments.models import Payment, PaymentOrder
 from sunndari_apps.payments.gateway import RazorpayGateway
+from sunndari_apps.payments.services import PaymentSettlementService
 from sunndari_apps.payments.dataclasses.request.update.verify_payment import VerifyPaymentRequest
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari.constants import Constants
@@ -17,13 +18,16 @@ logger = logging.getLogger(__name__)
 
 
 class VerifyPaymentView:
-    """No webhook is used in this integration (deliberate — see plan discussion). This
-    endpoint is the sole confirmation path: the customer app calls it right after
-    Razorpay Checkout succeeds, and it independently re-establishes that the payment is
-    real via two separate checks — a cryptographic signature check (proves the values
-    weren't fabricated by the client, since only Razorpay and this server's key_secret
-    can produce a valid one) and a live Razorpay API fetch (proves the payment actually
-    exists and was captured, not just that the signature format was well-formed).
+    """The customer app calls this right after Razorpay Checkout succeeds, and it independently
+    re-establishes that the payment is real via two separate checks — a cryptographic signature check
+    (proves the values weren't fabricated by the client, since only Razorpay and this server's key_secret
+    can produce a valid one) and a live Razorpay API fetch (proves the payment actually exists and was
+    captured, not just that the signature format was well-formed).
+
+    This call is a fast path, not the only one: if the app is killed right after paying, the gateway's
+    signed webhook (payments.webhooks) and the scheduled reconciliation (payments.tasks) settle the same
+    payment through the same PaymentSettlementService. What a captured payment means for its booking —
+    applied, or refunded because the booking is closed or it would overpay — is decided there, once.
 
     Handles two shapes of gateway_order_id: a solo /initiate/ payment's own, or a
     /initiate_group/ PaymentOrder's — tried in that order. The solo lookup is checked
@@ -110,22 +114,13 @@ class VerifyPaymentView:
             )
             raise ValueError(Constants.payment_verification_mismatch)
 
-        paid_status = PaymentStatus.objects.filter(name='paid').first()
-        if not Payment.mark_paid_checked(
-            payment_id=payment['payment_id'],
-            gateway_payment_id=params.razorpay_payment_id,
-            status_id=paid_status.status_id,
-        ):
-            failed_status = PaymentStatus.objects.filter(name='failed').first()
-            Payment.mark_failed(
-                payment_id=payment['payment_id'], status_id=failed_status.status_id,
-                failure_reason='Overpayment: captured by the gateway but exceeds the booking total; refund required',
+        outcome = PaymentSettlementService.apply_solo(
+            payment_id=payment['payment_id'], gateway_payment_id=params.razorpay_payment_id,
+        )
+        if outcome != PaymentSettlementService.APPLIED:
+            raise ValueError(
+                Constants.payment_overpaid if outcome == PaymentSettlementService.OVERPAID else Constants.payment_booking_closed
             )
-            logger.error(
-                'Overpayment captured: payment %s (gateway payment %s) exceeds booking %s total — manual refund required',
-                payment['payment_id'], params.razorpay_payment_id, payment['booking_id'],
-            )
-            raise ValueError(Constants.payment_overpaid)
         NotificationService.notify(
             user_id=payment['customer_id'],
             title='Payment status update',
@@ -197,27 +192,19 @@ class VerifyPaymentView:
             )
             raise ValueError(Constants.payment_verification_mismatch)
 
-        paid_status = PaymentStatus.objects.filter(name='paid').first()
-        if not PaymentOrder.mark_paid_checked(
-            order_id=order['order_id'],
-            gateway_payment_id=params.razorpay_payment_id,
-            status_id=paid_status.status_id,
-        ):
-            failed_status = PaymentStatus.objects.filter(name='failed').first()
-            PaymentOrder.mark_failed(
-                order_id=order['order_id'], status_id=failed_status.status_id,
-                failure_reason='Overpayment: captured by the gateway but exceeds a booking total; refund required',
+        outcomes = PaymentSettlementService.apply_group(
+            order_id=order['order_id'], gateway_payment_id=params.razorpay_payment_id,
+        )
+        applied_ids = [pid for pid, outcome in outcomes.items() if outcome == PaymentSettlementService.APPLIED]
+        if not applied_ids:
+            raise ValueError(
+                Constants.payment_overpaid if PaymentSettlementService.OVERPAID in outcomes.values() else Constants.payment_booking_closed
             )
-            logger.error(
-                'Overpayment captured: order %s (gateway payment %s) exceeds a booking total — manual refund required',
-                order['order_id'], params.razorpay_payment_id,
-            )
-            raise ValueError(Constants.payment_overpaid)
-        # One notification per booking in the group, same as if each had been paid
+        # One notification per booking that took its payment, same as if each had been paid
         # individually — every Payment in a group belongs to the same customer
         # (validated at /initiate_group/ time), so this is just a fan-out, not a
-        # per-payment ownership check.
-        booking_ids = Payment.objects.filter(order_id=order['order_id']).values_list('booking_id', flat=True)
+        # per-payment ownership check. Bookings that could not take theirs are being refunded.
+        booking_ids = Payment.objects.filter(payment_id__in=applied_ids).values_list('booking_id', flat=True)
         for booking_id in booking_ids:
             NotificationService.notify(
                 user_id=order['customer_id'],

@@ -14,6 +14,10 @@ class CoinConfig(models.Model):
     cashback_percentage = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('10.00'),
         validators=[MinValueValidator(Decimal('0'))],
+        # The name is kept so existing rows, admin links and API consumers keep working, but the
+        # value is paise of cashback per ₹100 of service amount (10 → ₹2 on a ₹2000 booking).
+        verbose_name='Cashback (paise per ₹100)',
+        help_text='Paise of cashback earned per ₹100 of service amount. 10 means ₹2 on a ₹2000 booking.',
     )
     # Floored above zero, not just non-negative — award_cashback() and
     # RedemptionTier.save() both divide by this value, so an admin-entered 0 would
@@ -29,7 +33,7 @@ class CoinConfig(models.Model):
         db_table = 'coin_configs'
 
     def __str__(self):
-        return f"Coin Config (cashback={self.cashback_percentage}%, coin=₹{self.coin_value_rupees})"
+        return f"Coin Config (cashback={self.cashback_percentage} paise per ₹100, coin=₹{self.coin_value_rupees})"
 
     def save(self, *args, **kwargs):
         self.pk = 1

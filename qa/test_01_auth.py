@@ -187,7 +187,8 @@ def _walk(patterns, prefix=''):
 
 
 class UnauthSweepQA(TestCase):
-    PUBLIC_PREFIXES = ('auth/', 'core/pages/', 'public/', 'api/schema', 'docs/', 'redoc/', 'admin/', 'help_center/admin/chat/', 'media/', 'static/')
+    PUBLIC_PREFIXES = ('auth/', 'core/pages/', 'public/', 'api/schema', 'docs/', 'redoc/', 'admin/', 'help_center/admin/chat/', 'media/', 'static/',
+                       'customers/payments/webhook/')            # authenticated by HMAC signature, checked below
 
     def tearDown(self):
         dump()
@@ -206,4 +207,17 @@ class UnauthSweepQA(TestCase):
                     bad.append((method.upper(), url, r.status_code))
         record('AUTHZ', f'unauthenticated sweep: {len(routes)} routes x 4 methods = {checked} requests all rejected', not bad,
                'only 401/403/404/405', bad[:5], sev='P0')
+        # The gateway webhook has no user token, so the sweep above skips it; it must still refuse anything
+        # that is not signed, whether or not a webhook secret is configured.
+        from unittest.mock import patch
+        from sunndari.config import Configurations
+        refused = []
+        for secret in ('', 'qa-webhook-secret'):
+            with patch.object(Configurations, 'razorpay_webhook_secret', secret):
+                for headers in ({}, {'HTTP_X_RAZORPAY_SIGNATURE': 'forged'}):
+                    r = c.generic('POST', '/customers/payments/webhook/razorpay/', b'{"event":"payment.captured","payload":{}}',
+                                  content_type='application/json', **headers)
+                    refused.append(r.status_code)
+        record('AUTHZ', 'payment webhook refuses unsigned and forged requests (secret unset and set)',
+               all(code in (400, 503) for code in refused), '400 or 503, never 2xx', refused, sev='P0')
         observe('AUTHZ', 'routes intentionally public', ', '.join(sorted(p for p, _ in _walk(get_resolver().url_patterns) if p.startswith(('auth/', 'core/pages/', 'public/')))), sev='P3')

@@ -50,7 +50,9 @@ class MessageView:
 
     @Common(response_handler=SupportMessageResponseSerializer).exception_handler
     def create_extract(self, params: CreateMessageRequest):
-        message = SupportChatService.send_customer_message(customer_id=params.user_id, content=params.content)
+        message = SupportChatService.send_customer_message(
+            customer_id=params.user_id, content=params.content, subject=params.subject,
+        )
         utils = HelpCenterUtils(entity='message')
         data = json.loads(utils.mapper([message]))[0]
         return Response(

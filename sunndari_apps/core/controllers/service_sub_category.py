@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from sunndari_apps.common.swagger import SwaggerPage
 from sunndari_apps.common.serializer_validations import SerializerValidations
 from sunndari_apps.common.serializers.request.get_all import GetAllSerializer
+from sunndari_apps.core.serializers.request.get.get_recently_activated_services import RecentlyActivatedServicesSerializer
+from sunndari_apps.core.serializers.response.get_all.get_recently_activated_services import RecentlyActivatedServicesResponseSerializer
 from sunndari_apps.core.serializers.request.get.get_service_sub_category import ServiceSubCategoryGetSerializer
 from sunndari_apps.core.serializers.response.get.get_service_sub_category import ServiceSubCategoryResponseGetSerializer
 from sunndari_apps.core.serializers.response.get_all.get_all_service_sub_category import ServiceSubCategoryResponseGetAllSerializer
@@ -38,3 +40,20 @@ class ServiceSubCategoryController:
     @SerializerValidations(serializer=GetAllSerializer).validate
     def get_all_service_sub_categories(request: Request) -> Response:
         return ServiceSubCategoryView().get_all_extract(params=request.params)
+
+    @extend_schema(
+        description=(
+            'Services that went live in the last 15 days and are still live (the service and its category are active), '
+            'newest first. Drives the "new services" popup: the app calls this, remembers which (subCategoryId, activatedAt) '
+            'pairs it has already shown, and shows the rest. The window and the clock are the server\'s. An empty list '
+            'means nothing is new. Open a service with GET /customers/artists/search/?sub_category_id=<subCategoryId>.'
+        ),
+        responses=SwaggerPage.response(response=RecentlyActivatedServicesResponseSerializer),
+        tags=['Core - Service Sub-Category'],
+    )
+    @api_view(['GET'])
+    @permission_classes([IsAuthenticated])
+    @SerializerValidations(serializer=RecentlyActivatedServicesSerializer).validate
+    def get_recently_activated_services(request: Request) -> Response:
+        return ServiceSubCategoryView().recently_activated_extract(params=request.params)
+

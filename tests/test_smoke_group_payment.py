@@ -175,7 +175,9 @@ class GroupPaymentFullLifecycleSmokeTest(TestCase):
             customer_id=self.customer.user_id, booking_id=b1.booking_id, service_amount=b1.total_amount,
         )
         wallet.refresh_from_db()
-        expected_coins = int((Decimal('200.00') * Decimal('10.00') / 100) / Decimal('0.01'))
+        # 10 paise per ₹100 on ₹200 = ₹0.20; at ₹0.01/coin that is 20 coins.
+        expected_coins = int((Decimal('200.00') * Decimal('10.00') / 10000) / Decimal('0.01'))
+        self.assertEqual(expected_coins, 20)
         self.assertIsNotNone(cashback_txn)
         self.assertEqual(wallet.balance_coins, before + expected_coins)
 

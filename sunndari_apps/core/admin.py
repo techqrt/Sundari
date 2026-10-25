@@ -6,9 +6,48 @@ from sunndari_apps.core.models import (
 )
 
 admin.site.register(ServiceCategory, ModelAdmin)
-admin.site.register(ServiceSubCategory, ModelAdmin)
 admin.site.register(LocationType, ModelAdmin)
 admin.site.register(BookingStatus, ModelAdmin)
 admin.site.register(PaymentStatus, ModelAdmin)
 admin.site.register(ApprovalStatus, ModelAdmin)
 admin.site.register(Brand, ModelAdmin)
+
+
+@admin.register(ServiceSubCategory)
+class ServiceSubCategoryAdmin(ModelAdmin):
+    """The "service" an admin switches on and off. The Active checkbox on the edit page is the control;
+    saving it from off to on is what starts the 15-day "new service" window (see ServiceSubCategory.save).
+    Turning a service off never touches its parent category, which stays live for its other services."""
+
+    list_display = ('sub_category_id', 'name', 'category', 'is_active', 'activated_at')
+    list_filter = ('is_active', 'category')
+    search_fields = ('name', 'description', 'category__name')
+    list_select_related = ('category',)
+    # Set by the system, never by hand: shown so an admin can see when the service last went live.
+    readonly_fields = ('activated_at', 'activation_notified_at', 'created_at', 'updated_at')
+    actions = ('activate_selected', 'deactivate_selected')
+
+    @admin.action(description='Activate selected services', permissions=['change'])
+    def activate_selected(self, request, queryset):
+        self._set_active(request, queryset, active=True)
+
+    @admin.action(description='Deactivate selected services', permissions=['change'])
+    def deactivate_selected(self, request, queryset):
+        self._set_active(request, queryset, active=False)
+
+    def _set_active(self, request, queryset, active: bool) -> None:
+        """Each service goes through save() — not queryset.update() — so the activation rule runs. Services
+        already in the requested state are skipped, which is what keeps a repeated click from restarting
+        the 15-day window of a service that is already live."""
+        changed = 0
+        for service in queryset.exclude(is_active=active):
+            service.is_active = active
+            service.save()
+            changed += 1
+        skipped = queryset.count() - changed
+        verb = 'activated' if active else 'deactivated'
+        message = f'{changed} service(s) {verb}.'
+        if skipped:
+            message += f' {skipped} already {"active" if active else "inactive"}, left unchanged.'
+        self.message_user(request, message)
+

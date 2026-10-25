@@ -8,8 +8,8 @@ from sunndari_apps.customers.dataclasses.request.get.search_artist import Search
 
 class SearchArtistSerializer(serializers.Serializer):
     values = serializers.CharField(max_length=200, required=False, default='')
-    page_num = serializers.IntegerField(default=1)
-    limit = serializers.IntegerField(default=Configurations.pagination_count)
+    page_num = serializers.IntegerField(default=1, min_value=1)
+    limit = serializers.IntegerField(default=Configurations.pagination_count, min_value=1, max_value=Configurations.pagination_max)
     sort_by = serializers.ChoiceField(choices=['rating', 'price', 'experience', 'name'], required=False, default='rating')
     sort_order = serializers.ChoiceField(choices=['asc', 'desc'], required=False, default='desc')
     search_key = serializers.CharField(max_length=100, required=False, default='')

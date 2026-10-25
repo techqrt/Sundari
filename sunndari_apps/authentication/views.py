@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.db import transaction
@@ -28,9 +29,12 @@ from sunndari_apps.authentication.serializers_auth import (
     GoogleAuthSerializer,
     TokenRefreshSerializer,
 )
+from sunndari_apps.common.emailing import EmailDeliveryError
 from sunndari_apps.common.utils import Utils
 from sunndari.config import Configurations
 from sunndari.constants import Constants
+
+logger = logging.getLogger(__name__)
 
 
 def _find_phone_user(phone_number: str):
@@ -219,8 +223,27 @@ class EmailOTPView:
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Same resend cooldown as the phone path (the last request time is the expiry minus the validity window):
+        # without it anyone could make this endpoint email a victim's inbox as fast as they can call it.
+        if user.otp_expiry:
+            requested_at = user.otp_expiry - timedelta(minutes=Configurations.otp_expiry_minutes)
+            if timezone.now() - requested_at < timedelta(seconds=Configurations.otp_resend_seconds):
+                return Response(
+                    Utils.error_response_data(Constants.contact_change_wait, [Constants.contact_change_wait]),
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         otp = user.generate_otp()
-        send_otp_email(email, otp)
+        try:
+            send_otp_email(email, otp)
+        except EmailDeliveryError:
+            # Not a false "OTP sent": the code was not delivered, so it is dropped (it must not stay valid, and the
+            # cooldown must not block the retry).
+            User.objects.filter(pk=user.pk).update(otp=None, otp_expiry=None)
+            return Response(
+                Utils.error_response_data(Constants.email_send_failed, [Constants.email_send_failed]),
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         return Response(
             Utils.success_response_data(message=Constants.otp_sent),
@@ -360,7 +383,12 @@ class PasswordAuthView:
         if user and user.is_active and not user.is_locked_out():
             otp = user.generate_otp()
             if '@' in username:
-                send_otp_email(username, otp)
+                try:
+                    send_otp_email(username, otp)
+                except EmailDeliveryError:
+                    # Reporting this would reveal that the account exists, so the reply stays the same and the
+                    # failure is logged (the user can simply ask again).
+                    logger.warning('Password reset email for user %s could not be delivered', user.user_id)
             else:
                 send_otp_sms(username, otp)
 

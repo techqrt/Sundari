@@ -167,6 +167,14 @@ class Payment(models.Model):
     gateway_payment_id = models.CharField(max_length=100, null=True, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
     failure_reason = models.CharField(max_length=300, null=True, blank=True)
+    # Refund ledger. refund_requested_at is set the moment money is owed back to the customer (a cancelled
+    # booking, or a gateway capture that could not be applied); gateway_refund_id is set once the gateway
+    # has accepted the refund, which is what ends the obligation. Attempts and the last attempt time drive
+    # the exponential backoff of the retry job.
+    refund_requested_at = models.DateTimeField(null=True, blank=True)
+    refund_attempts = models.PositiveSmallIntegerField(default=0)
+    refund_last_attempt_at = models.DateTimeField(null=True, blank=True)
+    gateway_refund_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -338,48 +346,137 @@ class Payment(models.Model):
         payment.save()
 
     @staticmethod
+    def mark_unapplied_capture(payment_id: int, gateway_payment_id: str, status_id: int, failure_reason: str) -> None:
+        """The gateway captured this payment but it cannot be applied to its booking (the booking is no
+        longer active, or it would overpay it). The money is the customer's, so it is recorded as
+        failed-with-a-refund-owed rather than kept: the gateway payment id is stored so the refund can be
+        made and retried, and refund_requested_at marks the obligation."""
+        now = timezone.now()
+        Payment.objects.filter(payment_id=payment_id).update(
+            gateway_payment_id=gateway_payment_id, status_id=status_id, failure_reason=failure_reason[:300],
+            refund_requested_at=now, updated_at=now,
+        )
+
+    @staticmethod
+    def _already_refunded_at_gateway(payment: 'Payment', paise: int) -> bool:
+        """After a refund call fails, its outcome is unknown: the gateway may have accepted the refund and
+        only the reply was lost. Ask it, so a lost reply is never reported as a failure (and never retried
+        into a second refund). A group payment shares one gateway payment, so only a fully refunded one
+        counts there."""
+        try:
+            fetched = RazorpayGateway.get_client().payment.fetch(payment.gateway_payment_id)
+        except Exception:
+            return False
+        if not isinstance(fetched, dict):
+            return False
+        if fetched.get('status') == 'refunded':
+            return True
+        refunded = fetched.get('amount_refunded')
+        return payment.order_id is None and isinstance(refunded, int) and refunded >= paise
+
+    @staticmethod
     def _refund_at_gateway(payment: 'Payment') -> str:
         """Asks the gateway to return the cash part of one payment. Returns '' on success or a
         short reason on failure. Wallet-only or zero-cash payments have nothing to return."""
         if payment.gateway == 'wallet' or not payment.gateway_payment_id or payment.amount <= 0:
             return ''
+        paise = int(round(payment.amount * 100))
         try:
-            RazorpayGateway.get_client().payment.refund(payment.gateway_payment_id, {
-                'amount': int(round(payment.amount * 100)),
+            refund = RazorpayGateway.get_client().payment.refund(payment.gateway_payment_id, {
+                'amount': paise,
                 'notes': {'payment_id': str(payment.payment_id), 'booking_id': str(payment.booking_id)},
             })
+            refund_id = refund.get('id') if isinstance(refund, dict) else None
+            if isinstance(refund_id, str):
+                Payment.objects.filter(payment_id=payment.payment_id).update(gateway_refund_id=refund_id)
             return ''
         except Exception as error:                      # network, auth, already-refunded, over-refund ...
             logger.exception('Gateway refund failed for payment %s', payment.payment_id)
+            if Payment._already_refunded_at_gateway(payment, paise):
+                return ''
             return f'Refund failed: {str(error)[:200]}'
 
     @staticmethod
-    def mark_refunded(booking_id: int, status_id: int) -> dict:
-        """Refunds every paid payment of a booking. A payment only becomes 'refunded' once the
-        gateway has accepted the refund; if the gateway call fails the payment stays 'paid' with
-        the reason recorded (and the customer is told it is being handled), so the system never
-        claims money was returned when it was not. Use the `retry_refunds` command to retry."""
+    def refund_payment(payment: 'Payment', refunded_status_id: int) -> bool:
+        """One refund attempt for one payment, with the bookkeeping the retry job relies on. A payment
+        only becomes 'refunded' once the gateway has accepted the refund; if the call fails it keeps its
+        status with the reason and attempt count recorded (the customer is told once), so the system never
+        claims money was returned when it was not."""
         from sunndari_apps.notifications.utils import NotificationService
-        outcome = {'refunded': 0, 'pending': 0}
-        for payment in Payment.objects.filter(booking_id=booking_id, status__name='paid'):
-            problem = Payment._refund_at_gateway(payment)
-            if problem:
-                Payment.objects.filter(payment_id=payment.payment_id).update(failure_reason=problem, updated_at=timezone.now())
-                outcome['pending'] += 1
+        now = timezone.now()
+        problem = Payment._refund_at_gateway(payment)
+        if problem:
+            Payment.objects.filter(payment_id=payment.payment_id).update(
+                failure_reason=problem, refund_requested_at=payment.refund_requested_at or now,
+                refund_attempts=models.F('refund_attempts') + 1, refund_last_attempt_at=now, updated_at=now,
+            )
+            if payment.refund_attempts == 0:
                 NotificationService.notify(
                     user_id=payment.customer_id, title='Refund being processed',
                     message='We could not return your payment automatically yet. Our team will complete the refund.',
-                    type='refund_pending', booking_id=booking_id,
+                    type='refund_pending', booking_id=payment.booking_id,
                 )
-            else:
-                Payment.objects.filter(payment_id=payment.payment_id).update(
-                    status_id=status_id, failure_reason=None, updated_at=timezone.now(),
-                )
-                outcome['refunded'] += 1
-                if payment.amount > 0:
-                    NotificationService.notify(
-                        user_id=payment.customer_id, title='Refund initiated',
-                        message=f'A refund of ₹{payment.amount} has been initiated to your original payment method.',
-                        type='refund_initiated', booking_id=booking_id,
-                    )
+            return False
+        # A captured-but-unapplied payment keeps its reason as the audit trail of why it was refunded.
+        keep_reason = payment.status.name != 'paid'
+        Payment.objects.filter(payment_id=payment.payment_id).update(
+            status_id=refunded_status_id, failure_reason=payment.failure_reason if keep_reason else None,
+            refund_requested_at=payment.refund_requested_at or now, refund_last_attempt_at=now, updated_at=now,
+        )
+        if payment.amount > 0:
+            NotificationService.notify(
+                user_id=payment.customer_id, title='Refund initiated',
+                message=f'A refund of ₹{payment.amount} has been initiated to your original payment method.',
+                type='refund_initiated', booking_id=payment.booking_id,
+            )
+        return True
+
+    @staticmethod
+    def mark_refunded(booking_id: int, status_id: int) -> dict:
+        """Refunds every paid payment of a booking (see refund_payment). Failures are picked up again by
+        the retry_owed_refunds job."""
+        outcome = {'refunded': 0, 'pending': 0}
+        for payment in Payment.objects.select_related('status').filter(booking_id=booking_id, status__name='paid'):
+            outcome['refunded' if Payment.refund_payment(payment, status_id) else 'pending'] += 1
+        return outcome
+
+    @staticmethod
+    def retry_owed_refunds(force: bool = False) -> dict:
+        """Settles every refund still owed: paid payments of cancelled / missed bookings, and captures that
+        could not be applied. Each payment is retried with exponential backoff (base * 2^attempts, capped)
+        and, once the attempts are used up, escalated to the admins exactly once instead of retried
+        forever. `force` ignores the backoff and the cap (the manual `retry_refunds` command)."""
+        from django.db.models import Q
+        from sunndari_apps.authentication.models import User
+        from sunndari_apps.core.models.payment_status import PaymentStatus
+        from sunndari_apps.notifications.models.notification import Notification
+        from sunndari_apps.notifications.utils import NotificationService
+        from sunndari.config import Configurations
+
+        refunded_status = PaymentStatus.objects.get(name='refunded')
+        now = timezone.now()
+        owed = Payment.objects.select_related('status').filter(gateway_refund_id__isnull=True).filter(
+            Q(status__name='paid', booking__status__name__in=['cancelled', 'no_show'])
+            | Q(status__name='failed', refund_requested_at__isnull=False, gateway_payment_id__isnull=False)
+        )
+        outcome = {'refunded': 0, 'pending': 0, 'waiting': 0, 'escalated': 0}
+        for payment in owed:
+            if not force and payment.refund_attempts >= Configurations.refund_max_attempts:
+                outcome['escalated'] += 1
+                title = 'Refund needs manual attention'
+                for admin_id in User.objects.filter(role='admin', is_active=True).values_list('user_id', flat=True):
+                    if not Notification.objects.filter(user_id=admin_id, booking_id=payment.booking_id, title=title).exists():
+                        NotificationService.notify(
+                            user_id=admin_id, title=title, type='payment_status', booking_id=payment.booking_id,
+                            message=f'Payment #{payment.payment_id} (₹{payment.amount}) could not be refunded after '
+                                    f'{payment.refund_attempts} attempts: {payment.failure_reason}',
+                        )
+                continue
+            if not force and payment.refund_last_attempt_at:
+                wait = min(Configurations.refund_backoff_base_seconds * 2 ** payment.refund_attempts,
+                           Configurations.refund_backoff_max_seconds)
+                if now < payment.refund_last_attempt_at + timezone.timedelta(seconds=wait):
+                    outcome['waiting'] += 1
+                    continue
+            outcome['refunded' if Payment.refund_payment(payment, refunded_status.status_id) else 'pending'] += 1
         return outcome

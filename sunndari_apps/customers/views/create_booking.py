@@ -24,6 +24,7 @@ from sunndari_apps.customers.dataclasses.request.create.create_booking import Cr
 from sunndari_apps.customers.firebase_utils import BookingFirebaseUtils
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.authentication.utils import send_otp_sms, send_otp_email
+from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
 from sunndari.constants import Constants
 
 
@@ -62,6 +63,7 @@ class CreateBookingView:
                 raise ValueError(Constants.data_no_match)
             if not package.is_active:
                 raise ValueError(Constants.package_unavailable)
+            ServiceSubCategory.assert_live([package.sub_category_id])
 
             if not ArtistLocationPreference.objects.filter(
                 artist_id=params.artist_id, location_type_id=params.location_type_id,

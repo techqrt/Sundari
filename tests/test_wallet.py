@@ -253,18 +253,33 @@ class AwardCashbackTest(TestCase):
         CoinConfig.objects.create(coin_value_rupees='0.10')
         user = make_user('+919000000530', 'customer')
         txn = CustomerWallet.award_cashback(customer_id=user.user_id, booking_id=None, service_amount='1000.00')
-        # 10% of 1000 = 100 rupees; at ₹0.10/coin that's 1000 coins.
-        self.assertEqual(txn.coins, 1000)
+        # 10 paise per ₹100 on ₹1000 = ₹1; at ₹0.10/coin that's 10 coins.
+        self.assertEqual(txn.coins, 10)
         self.assertEqual(txn.transaction_type, 'CASHBACK')
         wallet = CustomerWallet.objects.get(customer_id=user.user_id)
-        self.assertEqual(wallet.balance_coins, 1000)
+        self.assertEqual(wallet.balance_coins, 10)
+
+    def test_default_config_gives_2_rupees_on_a_2000_rupee_booking(self):
+        # The default 10 means 10 PAISE per ₹100 (not 10%): ₹2000 -> 200 paise = ₹2 = 200 coins at ₹0.01.
+        user = make_user('+919000000538', 'customer')
+        txn = CustomerWallet.award_cashback(customer_id=user.user_id, booking_id=None, service_amount='2000.00')
+        self.assertEqual(txn.coins, 200)
+        self.assertEqual(txn.coins * CoinConfig.get_active().coin_value_rupees, Decimal('2.00'))
+
+    def test_default_config_rounds_down_to_whole_coins(self):
+        user = make_user('+919000000539', 'customer')
+        # ₹99 -> 9.9 paise -> 9 whole coins (the 0.9 is dropped, never rounded up).
+        self.assertEqual(CustomerWallet.award_cashback(customer_id=user.user_id, booking_id=None, service_amount='99.00').coins, 9)
+        # ₹9 -> 0.9 paise -> under one coin -> nothing credited.
+        other = make_user('+919000000529', 'customer')
+        self.assertIsNone(CustomerWallet.award_cashback(customer_id=other.user_id, booking_id=None, service_amount='9.00'))
 
     def test_award_cashback_respects_custom_config(self):
         CoinConfig.objects.create(cashback_percentage='5.00', coin_value_rupees='0.50')
         user = make_user('+919000000531', 'customer')
         txn = CustomerWallet.award_cashback(customer_id=user.user_id, booking_id=None, service_amount='2000.00')
-        # 5% of 2000 = 100 rupees; at ₹0.50/coin that's 200 coins.
-        self.assertEqual(txn.coins, 200)
+        # 5 paise per ₹100 on ₹2000 = ₹1; at ₹0.50/coin that's 2 coins.
+        self.assertEqual(txn.coins, 2)
 
     def test_award_cashback_returns_none_when_rounds_to_zero_coins(self):
         CoinConfig.objects.create(cashback_percentage='1.00', coin_value_rupees='10.0000')
@@ -305,7 +320,7 @@ class AwardCashbackTest(TestCase):
             )
 
         wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
-        self.assertEqual(wallet.balance_coins, 1000)  # the failed second attempt rolled back cleanly
+        self.assertEqual(wallet.balance_coins, 10)  # the failed second attempt rolled back cleanly
         self.assertEqual(
             CoinTransaction.objects.filter(booking_id=booking.booking_id, transaction_type='CASHBACK').count(), 1,
         )
@@ -349,7 +364,7 @@ class AwardCashbackTest(TestCase):
         self.assertEqual(second_resp.status_code, 400)
 
         wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
-        self.assertEqual(wallet.balance_coins, 1000)  # not double-credited
+        self.assertEqual(wallet.balance_coins, 10)  # not double-credited
         self.assertEqual(
             CoinTransaction.objects.filter(booking_id=booking.booking_id, transaction_type='CASHBACK').count(), 1,
         )
@@ -393,7 +408,7 @@ class CashbackCompletionIntegrationTest(TestCase):
         booking.refresh_from_db()
         self.assertEqual(booking.status.name, 'completed')
         wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
-        self.assertEqual(wallet.balance_coins, 1000)
+        self.assertEqual(wallet.balance_coins, 10)
 
     def test_cashback_failure_rolls_back_booking_completion(self):
         artist_client, customer, booking = self._make_in_progress_booking(

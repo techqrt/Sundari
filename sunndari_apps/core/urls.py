@@ -18,6 +18,7 @@ urlpatterns = [
     # Service Sub-Category
     path('service-sub-category/get/', ServiceSubCategoryController.get_service_sub_category, name='get_service_sub_category'),
     path('service-sub-category/get_all/', ServiceSubCategoryController.get_all_service_sub_categories, name='get_all_service_sub_categories'),
+    path('service-sub-category/recently_activated/', ServiceSubCategoryController.get_recently_activated_services, name='get_recently_activated_services'),
 
     # Location Type
     path('location-type/get/', LocationTypeController.get_location_type, name='get_location_type'),

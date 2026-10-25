@@ -30,8 +30,11 @@ class ServiceCategory(models.Model):
         filter_key: str = '',
         filter_value: str = '',
         search_key: str = '',
+        only_active: bool = False,
     ) -> list:
         data = ServiceCategory.objects.all()
+        if only_active:
+            data = data.filter(is_active=True)
         if filter_key and filter_value:
             data = data.filter(**{f'{filter_key}__icontains': filter_value})
         if search_key:

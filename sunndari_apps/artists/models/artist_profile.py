@@ -29,7 +29,7 @@ class ArtistProfile(models.Model):
     bio = models.TextField(null=True, blank=True)
     years_experience = models.PositiveIntegerField(default=0)
     city = models.CharField(max_length=100, null=True, blank=True)
-    service_radius_km = models.PositiveIntegerField(default=10)
+    service_radius_km = models.PositiveIntegerField(default=50)
     # Snapshotted onto each booking (see customers.Booking) — informational for now.
     travel_time_before_minutes = models.PositiveIntegerField(default=0)
     return_buffer_minutes = models.PositiveIntegerField(default=0)

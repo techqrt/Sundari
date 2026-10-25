@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
+from sunndari_apps.common.permissions import is_admin
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.common.dataclasses.request.get_all import GetAll
 from sunndari_apps.core.models.service_category import ServiceCategory
@@ -40,6 +41,7 @@ class ServiceCategoryView:
                 filter_key=reversed_mapped.get(params.filter_key, ''),
                 filter_value=params.filter_value,
                 search_key=params.search_key,
+                only_active=not is_admin(params.user_id),
             ),
             per_page=params.limit
         )

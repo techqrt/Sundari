@@ -4,12 +4,15 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
+from sunndari_apps.common.permissions import is_admin
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.common.dataclasses.request.get_all import GetAll
 from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
+from sunndari_apps.core.serializers.response.get_all.get_recently_activated_services import RecentlyActivatedServicesResponseSerializer
 from sunndari_apps.core.serializers.response.get.get_service_sub_category import ServiceSubCategoryResponseGetSerializer
 from sunndari_apps.core.serializers.response.get_all.get_all_service_sub_category import ServiceSubCategoryResponseGetAllSerializer
 from sunndari_apps.core.utils import CoreUtils
+from sunndari.config import Configurations
 from sunndari.constants import Constants
 
 
@@ -52,6 +55,8 @@ class ServiceSubCategoryView:
                 filter_key=reversed_mapped.get(params.filter_key, ''),
                 filter_value=params.filter_value,
                 search_key=params.search_key,
+                # Pick-lists offer only what can be used; an admin (dashboard) still sees every service.
+                only_live=not is_admin(params.user_id),
             ),
             per_page=params.limit
         )
@@ -71,3 +76,22 @@ class ServiceSubCategoryView:
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
         )
+
+    @Common(response_handler=RecentlyActivatedServicesResponseSerializer).exception_handler
+    def recently_activated_extract(self, params):
+        rows = ServiceSubCategory.get_recently_activated(days=Configurations.recent_service_days)
+        data = [
+            {
+                'subCategoryId': row['sub_category_id'],
+                'name': row['name'],
+                'description': row['description'],
+                'category': {'categoryId': row['category_id'], 'name': row['category__name']},
+                'activatedAt': row['activated_at'].isoformat(),
+            }
+            for row in rows
+        ]
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message=self.data_get, data=data)
+        )
+

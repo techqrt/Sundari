@@ -5,6 +5,7 @@ class NotificationSerializer(serializers.Serializer):
     notificationId = serializers.IntegerField()
     userId = serializers.IntegerField()
     bookingId = serializers.IntegerField(allow_null=True)
+    referenceId = serializers.IntegerField(allow_null=True, help_text='What the notification is about when it is not a booking (service_activated: the service id)')
     type = serializers.CharField()
     title = serializers.CharField()
     message = serializers.CharField()

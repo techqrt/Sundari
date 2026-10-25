@@ -335,3 +335,69 @@ class AdminRoleFilterTest(TestCase):
         )
         self.assertEqual(no_filter.status_code, 200)
         self.assertEqual(len(no_filter.data['data']['data']), 2)
+
+
+# ─── HTTP: Conversation subject ───────────────────────────────────────────────
+
+class ConversationSubjectTest(TestCase):
+
+    def test_subject_is_saved_and_returned_when_starting_a_conversation(self):
+        client, customer = make_customer(phone_number='+919300000801')
+        resp = client.post(
+            '/help_center/messages/create/', {'content': 'Help', 'subject': '  Refund issue  '}, format='json',
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(SupportConversation.objects.get(customer_id=customer.user_id).subject, 'Refund issue')
+        self.assertEqual(client.get('/help_center/conversation/get/').data['data']['subject'], 'Refund issue')
+
+    def test_subject_is_optional_and_legacy_conversations_return_null(self):
+        client, customer = make_customer(phone_number='+919300000802')
+        self.assertEqual(client.post('/help_center/messages/create/', {'content': 'Hi'}, format='json').status_code, 201)
+        self.assertIsNone(client.get('/help_center/conversation/get/').data['data']['subject'])
+        # a row created before the column existed has NULL too
+        legacy = SupportConversation.objects.create(customer=make_customer(phone_number='+919300000803')[1])
+        self.assertIsNone(SupportConversation.get(conversation_id=legacy.conversation_id)['subject'])
+
+    def test_blank_subject_is_stored_as_null(self):
+        client, customer = make_customer(phone_number='+919300000804')
+        for blank in ('   ', ''):
+            SupportConversation.objects.filter(customer_id=customer.user_id).delete()
+            resp = client.post('/help_center/messages/create/', {'content': 'Hi', 'subject': blank}, format='json')
+            self.assertEqual(resp.status_code, 201)
+            self.assertIsNone(SupportConversation.objects.get(customer_id=customer.user_id).subject)
+
+    def test_subject_over_150_characters_is_rejected(self):
+        client, _ = make_customer(phone_number='+919300000805')
+        resp = client.post('/help_center/messages/create/', {'content': 'Hi', 'subject': 'x' * 151}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(SupportConversation.objects.count(), 0)
+
+    def test_subject_on_a_later_message_does_not_overwrite_the_conversation_subject(self):
+        client, customer = make_customer(phone_number='+919300000806')
+        client.post('/help_center/messages/create/', {'content': 'one', 'subject': 'First'}, format='json')
+        client.post('/help_center/messages/create/', {'content': 'two', 'subject': 'Second'}, format='json')
+        self.assertEqual(SupportConversation.objects.get(customer_id=customer.user_id).subject, 'First')
+
+    def test_artist_route_saves_subject(self):
+        client, artist, _ = make_artist(phone_number='+919300000807')
+        resp = client.post(
+            '/help_center/artist/messages/create/', {'content': 'Payout', 'subject': 'Payout delay'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(client.get('/help_center/artist/conversation/get/').data['data']['subject'], 'Payout delay')
+
+    def test_admin_list_and_detail_include_subject_and_search_matches_it(self):
+        with_subject, _ = make_customer(phone_number='+919300000808')
+        without_subject, _ = make_customer(phone_number='+919300000809')
+        admin_client, _ = make_admin(phone_number='+919300000810')
+        with_subject.post('/help_center/messages/create/', {'content': 'a', 'subject': 'Wrong charge'}, format='json')
+        without_subject.post('/help_center/messages/create/', {'content': 'b'}, format='json')
+
+        rows = admin_client.get('/help_center/admin/conversations/get_all/', {'status': 'open'}).data['data']['data']
+        self.assertEqual(sorted(str(r['subject']) for r in rows), ['None', 'Wrong charge'])
+
+        found = admin_client.get('/help_center/admin/conversations/get_all/', {'search_key': 'charge'}).data['data']['data']
+        self.assertEqual([r['subject'] for r in found], ['Wrong charge'])
+
+        detail = admin_client.get('/help_center/admin/conversation/get/', {'conversation_id': found[0]['conversationId']})
+        self.assertEqual(detail.data['data']['subject'], 'Wrong charge')

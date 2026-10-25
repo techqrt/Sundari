@@ -77,7 +77,8 @@ class ArtistProfileView:
         data = json.loads(utils.mapper([data_dict]))[0]
         if not columns or 'specialities' in columns:
             data['specialities'] = [
-                row['sub_category_id'] for row in ArtistSpeciality.get_all(artist_id=data_dict['artist_id'])
+                row['sub_category_id'] for row in ArtistSpeciality.get_all(
+                    artist_id=data_dict['artist_id'], only_live=is_foreign)
             ]
         return Response(
             status=status.HTTP_200_OK,
@@ -127,6 +128,7 @@ class ArtistProfileView:
             self._get_artist_profile(user_id=params.user_id)
             if not ServiceSubCategory.objects.filter(sub_category_id=params.sub_category_id).exists():
                 raise ValueError(self.data_no_match)
+            ServiceSubCategory.assert_live([params.sub_category_id])
             ArtistServiceOffering.add(
                 artist_id=ArtistProfile.objects.get(user_id=params.user_id).artist_id,
                 sub_category_id=params.sub_category_id,
@@ -221,6 +223,10 @@ class ArtistProfileView:
             )
             if not wanted <= offered:
                 raise ValueError(Constants.speciality_not_offered)
+            # Keeping a speciality the artist already has is fine even if the service has since been switched off;
+            # only a NEW one must be available.
+            already_held = {row['sub_category_id'] for row in ArtistSpeciality.get_all(artist_id=profile.artist_id)}
+            ServiceSubCategory.assert_live(wanted - already_held)
             ArtistSpeciality.replace_for_artist(artist_id=profile.artist_id, sub_category_ids=list(wanted))
         return Response(
             status=status.HTTP_200_OK,
@@ -237,7 +243,7 @@ class ArtistProfileView:
             raise ValueError(Constants.artist_not_found)
         data = [
             {'subCategoryId': row['sub_category_id'], 'name': row['sub_category__name']}
-            for row in ArtistSpeciality.get_all(artist_id=profile.artist_id)
+            for row in ArtistSpeciality.get_all(artist_id=profile.artist_id, only_live=profile.user_id != params.user_id)
         ]
         return Response(
             status=status.HTTP_200_OK,

@@ -2,6 +2,12 @@ from sunndari_apps.authentication.models import User
 from sunndari.constants import Constants
 
 
+def is_admin(user_id: int) -> bool:
+    """True when the caller is an admin (used to decide what a listing shows; require_admin refuses instead)."""
+    user = User.get(user_id=user_id)
+    return bool(user) and user['role'] == 'admin'
+
+
 def require_admin(user_id: int) -> None:
     """Raises (-> HTTP 400 like every other refusal in this API) unless the caller is an admin."""
     user = User.get(user_id=user_id)

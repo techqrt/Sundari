@@ -10,6 +10,7 @@ class HelpCenterUtils:
             'conversation_id': 'conversationId',
             'customer_id': 'customerId',
             'status': 'status',
+            'subject': 'subject',
             'created_at': 'createdAt',
             'closed_at': 'closedAt',
             'customer__role': 'role',

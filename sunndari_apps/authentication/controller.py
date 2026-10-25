@@ -1,6 +1,6 @@
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -27,6 +27,7 @@ from sunndari_apps.authentication.views import (
     TokenRefreshView,
 )
 from sunndari_apps.common.swagger import SwaggerPage
+from sunndari_apps.common.throttles import AuthRateThrottle
 
 
 class AuthController:
@@ -42,6 +43,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def phone_otp_request(request: Request) -> Response:
         return PhoneOTPView().request_otp(params=request.data)
 
@@ -54,6 +56,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def phone_otp_verify(request: Request) -> Response:
         return PhoneOTPView().verify_otp(params=request.data)
 
@@ -68,6 +71,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def email_otp_request(request: Request) -> Response:
         return EmailOTPView().request_otp(params=request.data)
 
@@ -80,6 +84,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def email_otp_verify(request: Request) -> Response:
         return EmailOTPView().verify_otp(params=request.data)
 
@@ -94,6 +99,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def register(request: Request) -> Response:
         return PasswordAuthView().register(params=request.data)
 
@@ -106,6 +112,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def login(request: Request) -> Response:
         return PasswordAuthView().login(params=request.data)
 
@@ -118,6 +125,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def forgot_password(request: Request) -> Response:
         return PasswordAuthView().forgot_password(params=request.data)
 
@@ -130,6 +138,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def reset_password(request: Request) -> Response:
         return PasswordAuthView().reset_password(params=request.data)
 
@@ -156,6 +165,7 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def google_auth(request: Request) -> Response:
         return GoogleAuthView().authenticate(params=request.data)
 
@@ -170,5 +180,6 @@ class AuthController:
     @csrf_exempt
     @api_view(['POST'])
     @permission_classes([AllowAny])
+    @throttle_classes([AuthRateThrottle])
     def token_refresh(request: Request) -> Response:
         return TokenRefreshView().refresh(params=request.data)

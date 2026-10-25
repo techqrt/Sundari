@@ -48,7 +48,8 @@ class AdminConversationController:
             'Close a Help Center support conversation (admin-only). Once closed, the '
             'customer can no longer send messages on it and must start a new conversation.'
         ),
-        parameters=CloseConversationSerializer.get_parameters(),
+        request=CloseConversationSerializer,                       # conversation_id is accepted in the body ...
+        parameters=CloseConversationSerializer.get_parameters(),   # ... or as a query parameter
         responses=SwaggerPage.response(description='Conversation closed successfully'),
         tags=['Help Center Admin'],
     )

@@ -17,6 +17,7 @@ class SupportConversation(models.Model):
         related_name='support_conversations',
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    subject = models.CharField(max_length=150, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     closed_at = models.DateTimeField(null=True, blank=True)
 
@@ -29,10 +30,11 @@ class SupportConversation(models.Model):
     def __str__(self):
         return f"Support Conversation #{self.conversation_id} (Customer #{self.customer_id})"
 
-    VALUES_FIELDS = ('conversation_id', 'customer_id', 'status', 'created_at', 'closed_at', 'customer__role')
+    VALUES_FIELDS = ('conversation_id', 'customer_id', 'status', 'subject', 'created_at', 'closed_at', 'customer__role')
 
-    def create(self, customer_id: int) -> int:
+    def create(self, customer_id: int, subject: str = None) -> int:
         self.customer_id = customer_id
+        self.subject = subject
         self.save()
         return self.conversation_id
 
@@ -49,11 +51,11 @@ class SupportConversation(models.Model):
         ).exclude(status='closed').order_by('-created_at').values(*SupportConversation.VALUES_FIELDS).first()
 
     @staticmethod
-    def get_or_create_for_customer(customer_id: int) -> dict:
+    def get_or_create_for_customer(customer_id: int, subject: str = None) -> dict:
         existing = SupportConversation.get_open_for_customer(customer_id=customer_id)
         if existing:
             return existing
-        conversation_id = SupportConversation().create(customer_id=customer_id)
+        conversation_id = SupportConversation().create(customer_id=customer_id, subject=subject)
         return SupportConversation.get(conversation_id=conversation_id)
 
     @staticmethod
@@ -72,6 +74,7 @@ class SupportConversation(models.Model):
         if search_key:
             data = data.filter(
                 Q(customer__name__icontains=search_key) | Q(customer__phone_number__icontains=search_key)
+                | Q(subject__icontains=search_key)
             )
         if sort_by:
             data = data.order_by(('-' if sort_order == 'desc' else '') + sort_by)

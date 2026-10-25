@@ -14,6 +14,7 @@ from sunndari_apps.artists.models.artist_service_offering import ArtistServiceOf
 from sunndari_apps.artists.utils import ArtistsUtils
 from sunndari_apps.customers.serializers.response.get.get_artist_detail import ArtistDetailResponseSerializer
 from sunndari_apps.customers.dataclasses.request.get.get_artist_detail import ArtistDetailRequest
+from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
 from sunndari.constants import Constants
 
 
@@ -37,7 +38,7 @@ class ArtistDetailView:
         profile_data = json.loads(ArtistsUtils(entity='profile').mapper([profile_dict]))[0]
 
         packages_raw = list(PricingPackage.objects.filter(
-            artist_id=params.artist_id, is_active=True,
+            artist_id=params.artist_id, is_active=True, **ServiceSubCategory.live_filter('sub_category__'),
         ).values(
             'package_id', 'artist_id', 'sub_category_id', 'name',
             'price', 'duration_minutes', 'description', 'makeup_type', 'brands', 'product_details', 'photo',
@@ -57,7 +58,7 @@ class ArtistDetailView:
         portfolio_data = json.loads(ArtistsUtils(entity='portfolio').mapper(portfolio_raw))
 
         services_raw = list(ArtistServiceOffering.objects.filter(
-            artist_id=params.artist_id, is_active=True,
+            artist_id=params.artist_id, is_active=True, **ServiceSubCategory.live_filter('sub_category__'),
         ).values(
             'offering_id', 'artist_id', 'sub_category_id',
             'custom_price', 'custom_duration_minutes', 'is_active', 'created_at',

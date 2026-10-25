@@ -108,6 +108,11 @@ class RegisterWithPasswordSerializer(serializers.Serializer):
     password = serializers.CharField(min_length=8, write_only=True)
     role = serializers.ChoiceField(choices=PUBLIC_ROLE_CHOICES)
 
+    def validate_phone_number(self, value):
+        # A new account must have a real Indian mobile number (same rule as OTP sign-up);
+        # otherwise junk like "abc" creates an account whose OTP can never be delivered.
+        return normalize_indian_mobile(value)
+
     def validate_password(self, value):
         return validate_new_password(value)
     fcm_token = serializers.CharField(required=False, allow_blank=True)

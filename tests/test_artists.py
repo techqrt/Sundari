@@ -200,6 +200,18 @@ class ArtistProfileGetTest(TestCase):
         self.assertTrue(resp.data['status'])
         self.assertIn('artistId', resp.data['data'])
 
+    def test_new_profile_defaults_to_50_km_service_radius(self):
+        client, user = make_authenticated_client()
+        resp = client.get(self.url)
+        self.assertEqual(resp.data['data']['serviceRadiusKm'], 50)
+
+    def test_explicit_service_radius_is_not_overridden_by_default(self):
+        client, user = make_authenticated_client()
+        profile = get_artist_profile(user)
+        profile.service_radius_km = 10
+        profile.save()
+        self.assertEqual(client.get(self.url).data['data']['serviceRadiusKm'], 10)
+
     def test_get_profile_by_artist_id(self):
         client, user = make_authenticated_client()
         profile = get_artist_profile(user)
@@ -256,6 +268,14 @@ class ArtistProfileGetTest(TestCase):
         resp = client.get(self.url, {'artist_id': profile.artist_id})
         self.assertEqual(resp.data['data']['commissionRate'], '10.00')
         self.assertEqual(resp.data['data']['rejectionReason'], 'internal note')
+        self.assertIs(resp.data['data']['portfolioApprovalStatus'], False)
+
+    def test_portfolio_approval_status_is_not_exposed_to_other_users(self):
+        _, owner = make_authenticated_client(phone_number='+919000000317')
+        profile = self._approve(owner)
+        other_client, _ = make_authenticated_client(phone_number='+919000000318')
+        resp = other_client.get(self.url, {'artist_id': profile.artist_id})
+        self.assertEqual(resp.status_code, 200)
         self.assertNotIn('portfolioApprovalStatus', resp.data['data'])
 
 

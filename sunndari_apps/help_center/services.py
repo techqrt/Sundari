@@ -48,11 +48,13 @@ class SupportChatService:
         return content
 
     @staticmethod
-    def send_customer_message(customer_id: int, content: str) -> dict:
+    def send_customer_message(customer_id: int, content: str, subject: str = None) -> dict:
         content = SupportChatService._validate_content(content=content)
+        # Only used when this message starts a new conversation; an open one keeps its subject.
+        subject = (subject or '').strip() or None
 
         with transaction.atomic():
-            conversation = SupportConversation.get_or_create_for_customer(customer_id=customer_id)
+            conversation = SupportConversation.get_or_create_for_customer(customer_id=customer_id, subject=subject)
             if conversation['status'] == 'closed':
                 raise ValueError(Constants.conversation_closed)
             message_id = SupportMessage().create(

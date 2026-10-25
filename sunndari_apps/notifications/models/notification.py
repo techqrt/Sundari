@@ -22,6 +22,7 @@ class Notification(models.Model):
         ('help_center_customer_message', 'Help Center — Customer Message'),
         ('help_center_artist_message', 'Help Center — Artist Message'),
         ('help_center_admin_reply', 'Help Center — Admin Reply'),
+        ('service_activated', 'New Service Available'),
         ('generic', 'Generic'),
     ]
     DELIVERY_STATUS_CHOICES = [('pending', 'Pending'), ('sent', 'Sent'), ('failed', 'Failed')]
@@ -40,6 +41,9 @@ class Notification(models.Model):
         blank=True,
     )
     type = models.CharField(max_length=30, choices=TYPE_CHOICES, default='generic')
+    # The thing a non-booking notification is about (for service_activated: the service's id), so the app can
+    # open it and so a repeated send can recognise one that was already made. Booking notifications use booking.
+    reference_id = models.PositiveIntegerField(null=True, blank=True)
     title = models.CharField(max_length=150)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
@@ -49,6 +53,9 @@ class Notification(models.Model):
     fcm_message_id = models.CharField(max_length=200, null=True, blank=True)
     failure_reason = models.CharField(max_length=300, null=True, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    # When the email copy of this notification was accepted by the mail server (NULL: not emailed, or not yet).
+    # Doubles as the claim that stops a retried or duplicated job from emailing the same notification twice.
+    email_sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -62,14 +69,16 @@ class Notification(models.Model):
         return f"Notification #{self.notification_id} → User #{self.user_id} ({self.type})"
 
     VALUES_FIELDS = (
-        'notification_id', 'user_id', 'booking_id', 'type', 'title', 'message',
+        'notification_id', 'user_id', 'booking_id', 'reference_id', 'type', 'title', 'message',
         'is_read', 'delivery_status', 'fcm_message_id', 'failure_reason',
         'sent_at', 'created_at', 'updated_at',
     )
 
-    def create(self, user_id: int, title: str, message: str, type: str = 'generic', booking_id: int = None) -> int:
+    def create(self, user_id: int, title: str, message: str, type: str = 'generic', booking_id: int = None,
+               reference_id: int = None) -> int:
         self.user_id = user_id
         self.booking_id = booking_id
+        self.reference_id = reference_id
         self.type = type
         self.title = title
         self.message = message
@@ -118,6 +127,14 @@ class Notification(models.Model):
     @staticmethod
     def exists_for_booking(booking_id: int, type: str) -> bool:
         return Notification.objects.filter(booking_id=booking_id, type=type).exists()
+
+    @staticmethod
+    def exists_for_reference(user_id: int, type: str, reference_id: int, since) -> bool:
+        """Whether this user already got a `type` notification about `reference_id` at or after `since` (the
+        start of the current activation), which is what makes a retried or duplicated send a no-op."""
+        return Notification.objects.filter(
+            user_id=user_id, type=type, reference_id=reference_id, created_at__gte=since,
+        ).exists()
 
     @staticmethod
     def mark_delivery(notification_id: int, delivery_status: str, fcm_message_id: str = None, failure_reason: str = None) -> None:

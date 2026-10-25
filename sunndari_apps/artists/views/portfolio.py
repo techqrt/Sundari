@@ -13,6 +13,7 @@ from sunndari_apps.artists.models.portfolio import Portfolio
 from sunndari_apps.artists.serializers.response.get.get_portfolio import PortfolioResponseSerializer
 from sunndari_apps.artists.serializers.response.get_all.get_all_portfolio import PortfolioResponseGetAllSerializer
 from sunndari_apps.artists.utils import ArtistsUtils
+from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
 from sunndari.constants import Constants
 
 
@@ -42,6 +43,7 @@ class PortfolioView:
                     raise ValueError(Constants.work_sample_limit_exceeded)
             elif Portfolio.count_active(artist_id=profile.artist_id) >= 20:
                 raise ValueError(Constants.portfolio_limit_exceeded)
+            ServiceSubCategory.assert_live([params.sub_category_id])
             obj = Portfolio()
             portfolio_id = obj.create(
                 artist_id=profile.artist_id,
@@ -63,6 +65,8 @@ class PortfolioView:
             item = Portfolio.get(portfolio_id=params.portfolio_id)
             if not item or item['artist_id'] != profile.artist_id:
                 raise ValueError(self.data_no_match)
+            if params.sub_category_id is not None and params.sub_category_id != item['sub_category_id']:
+                ServiceSubCategory.assert_live([params.sub_category_id])
             Portfolio.update(
                 portfolio_id=params.portfolio_id,
                 caption=params.caption,

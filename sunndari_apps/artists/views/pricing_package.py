@@ -14,6 +14,7 @@ from sunndari_apps.artists.models.package_inclusion import PackageInclusion
 from sunndari_apps.artists.serializers.response.get.get_package import PackageResponseSerializer
 from sunndari_apps.artists.serializers.response.get_all.get_all_package import PackageResponseGetAllSerializer
 from sunndari_apps.artists.utils import ArtistsUtils
+from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
 from sunndari.constants import Constants
 
 
@@ -42,6 +43,7 @@ class PricingPackageView:
     def create_extract(self, params):
         with transaction.atomic():
             profile = self._get_profile(user_id=params.user_id)
+            ServiceSubCategory.assert_live([params.sub_category_id])
             obj = PricingPackage()
             package_id = obj.create(
                 artist_id=profile.artist_id,
@@ -68,6 +70,8 @@ class PricingPackageView:
             pkg = PricingPackage.get(package_id=params.package_id)
             if not pkg or pkg['artist_id'] != profile.artist_id:
                 raise ValueError(self.data_no_match)
+            if params.sub_category_id is not None and params.sub_category_id != pkg['sub_category_id']:
+                ServiceSubCategory.assert_live([params.sub_category_id])         # moving to a service: it must be available
             PricingPackage.update(
                 package_id=params.package_id,
                 name=params.name,

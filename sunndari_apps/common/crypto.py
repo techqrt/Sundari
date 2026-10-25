@@ -1,14 +1,19 @@
 import base64
 import hashlib
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from django.conf import settings
 
 
 def _fernet() -> Fernet:
-    key = getattr(settings, 'FIELD_ENCRYPTION_KEY', '') or ''
-    if key:
-        return Fernet(key.encode())
+    """FIELD_ENCRYPTION_KEY may hold several comma-separated keys for rotation: new values are encrypted with
+    the first, and values encrypted with any of them still decrypt. To rotate, put the new key first, keep the
+    old one after it, and drop the old one once nothing is encrypted with it."""
+    keys = [k.strip() for k in (getattr(settings, 'FIELD_ENCRYPTION_KEY', '') or '').split(',') if k.strip()]
+    if len(keys) > 1:
+        return MultiFernet([Fernet(k.encode()) for k in keys])
+    if keys:
+        return Fernet(keys[0].encode())
     # No dedicated key configured: derive one from SECRET_KEY. Fine for local use, but then
     # rotating SECRET_KEY makes previously encrypted values unreadable — set
     # FIELD_ENCRYPTION_KEY (Fernet.generate_key()) in any real deployment.

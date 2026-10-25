@@ -26,6 +26,11 @@ class JWTAuthentication(BaseAuthentication):
         except jwt.InvalidTokenError:
             raise AuthenticationFailed(Constants.invalid_access_token)
 
+        # Tokens issued before the type claim existed carry none and are access tokens; a refresh token must
+        # never authenticate a request, whatever is stored for the user.
+        if payload.get('type', 'access') != 'access':
+            raise AuthenticationFailed(Constants.invalid_access_token)
+
         user_info = get_user_info_from_db(user_id=payload['user_id'])
         if not user_info:
             raise AuthenticationFailed(Constants.user_not_found)

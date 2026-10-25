@@ -182,6 +182,7 @@
   .conv-item.selected { background: var(--accent-soft); }
   .conv-item .row1 { display: flex; align-items: center; justify-content: space-between; }
   .conv-item .customer { font-weight: 600; font-size: 13.5px; }
+  .conv-item .subject { font-size: 12.5px; color: var(--ink); margin: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .conv-item .meta { font-size: 11.5px; color: var(--ink-faint); font-family: var(--mono); }
   .empty-state { padding: 28px 16px; color: var(--ink-faint); font-size: 13px; text-align: center; }
 
@@ -459,6 +460,12 @@
 
   // ── Conversations list ──────────────────────────────────
 
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   function roleLabel(role) {
     return role === 'artist' ? 'Artist' : 'Customer';
   }
@@ -511,6 +518,7 @@
       item.innerHTML =
         '<div class="row1"><span class="customer">' + roleLabel(c.role) + ' #' + c.customerId + '</span>' +
         '<span class="pill ' + c.status + '">' + c.status + '</span></div>' +
+        (c.subject ? '<div class="subject">' + escapeHtml(c.subject) + '</div>' : '') +
         '<span class="meta"><span class="role-tag">' + roleLabel(c.role) + '</span> · #' + c.conversationId + ' · ' + when.toLocaleString() + '</span>';
       item.addEventListener('click', function () { selectConversation(c); });
       el.appendChild(item);
@@ -522,6 +530,7 @@
     state.selectedStatus = c.status;
     state.selectedCustomerId = c.customerId;
     state.selectedRole = c.role;
+    state.selectedSubject = c.subject || '';
     renderConvList();
     renderThread();
     loadMessages(true);
@@ -539,7 +548,8 @@
     }
     pane.innerHTML =
       '<div class="thread-head">' +
-        '<span class="title">' + roleLabel(state.selectedRole) + ' #' + state.selectedCustomerId + ' — #' + state.selectedId + '</span>' +
+        '<span class="title">' + roleLabel(state.selectedRole) + ' #' + state.selectedCustomerId + ' — #' + state.selectedId +
+          (state.selectedSubject ? ' · ' + escapeHtml(state.selectedSubject) : '') + '</span>' +
         '<button class="close-btn" id="close-conv-btn"' + (state.selectedStatus === 'closed' ? ' disabled' : '') + '>Close conversation</button>' +
       '</div>' +
       '<div class="messages" id="messages"></div>' +

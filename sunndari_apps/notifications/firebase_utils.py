@@ -55,6 +55,7 @@ class NotificationFirebaseUtils:
         title: str,
         message: str,
         booking_id: int = None,
+        reference_id: int = None,
     ) -> None:
         try:
             payload = {
@@ -66,6 +67,8 @@ class NotificationFirebaseUtils:
                 'isRead': False,
                 'createdAt': firestore.SERVER_TIMESTAMP,
             }
+            if reference_id is not None:
+                payload['referenceId'] = reference_id
             (
                 FirebaseUtils.get_client()
                 .collection(NotificationFirebaseUtils.COLLECTION)

@@ -12,6 +12,7 @@ from sunndari_apps.artists.models.portfolio import Portfolio
 from sunndari_apps.artists.models.artist_speciality import ArtistSpeciality
 from sunndari_apps.artists.models.service_area import ArtistServiceArea
 from sunndari_apps.artists.utils import ArtistsUtils
+from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
 from sunndari.constants import Constants
 
 
@@ -30,7 +31,9 @@ class PublicArtistView:
         ArtistProfile.record_view(artist_id=artist.artist_id)
 
         photo_field = ArtistProfile._meta.get_field('profile_photo')
-        packages_raw = list(PricingPackage.objects.filter(artist_id=artist.artist_id, is_active=True).order_by('package_id').values(
+        packages_raw = list(PricingPackage.objects.filter(
+            artist_id=artist.artist_id, is_active=True, **ServiceSubCategory.live_filter('sub_category__'),
+        ).order_by('package_id').values(
             'package_id', 'artist_id', 'sub_category_id', 'name', 'price', 'duration_minutes', 'description',
             'makeup_type', 'brands', 'product_details', 'photo', 'is_active', 'created_at', 'updated_at',
         ))
@@ -52,7 +55,7 @@ class PublicArtistView:
             'isAcceptingBookings': artist.is_accepting_bookings,
             'profilePhotoUrl': absolute_file_url(photo_field, artist.profile_photo.name, present_url),
             'coverPhotoUrl': absolute_file_url(ArtistProfile._meta.get_field('cover_photo'), artist.cover_photo.name, present_url),
-            'specialities': [row['sub_category__name'] for row in ArtistSpeciality.get_all(artist_id=artist.artist_id)],
+            'specialities': [row['sub_category__name'] for row in ArtistSpeciality.get_all(artist_id=artist.artist_id, only_live=True)],
             'serviceAreas': [row['city'] for row in ArtistServiceArea.get_all(artist_id=artist.artist_id, only_active=True)],
             'packages': ArtistsUtils.map_packages(packages_raw, present_url),
             'portfolio': portfolio,
