@@ -1,16 +1,46 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
+from sunndari_apps.common.admin_columns import preview_column
 from sunndari_apps.core.models import (
     ServiceCategory, ServiceSubCategory, LocationType,
     BookingStatus, PaymentStatus, ApprovalStatus, Brand,
 )
 
-admin.site.register(ServiceCategory, ModelAdmin)
-admin.site.register(LocationType, ModelAdmin)
-admin.site.register(BookingStatus, ModelAdmin)
-admin.site.register(PaymentStatus, ModelAdmin)
-admin.site.register(ApprovalStatus, ModelAdmin)
-admin.site.register(Brand, ModelAdmin)
+
+
+@admin.register(ServiceCategory)
+class ServiceCategoryAdmin(ModelAdmin):
+    list_display = ('category_id', 'name', 'is_active', 'description_preview', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'description')
+    description_preview = preview_column('Description', 'description')
+
+
+@admin.register(LocationType)
+class LocationTypeAdmin(ModelAdmin):
+    list_display = ('location_type_id', 'name', 'is_active', 'description_preview')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'description')
+    description_preview = preview_column('Description', 'description')
+
+
+class StatusAdmin(ModelAdmin):
+    """Booking, payment and approval statuses: small lookup tables the code relies on by name."""
+    list_display = ('status_id', 'name', 'description_preview')
+    search_fields = ('name', 'description')
+    description_preview = preview_column('Description', 'description')
+
+
+admin.site.register(BookingStatus, StatusAdmin)
+admin.site.register(PaymentStatus, StatusAdmin)
+admin.site.register(ApprovalStatus, StatusAdmin)
+
+
+@admin.register(Brand)
+class BrandAdmin(ModelAdmin):
+    list_display = ('brand_id', 'name', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name',)
 
 
 @admin.register(ServiceSubCategory)
