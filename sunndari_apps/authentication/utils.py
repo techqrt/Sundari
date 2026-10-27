@@ -110,11 +110,11 @@ def send_otp_sms(phone_number: str, otp: int, via_gateway: bool = False) -> None
         logger.info('SMS OTP requested for %s***%s (no SMS gateway configured)', phone_number[:3], phone_number[-2:])
 
 
-def send_otp_email(email: str, otp: int) -> None:
+def send_otp_email(email: str, otp: int, purpose: str = None) -> None:
     """Emails a one-time code through Brevo. Raises EmailDeliveryError when the mail server does not accept it,
     which callers treat like SMSDeliveryError: the code was not delivered, so it must not stay valid."""
     from sunndari_apps.common.emailing import send_email, otp_message
-    subject, text, page = otp_message(otp, Configurations.otp_expiry_minutes)
+    subject, text, page = otp_message(otp, Configurations.otp_expiry_minutes, purpose)
     send_email(to=email, subject=subject, text=text, html_body=page, tag='otp')
 
 

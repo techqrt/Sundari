@@ -363,6 +363,8 @@ class AddressGetAllTest(TestCase):
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.utils import timezone
+
 
 class ContactChangeTest(TestCase):
     request_url = '/users/contact/change/request/'
@@ -396,6 +398,44 @@ class ContactChangeTest(TestCase):
         self.assertEqual(self.user.phone_number, '+919876543210')
         self.assertIsNone(self.user.contact_otp)
         self.assertIsNone(self.user.pending_email)
+
+    def test_the_old_address_is_warned_when_the_email_is_changed(self):
+        self._request(email='new@example.com')
+        with patch('sunndari_apps.users.views.contact_change.enqueue') as enqueue:
+            self.assertEqual(self.client_a.post(self.verify_url, {'otp': str(self._code())}, format='json').status_code, 200)
+        enqueue.assert_called_once()
+        task, old_email, new_masked = enqueue.call_args[0]
+        self.assertEqual(task.name, 'sunndari_apps.notifications.tasks.send_email_change_alert')
+        self.assertEqual(old_email, 'old@example.com')
+        self.assertEqual(new_masked, 'n***@example.com')                    # the new address is never spelled out
+
+    def test_no_warning_for_a_wrong_code_a_phone_change_or_an_account_with_no_email_before(self):
+        self._request(email='new@example.com')
+        with patch('sunndari_apps.users.views.contact_change.enqueue') as enqueue:
+            self.client_a.post(self.verify_url, {'otp': '000000'}, format='json')
+            self.assertFalse(enqueue.called)
+        self.user.refresh_from_db()
+        self.user.contact_otp_attempts = 0
+        self.user.pending_email = None
+        self.user.pending_phone_number = '+919111111111'
+        self.user.save()
+        with patch('sunndari_apps.users.views.contact_change.enqueue') as enqueue:
+            self.client_a.post(self.verify_url, {'otp': str(self._code())}, format='json')
+            self.assertFalse(enqueue.called)
+        self.user.refresh_from_db()
+        self.user.email = None
+        self.user.pending_email = 'first@example.com'
+        self.user.pending_phone_number = None
+        self.user.contact_otp = 123456
+        self.user.contact_otp_expiry = timezone.now() + timedelta(minutes=5)
+        self.user.save()
+        with patch('sunndari_apps.users.views.contact_change.enqueue') as enqueue:
+            self.assertEqual(self.client_a.post(self.verify_url, {'otp': '123456'}, format='json').status_code, 200)
+            self.assertFalse(enqueue.called)
+
+    def test_the_code_email_for_an_email_change_says_what_it_is_for(self):
+        resp, email, sms = self._request(email='new@example.com')
+        self.assertIn('change the email address', email.call_args[0][2])
 
     def test_phone_change_end_to_end(self):
         resp, email, sms = self._request(phone_number='+919111111111')

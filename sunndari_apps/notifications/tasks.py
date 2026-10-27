@@ -4,7 +4,7 @@ from celery import shared_task
 from django.utils import timezone
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.notifications.models.notification import Notification
-from sunndari_apps.common.emailing import EmailDeliveryError, notification_message, send_email
+from sunndari_apps.common.emailing import EmailDeliveryError, email_changed_message, notification_message, send_email
 from sunndari_apps.notifications.email_channel import EMAIL_NOTIFICATION_TYPES
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari.config import Configurations
@@ -72,3 +72,15 @@ def send_notification_email(self, notification_id: int) -> str:
         raise self.retry(exc=error)
     return 'sent'
 
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def send_email_change_alert(self, old_email: str, new_email_masked: str) -> str:
+    """Warns the address an account just left that its email was changed, so an owner whose session was stolen finds
+    out. Sent whatever the notification-email switch says: it is a security message, not a convenience."""
+    subject, text, page = email_changed_message(new_email_masked)
+    try:
+        send_email(to=old_email, subject=subject, text=text, html_body=page, tag='security')
+    except EmailDeliveryError as error:
+        raise self.retry(exc=error)
+    return 'sent'

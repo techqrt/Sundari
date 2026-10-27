@@ -77,11 +77,12 @@ def _render(heading: str, paragraphs: list, code: str = None, footer: str = '') 
     return '\n'.join(text_lines), page
 
 
-def otp_message(otp: int, valid_minutes: int) -> tuple:
-    """(subject, text, html) for a one-time code."""
+def otp_message(otp: int, valid_minutes: int, purpose: str = None) -> tuple:
+    """(subject, text, html) for a one-time code. `purpose` says what the code is for ("change the email address on
+    your SUNNDARI account"), so the reader can tell a code they asked for from one they did not."""
     text, page = _render(
         heading='Your verification code',
-        paragraphs=[f'Use this code to continue. It is valid for {valid_minutes} minutes and can be used once.'],
+        paragraphs=[f'Use this code to {purpose or "continue"}. It is valid for {valid_minutes} minutes and can be used once.'],
         code=str(otp),
         footer='If you did not ask for this code, you can ignore this email. Never share it with anyone, including us.',
     )
@@ -96,3 +97,22 @@ def notification_message(title: str, message: str) -> tuple:
         footer='You are receiving this because it concerns your SUNNDARI account.',
     )
     return title, text, page
+
+
+def mask_email(email: str) -> str:
+    """'asha.rao@example.com' -> 'a***@example.com': enough to recognise, not enough to harvest."""
+    local, _, domain = email.partition('@')
+    return f'{local[:1]}***@{domain}' if domain else '***'
+
+
+def email_changed_message(new_email_masked: str) -> tuple:
+    """(subject, text, html) for the warning sent to the OLD address after an account's email was changed."""
+    text, page = _render(
+        heading='Your email address was changed',
+        paragraphs=[
+            f'The email address on your SUNNDARI account was changed to {new_email_masked}.',
+            'If you made this change, no action is needed. If you did not, contact support right away.',
+        ],
+        footer='This message was sent to the address that was on your account before the change.',
+    )
+    return 'Your SUNNDARI email address was changed', text, page

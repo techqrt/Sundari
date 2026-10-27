@@ -7,7 +7,8 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
-from sunndari_apps.common.emailing import EmailDeliveryError
+from sunndari_apps.common.emailing import EmailDeliveryError, mask_email
+from sunndari_apps.common.queueing import enqueue
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.authentication.models import User
 from sunndari_apps.authentication.utils import send_otp_sms, send_otp_email
@@ -15,6 +16,7 @@ from sunndari_apps.notifications.utils import NotificationService
 from sunndari.constants import Constants
 
 OTP_VALID_MINUTES = 10
+EMAIL_CHANGE_PURPOSE = 'change the email address on your SUNNDARI account'
 MIN_SECONDS_BETWEEN_REQUESTS = 60
 MAX_ATTEMPTS = 5
 
@@ -59,7 +61,7 @@ class ContactChangeView:
         # Sent to the NEW contact, after the state is committed.
         if params.email:
             try:
-                send_otp_email(params.email, otp)
+                send_otp_email(params.email, otp, EMAIL_CHANGE_PURPOSE)
             except EmailDeliveryError:
                 # Not delivered, so the pending change is dropped: the code must not stay valid and the
                 # one-request-a-minute limit must not block the retry.
@@ -79,6 +81,7 @@ class ContactChangeView:
     @Common().exception_handler
     def verify_extract(self, params):
         failure = None
+        old_email = new_email = None
         with transaction.atomic():
             user = User.objects.select_for_update().get(user_id=params.user_id)
             pending = user.pending_email or user.pending_phone_number
@@ -111,6 +114,7 @@ class ContactChangeView:
                 else:
                     changed = 'email' if user.pending_email else 'phone number'
                     if user.pending_email:
+                        old_email, new_email = user.email, user.pending_email
                         user.email = user.pending_email
                     else:
                         user.phone_number = user.pending_phone_number
@@ -120,6 +124,11 @@ class ContactChangeView:
         # Raised only after the transaction committed, so a wrong guess still counts.
         if failure:
             raise ValueError(failure)
+        if old_email and old_email.lower() != new_email.lower():
+            # The old address is told too: the notification below goes to the NEW one, so without this an account
+            # taken over with a stolen session would redirect its email and the real owner would never know.
+            from sunndari_apps.notifications.tasks import send_email_change_alert
+            enqueue(send_email_change_alert, old_email, mask_email(new_email))
         NotificationService.notify(
             user_id=params.user_id, title='Contact details changed',
             message=f'Your {changed} was changed. If this was not you, contact support.',

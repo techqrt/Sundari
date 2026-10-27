@@ -123,6 +123,29 @@ class MessageTest(TestCase):
         self.assertNotIn('<script', page.lower())
         self.assertNotIn('http', page.lower().replace('http-equiv', ''))        # no remote images or trackers
 
+    def test_the_code_email_can_say_what_the_code_is_for_and_defaults_to_continue(self):
+        _, text, page = otp_message(1, 10, 'change the email address on your SUNNDARI account')
+        for body in (text, page):
+            self.assertIn('Use this code to change the email address on your SUNNDARI account.', body)
+        self.assertIn('Use this code to continue.', otp_message(1, 10)[1])
+
+    def test_the_email_changed_warning_masks_the_new_address_and_is_escaped(self):
+        from sunndari_apps.common.emailing import email_changed_message, mask_email
+        self.assertEqual(mask_email('asha.rao@example.com'), 'a***@example.com')
+        self.assertEqual(mask_email('nonsense'), '***')
+        subject, text, page = email_changed_message(mask_email('<b>x</b>@example.com'))
+        self.assertEqual(subject, 'Your SUNNDARI email address was changed')
+        self.assertNotIn('<b>', page)
+        self.assertIn('If you did not', text)
+
+    def test_the_alert_task_sends_to_the_old_address_even_with_notification_emails_off(self):
+        from sunndari_apps.notifications.tasks import send_email_change_alert
+        with patch.object(Configurations, 'email_notifications_enabled', False):
+            self.assertEqual(send_email_change_alert.apply(args=['old@example.com', 'n***@example.com']).result, 'sent')
+        self.assertEqual(mail.outbox[-1].to, ['old@example.com'])
+        self.assertIn('n***@example.com', mail.outbox[-1].body)
+        self.assertNotIn('new@example.com', mail.outbox[-1].body)
+
     def test_anything_dynamic_is_escaped_in_the_html_and_left_alone_in_the_text(self):
         subject, text, page = notification_message('<b>Hi</b> & welcome', '<script>alert(1)</script> "quoted"')
         self.assertNotIn('<script>', page)
