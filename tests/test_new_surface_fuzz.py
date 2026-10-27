@@ -14,7 +14,7 @@ from sunndari.config import Configurations
 from sunndari_apps.core.models import ServiceCategory, ServiceSubCategory
 from sunndari_apps.payments.models import Payment
 
-from tests.test_customers import make_customer
+from tests.test_customers import make_artist, make_customer
 
 SECRET = 'whsec_fuzz'
 WEBHOOK = '/customers/payments/webhook/razorpay/'
@@ -123,7 +123,8 @@ class WebhookRetrySemanticsTest(TestCase):
 class PopupFuzzTest(TestCase):
 
     def test_hostile_queries_and_headers_never_crash_the_popup_endpoint(self):
-        client, _ = make_customer(phone_number='+919990001001')
+        client, _, _ = make_artist(phone_number='+919990001001')
+        customer_client, _ = make_customer(phone_number='+919990001002')
         url = '/core/service-sub-category/recently_activated/'
         for params in ({'days': '-1'}, {'days': 'abc'}, {'limit': '9' * 400}, {'page_num': '-9'}, {'values': 'x,y,z'},
                        {'sort_by': 'activated_at'}, {'filter_key': 'activated_at', 'filter_value': "' OR 1=1 --"},
@@ -131,6 +132,7 @@ class PopupFuzzTest(TestCase):
             resp = client.get(url, params)
             self.assertLess(resp.status_code, 500, params)
             self.assertNotIn(b'Traceback', resp.content)
+            self.assertLess(customer_client.get(url, params).status_code, 500, params)
         for header in ({'HTTP_AUTHORIZATION': 'Bearer ' + 'a' * 10000}, {'HTTP_AUTHORIZATION': 'Bearer'}, {'HTTP_X_FORWARDED_FOR': '\x00'},
                       {'HTTP_ACCEPT': '*/*;q=abc'}, {'HTTP_ACCEPT_LANGUAGE': 'zz-' * 500}):
             self.assertLess(APIClient().get(url, **header).status_code, 500, header)
@@ -151,7 +153,7 @@ class ServiceAdminFuzzTest(TestCase):
             {'category': self.category.pk, 'name': 'x' * 5000}, {'category': self.category.pk, 'name': 'x', 'is_active': ['on', 'off', '']},
             {'category': [self.category.pk, 999], 'name': 'x', 'is_active': 'on'}, {'category': self.category.pk, 'name': '\x00'},
             {'category': '-1', 'name': 'x'}, {'category': self.category.pk, 'name': 'Bridal', 'is_active': 'on',
-                                              'activated_at': 'garbage', 'activation_notified_at': '2000-01-01', 'sub_category_id': '999'},
+                                              'activated_at': 'garbage', 'artists_announced_at': '2000-01-01', 'sub_category_id': '999'},
         ):
             resp = self.client.post(self.url, form)
             self.assertLess(resp.status_code, 500, form)

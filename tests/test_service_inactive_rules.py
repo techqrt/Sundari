@@ -80,6 +80,7 @@ class ListingTest(_Fixture):
         self.assertIn('Bridal Makeup', self.names(self.customer_client, self.SUBS))        # its sibling is untouched
 
     def test_a_category_switched_off_hides_its_services_without_editing_them(self):
+        make_package(self.profile, sub_category=self.cut, price=500, name='Haircut Package')   # customers only see bookable services
         self.makeup.is_active = False
         self.makeup.save()
         self.assertTrue(ServiceSubCategory.objects.get(pk=self.bridal.pk).is_active)         # not rewritten

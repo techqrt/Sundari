@@ -20,3 +20,4 @@ daphne
 firebase-admin
 razorpay
 requests
+certifi

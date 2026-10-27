@@ -6,6 +6,8 @@ from sunndari_apps.authentication.utils import generate_jwt_token
 from sunndari_apps.core.models.service_category import ServiceCategory
 from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
 
+from tests.test_customers import make_artist, make_package
+
 
 class ServiceSubCategoryFilterTest(TestCase):
     url = '/core/service-sub-category/get_all/'
@@ -19,9 +21,10 @@ class ServiceSubCategoryFilterTest(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         self.makeup = ServiceCategory.objects.create(name='Makeup')
         self.hair = ServiceCategory.objects.create(name='Hair Styling')
-        ServiceSubCategory.objects.create(category=self.makeup, name='Bridal')
-        ServiceSubCategory.objects.create(category=self.makeup, name='Party')
-        ServiceSubCategory.objects.create(category=self.hair, name='Cut')
+        # Customers are shown only services somebody can be booked for, so every service gets a package from one artist.
+        _, _, artist = make_artist(phone_number='+919000000078')
+        for category, name in ((self.makeup, 'Bridal'), (self.makeup, 'Party'), (self.hair, 'Cut')):
+            make_package(artist, sub_category=ServiceSubCategory.objects.create(category=category, name=name))
 
     def names(self, query):
         resp = self.client.get(f'{self.url}?{query}')

@@ -43,10 +43,14 @@ class ServiceSubCategoryController:
 
     @extend_schema(
         description=(
-            'Services that went live in the last 15 days and are still live (the service and its category are active), '
-            'newest first. Drives the "new services" popup: the app calls this, remembers which (subCategoryId, activatedAt) '
-            'pairs it has already shown, and shows the rest. The window and the clock are the server\'s. An empty list '
-            'means nothing is new. Open a service with GET /customers/artists/search/?sub_category_id=<subCategoryId>.'
+            'ARTISTS ONLY (any other role gets the standard 400 "Not allowed to access this resource"). Services an admin announced '
+            'to artists in the last 15 days that are still live (the service and its category are active) and that the caller has '
+            'not added yet (no active offering and no active package for it), newest announcement first. Drives the artist '
+            '"new service" popup: the app calls this, remembers which (subCategoryId, announcedAt) pairs it has already shown, '
+            'and shows the rest with each item\'s message. An empty list means nothing to show; an artist who is not approved yet '
+            'also gets an empty list. To add a service, call POST /artists/services/add/ with sub_category_id, then create a '
+            'package with POST /artists/packages/create/. Customers see the service only once a package exists. The window and '
+            'the clock are the server\'s.'
         ),
         responses=SwaggerPage.response(response=RecentlyActivatedServicesResponseSerializer),
         tags=['Core - Service Sub-Category'],

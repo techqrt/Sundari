@@ -28,7 +28,7 @@ class ActivationRuleTest(TestCase):
         before = timezone.now()
         service = self.make()
         self.assertTrue(before <= self.fresh(service).activated_at <= timezone.now())
-        self.assertIsNone(self.fresh(service).activation_notified_at)
+        self.assertIsNone(self.fresh(service).artists_announced_at)               # creating a service announces nothing
 
     def test_a_service_created_inactive_has_no_activation_time(self):
         self.assertIsNone(self.fresh(self.make(is_active=False)).activated_at)
@@ -52,27 +52,19 @@ class ActivationRuleTest(TestCase):
         service.save()
         self.assertGreater(self.fresh(service).activated_at, old + timedelta(days=39))
 
-    def test_a_new_activation_clears_the_previous_notification_mark(self):
-        service = self.make(is_active=False)
-        ServiceSubCategory.objects.filter(pk=service.pk).update(activation_notified_at=timezone.now())
-        service = self.fresh(service)
-        service.is_active = True
-        service.save()
-        self.assertIsNone(self.fresh(service).activation_notified_at)
-
     # ── things that must NOT count as an activation ──────────────────────────
 
     def test_saving_an_already_active_service_changes_nothing(self):
         service = self.make()
         stamp = timezone.now() - timedelta(days=3)
-        ServiceSubCategory.objects.filter(pk=service.pk).update(activated_at=stamp, activation_notified_at=stamp)
+        ServiceSubCategory.objects.filter(pk=service.pk).update(activated_at=stamp)
         service = self.fresh(service)
         service.save()
         service.description = 'edited'
         service.name = 'Bridal Makeup 2'
         service.save()
         result = self.fresh(service)
-        self.assertEqual((result.activated_at, result.activation_notified_at), (stamp, stamp))
+        self.assertEqual(result.activated_at, stamp)
 
     def test_deactivating_keeps_the_history(self):
         service = self.make()
@@ -99,15 +91,6 @@ class ActivationRuleTest(TestCase):
         stale.save()
         self.assertEqual(self.fresh(service).activated_at, first_stamp)
 
-    def test_a_stale_copy_cannot_erase_a_notification_mark_set_in_the_meantime(self):
-        service = self.make()
-        stale = self.fresh(service)
-        mark = timezone.now()
-        ServiceSubCategory.objects.filter(pk=service.pk).update(activation_notified_at=mark)   # the sender finished
-        stale.description = 'edited from an old form'
-        stale.save()
-        self.assertEqual(self.fresh(service).activation_notified_at, mark)
-
     def test_a_partial_save_that_does_not_include_is_active_changes_nothing(self):
         service = self.make(is_active=False)
         service.name = 'Renamed'
@@ -131,7 +114,7 @@ class ActivationRuleTest(TestCase):
                 model = ServiceSubCategory
                 fields = '__all__'
         self.assertNotIn('activated_at', Form().fields)
-        self.assertNotIn('activation_notified_at', Form().fields)
+        self.assertNotIn('artists_announced_at', Form().fields)
 
     def test_the_stamp_uses_the_server_clock(self):
         fixed = timezone.now() - timedelta(days=9)
@@ -226,10 +209,10 @@ class ServiceAdminTest(TestCase):
         self.assertEqual(self.fresh().activated_at, stamp)
 
     def test_the_activation_time_cannot_be_set_through_the_form(self):
-        self.submit(is_active='on', activated_at='2020-01-01 00:00:00', activation_notified_at='2020-01-01 00:00:00')
+        self.submit(is_active='on', activated_at='2020-01-01 00:00:00', artists_announced_at='2020-01-01 00:00:00')
         service = self.fresh()
         self.assertGreater(service.activated_at.year, 2020)
-        self.assertIsNone(service.activation_notified_at)
+        self.assertIsNone(service.artists_announced_at)                         # nor can an announcement be forged
 
     def test_deactivating_a_service_leaves_its_parent_category_and_siblings_active(self):
         sibling = ServiceSubCategory.objects.create(category=self.category, name='Party Makeup')

@@ -54,7 +54,7 @@ class GatewayMock:
         return self
 
     def __exit__(self, *a):
-        self.p1.stop(); self.p2.stop()
+        self.p2.stop(); self.p1.stop()      # reverse order: both patch the same attribute, so the first stop must undo the last start
 
 
 def initiate(customer, bid, **kw):

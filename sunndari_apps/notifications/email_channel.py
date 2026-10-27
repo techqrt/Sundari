@@ -4,8 +4,8 @@ from django.db import transaction
 
 # Transactional notifications about the user's own account or booking, which are normal to receive by email. Left out on
 # purpose: anything carrying or prompting a PIN / OTP (a code in an inbox is a risk), high-frequency live updates
-# (artist on the way / arrived, service started: push is the right channel), chat messages, and promotional ones such
-# as "new service available" (marketing mail needs the customer's opt-in and an unsubscribe link).
+# (artist on the way / arrived, service started: push is the right channel), chat messages, and the artist
+# announcement of a new service (service_activated): a prompt to act in the app, not something to fill an inbox with.
 EMAIL_NOTIFICATION_TYPES = frozenset({
     'booking_confirmed', 'booking_cancelled', 'booking_completed', 'booking_no_show', 'new_booking_alert',
     'booking_reminder_24h', 'booking_reminder_2h',

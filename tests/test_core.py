@@ -170,11 +170,17 @@ class ServiceSubCategoryGetTest(TestCase):
 class ServiceSubCategoryGetAllTest(TestCase):
     url = '/core/service-sub-category/get_all/'
 
+    def bookable(self, sub_category):
+        """Customers are shown only services somebody can be booked for, so give it a package from an approved artist."""
+        from tests.test_customers import make_artist, make_package
+        _, _, artist = make_artist(phone_number=f'+9190001{sub_category.sub_category_id:05d}')
+        make_package(artist, sub_category=sub_category)
+
     def test_get_all_returns_200_with_pagination(self):
         client = make_authenticated_client()
         cat = make_category(name='Waxing')
-        make_sub_category(cat, name='Full Body Wax')
-        make_sub_category(cat, name='Underarm Wax')
+        for name in ('Full Body Wax', 'Underarm Wax'):
+            self.bookable(make_sub_category(cat, name=name))
         resp = client.get(self.url)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data['data']['data']), 2)
@@ -183,8 +189,8 @@ class ServiceSubCategoryGetAllTest(TestCase):
         client = make_authenticated_client()
         cat1 = make_category(name='Hair')
         cat2 = make_category(name='Skin')
-        make_sub_category(cat1, name='Haircut')
-        make_sub_category(cat2, name='Facial')
+        for cat, name in ((cat1, 'Haircut'), (cat2, 'Facial')):
+            self.bookable(make_sub_category(cat, name=name))
         resp = client.get(self.url, {'filter_key': 'categoryId', 'filter_value': str(cat1.category_id)})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data['data']['data']), 1)

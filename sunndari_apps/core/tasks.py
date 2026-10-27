@@ -11,34 +11,43 @@ from sunndari_apps.notifications.utils import NotificationService
 
 logger = logging.getLogger(__name__)
 
+# The notification type keeps the name the apps already know; it now means "a service is open for you to add".
 NOTIFICATION_TYPE = 'service_activated'
 
 
+def eligible_artist_user_ids():
+    """The artists an announcement goes to: active accounts whose profile is approved. Artists still being reviewed,
+    rejected or suspended are left out (they cannot take bookings), and so is everyone who is not an artist."""
+    return User.objects.filter(
+        role='artist', is_active=True, artist_profile__approval_status__name='approved',
+    ).values_list('user_id', flat=True)
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def notify_service_activated(self, sub_category_id: int, activated_at: str) -> dict:
-    """Tells every active customer that a service is now available. Queued when an admin switches a service on
-    (ServiceSubCategory.save), after the activation is committed.
+def notify_artists_service_announced(self, sub_category_id: int, announced_at: str) -> dict:
+    """Tells every eligible artist that a service is open for them to add. Queued only by the admin's explicit
+    "notify artists" action, never by creating, activating or editing a service. It only notifies: it never adds the
+    service to anyone, which stays the artist's own choice.
 
     Safe to run twice, concurrently, or after a crash:
-      * the activation is claimed atomically first, so a duplicate task does nothing;
-      * each customer is checked for an existing notification about this activation, so a retry never
-        notifies the same person twice;
-      * if anything fails (an error here, or a customer who could not be notified) the claim is handed back so
-        the retry / the redispatch job finishes only what is missing.
-    A notification problem never affects the service's active status; it is already saved.
-    Only customers are told (artists are not part of this announcement)."""
-    activated = datetime.fromisoformat(activated_at)
-    claimed_at = ServiceSubCategory.claim_activation_notification(sub_category_id, activated)
+      * the announcement is claimed atomically first, so a duplicate job does nothing;
+      * each artist is checked for an existing notification about this announcement, so a retry never notifies the
+        same person twice;
+      * if anything fails (an error here, or an artist who could not be notified) the claim is handed back so the retry
+        / the redispatch job finishes only what is missing.
+    A notification problem never affects the service; it was saved already."""
+    announced = datetime.fromisoformat(announced_at)
+    claimed_at = ServiceSubCategory.claim_artist_announcement(sub_category_id, announced)
     if claimed_at is None:
         return {'sent': 0, 'skipped': 0, 'failed': 0, 'note': 'not current, not live, or already notified'}
 
-    service = ServiceSubCategory.objects.select_related('category').get(pk=sub_category_id)
-    title = 'New service available'
-    message = f'{service.name} ({service.category.name}) is now available. Find an artist and book today!'
+    service = ServiceSubCategory.objects.get(pk=sub_category_id)
+    title = f'New service: {service.name}'
+    message = service.artists_announcement_message or ServiceSubCategory.default_announcement_message(service.name)
     sent = skipped = failed = 0
     try:
-        for user_id in User.objects.filter(role='customer', is_active=True).values_list('user_id', flat=True).iterator(chunk_size=500):
-            if Notification.exists_for_reference(user_id, NOTIFICATION_TYPE, sub_category_id, since=activated):
+        for user_id in eligible_artist_user_ids().iterator(chunk_size=500):
+            if Notification.exists_for_reference(user_id, NOTIFICATION_TYPE, sub_category_id, since=announced):
                 skipped += 1
                 continue
             if NotificationService.notify(
@@ -48,29 +57,29 @@ def notify_service_activated(self, sub_category_id: int, activated_at: str) -> d
                 continue
             sent += 1
     except Exception as error:
-        ServiceSubCategory.release_activation_notification(sub_category_id, claimed_at)
+        ServiceSubCategory.release_artist_announcement(sub_category_id, claimed_at)
         raise self.retry(exc=error)
     if failed:
-        logger.warning('Service %s activation: %s customer(s) could not be notified; will be retried', sub_category_id, failed)
-        ServiceSubCategory.release_activation_notification(sub_category_id, claimed_at)
+        logger.warning('Service %s announcement: %s artist(s) could not be notified; will be retried', sub_category_id, failed)
+        ServiceSubCategory.release_artist_announcement(sub_category_id, claimed_at)
     return {'sent': sent, 'skipped': skipped, 'failed': failed}
 
 
 @shared_task
-def redispatch_unnotified_service_activations() -> int:
-    """Runs every few minutes (see CELERY_BEAT_SCHEDULE). The safety net for the queue itself: an activation whose
-    task was never queued (broker down), lost (worker killed) or left unfinished (a recipient failed) is queued
-    again. Only recent activations, and not the last couple of minutes (those are still being sent). The
-    notify task's claim makes a redundant dispatch harmless. Returns how many it queued."""
+def redispatch_unnotified_artist_announcements() -> int:
+    """Runs every few minutes (see CELERY_BEAT_SCHEDULE). The safety net for the queue itself: an announcement whose job
+    was never queued (broker down), lost (worker killed) or left unfinished (an artist failed) is queued again. Only
+    recent announcements, and not the last couple of minutes (those are still being sent). The job's claim makes a
+    redundant dispatch harmless. Returns how many it queued."""
     now = timezone.now()
     pending = ServiceSubCategory.objects.filter(
-        activation_notified_at__isnull=True,
-        activated_at__gt=now - timedelta(hours=Configurations.service_notify_redispatch_hours),
-        activated_at__lte=now - timedelta(minutes=2),
+        artists_notified_at__isnull=True,
+        artists_announced_at__gt=now - timedelta(hours=Configurations.service_notify_redispatch_hours),
+        artists_announced_at__lte=now - timedelta(minutes=2),
         **ServiceSubCategory.live_filter(),
-    ).values_list('pk', 'activated_at')
+    ).values_list('pk', 'artists_announced_at')
     queued = 0
-    for sub_category_id, activated_at in pending:
-        notify_service_activated.delay(sub_category_id, activated_at.isoformat())
+    for sub_category_id, announced_at in pending:
+        notify_artists_service_announced.delay(sub_category_id, announced_at.isoformat())
         queued += 1
     return queued

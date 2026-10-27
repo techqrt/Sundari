@@ -1,0 +1,843 @@
+{
+  "info": {
+    "name": "Artist service announcement - manual test",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run in order with the Django admin steps in artist-announcement-manual-test.md. Set the variables first (tokens from mint_tokens.py)."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "artistToken",
+      "value": ""
+    },
+    {
+      "key": "artist2Token",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "subCategoryId",
+      "value": ""
+    },
+    {
+      "key": "packageId",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "A. Before announcing (admin has created the service, NOT announced)",
+      "description": "",
+      "item": [
+        {
+          "name": "A1 Customer list - must NOT show the new service",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT 200. The new service is absent: nobody has a package for it."
+          }
+        },
+        {
+          "name": "A2 Artist list - shows every live service",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT 200. The new (live) service IS present. Note its subCategoryId and put it in the {{subCategoryId}} variable."
+          }
+        },
+        {
+          "name": "A3 Artist popup - empty",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/recently_activated/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "recently_activated"
+              ]
+            },
+            "description": "EXPECT 200, data: []. Nothing has been announced."
+          }
+        },
+        {
+          "name": "A4 Customer popup - refused",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/recently_activated/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "recently_activated"
+              ]
+            },
+            "description": "EXPECT 400 \"Not allowed to access this resource\". Artists only."
+          }
+        },
+        {
+          "name": "A5 Artist notifications - nothing new",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT 200. No service_activated item yet."
+          }
+        }
+      ]
+    },
+    {
+      "name": "B. After the admin announces (tick the box in Django admin)",
+      "description": "",
+      "item": [
+        {
+          "name": "B1 Artist notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT a service_activated item: title \"New service: <name>\", your message, referenceId = subCategoryId, bookingId null. Copy notificationId into {{notificationId}}."
+          }
+        },
+        {
+          "name": "B2 Second artist notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artist2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT the same notification for the second approved artist."
+          }
+        },
+        {
+          "name": "B3 Customer notifications - none",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT no service_activated item. Customers are never notified."
+          }
+        },
+        {
+          "name": "B4 Artist popup - shows it",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/recently_activated/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "recently_activated"
+              ]
+            },
+            "description": "EXPECT one item: subCategoryId, name, description, category{categoryId,name}, message (admin wording), announcedAt."
+          }
+        },
+        {
+          "name": "B5 Customer popup - refused",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/recently_activated/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "recently_activated"
+              ]
+            },
+            "description": "EXPECT 400."
+          }
+        },
+        {
+          "name": "B6 Customer list - still hidden",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT the service is STILL absent (announced but no package yet)."
+          }
+        },
+        {
+          "name": "B7 Mark notification read (no effect on popup)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/mark_read/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "mark_read"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notification_id\": \"{{notificationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "EXPECT 200. Then re-run B4: the popup is unchanged."
+          }
+        }
+      ]
+    },
+    {
+      "name": "C. The artist adds the service",
+      "description": "",
+      "item": [
+        {
+          "name": "C1 Add service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/artists/services/add/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "artists",
+                "services",
+                "add"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sub_category_id\": \"{{subCategoryId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "EXPECT 201."
+          }
+        },
+        {
+          "name": "C2 My services",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/artists/services/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "artists",
+                "services",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT the service is listed."
+          }
+        },
+        {
+          "name": "C3 Popup right after adding the service",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/recently_activated/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "recently_activated"
+              ]
+            },
+            "description": "EXPECT data: [] for THIS artist (they have added it). B4 as the second artist still shows it."
+          }
+        },
+        {
+          "name": "C4 Customer list - STILL hidden (an offering is not enough)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT the service is still absent: a package is what makes it bookable."
+          }
+        },
+        {
+          "name": "C5 Create package",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/artists/packages/create/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "artists",
+                "packages",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sub_category_id\": \"{{subCategoryId}}\",\n  \"name\": \"Diwali Glam\",\n  \"price\": \"2200\",\n  \"duration_minutes\": 90\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "EXPECT 201. Copy packageId into {{packageId}}."
+          }
+        },
+        {
+          "name": "C6 Customer list - NOW visible",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT the service is now present for the customer."
+          }
+        },
+        {
+          "name": "C7 Customer finds the artist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/artists/search/?sub_category_id={{subCategoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "artists",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "sub_category_id",
+                  "value": "{{subCategoryId}}"
+                }
+              ]
+            },
+            "description": "EXPECT your approved artist in the results."
+          }
+        },
+        {
+          "name": "C8 Second artist popup still shows it",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artist2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/recently_activated/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "recently_activated"
+              ]
+            },
+            "description": "EXPECT one item. Popup is per artist."
+          }
+        }
+      ]
+    },
+    {
+      "name": "D. Visibility rules (customer list changes as packages change)",
+      "description": "",
+      "item": [
+        {
+          "name": "D1 Switch the package OFF",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/artists/packages/update/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "artists",
+                "packages",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"package_id\": \"{{packageId}}\",\n  \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "EXPECT 200."
+          }
+        },
+        {
+          "name": "D2 Customer list - hidden again",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT the service is gone for customers (no active package)."
+          }
+        },
+        {
+          "name": "D3 Switch the package back ON",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/artists/packages/update/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "artists",
+                "packages",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"package_id\": \"{{packageId}}\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "EXPECT 200."
+          }
+        },
+        {
+          "name": "D4 Customer list - visible again",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT present again."
+          }
+        }
+      ]
+    },
+    {
+      "name": "E. After switching the service OFF in admin (uncheck Is active, no tick)",
+      "description": "",
+      "item": [
+        {
+          "name": "E1 Customer list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT absent."
+          }
+        },
+        {
+          "name": "E2 Artist list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT absent (not live)."
+          }
+        },
+        {
+          "name": "E3 Popup (second artist)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artist2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/core/service-sub-category/recently_activated/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "core",
+                "service-sub-category",
+                "recently_activated"
+              ]
+            },
+            "description": "EXPECT data: []."
+          }
+        },
+        {
+          "name": "E4 Add service while off",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artist2Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/artists/services/add/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "artists",
+                "services",
+                "add"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sub_category_id\": \"{{subCategoryId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "EXPECT 400 (service unavailable)."
+          }
+        },
+        {
+          "name": "E5 Notifications unchanged",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{artistToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/get_all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "get_all"
+              ]
+            },
+            "description": "EXPECT no NEW notification from switching off or on."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from sunndari_apps.common.common import Common
-from sunndari_apps.common.permissions import is_admin
+from sunndari_apps.common.permissions import is_admin, is_artist, require_artist
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.common.dataclasses.request.get_all import GetAll
 from sunndari_apps.core.models.service_sub_category import ServiceSubCategory
@@ -55,8 +55,11 @@ class ServiceSubCategoryView:
                 filter_key=reversed_mapped.get(params.filter_key, ''),
                 filter_value=params.filter_value,
                 search_key=params.search_key,
-                # Pick-lists offer only what can be used; an admin (dashboard) still sees every service.
+                # Pick-lists offer only what can be used. An admin (dashboard) sees every service; an artist sees every
+                # live one (so they can add a service nobody offers yet); a customer sees only services that can be
+                # booked right now, i.e. with at least one bookable package from an approved, accepting artist.
                 only_live=not is_admin(params.user_id),
+                only_bookable=not (is_admin(params.user_id) or is_artist(params.user_id)),
             ),
             per_page=params.limit
         )
@@ -79,14 +82,23 @@ class ServiceSubCategoryView:
 
     @Common(response_handler=RecentlyActivatedServicesResponseSerializer).exception_handler
     def recently_activated_extract(self, params):
-        rows = ServiceSubCategory.get_recently_activated(days=Configurations.recent_service_days)
+        """The artist's "new services" popup: services an admin announced recently that this artist has not added yet.
+        Artists only. An artist whose profile is not approved yet is told nothing (they were not notified either), so
+        they get an empty list rather than an error."""
+        from sunndari_apps.artists.models import ArtistProfile
+        require_artist(params.user_id)
+        profile = ArtistProfile.objects.select_related('approval_status').filter(user_id=params.user_id).first()
+        rows = []
+        if profile is not None and profile.approval_status.name == 'approved':
+            rows = ServiceSubCategory.get_announced_for_artist(artist_id=profile.artist_id, days=Configurations.recent_service_days)
         data = [
             {
                 'subCategoryId': row['sub_category_id'],
                 'name': row['name'],
                 'description': row['description'],
                 'category': {'categoryId': row['category_id'], 'name': row['category__name']},
-                'activatedAt': row['activated_at'].isoformat(),
+                'message': row['artists_announcement_message'],
+                'announcedAt': row['artists_announced_at'].isoformat(),
             }
             for row in rows
         ]
@@ -94,4 +106,3 @@ class ServiceSubCategoryView:
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
         )
-

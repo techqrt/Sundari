@@ -129,6 +129,8 @@ class Constants:
     payment_in_progress = 'A payment for this booking is already in progress; complete or wait for it before starting another'
     payment_overpaid = 'This payment would exceed the booking total and was not applied; it will be refunded'
     service_unavailable = 'This service is currently unavailable'
+    service_announce_inactive = 'Activate the service before notifying artists'
+    announcement_message_too_long = 'The notification message must be 300 characters or fewer'
     payment_booking_closed = 'This booking is no longer active, so the payment was not applied; it will be refunded'
     webhook_not_configured = 'Payment webhook is not configured'
     webhook_signature_invalid = 'Invalid webhook signature'

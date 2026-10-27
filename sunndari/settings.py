@@ -277,8 +277,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'sunndari_apps.customers.tasks.mark_missed_bookings',
         'schedule': 300.0,
     },
-    'redispatch-service-notifications': {
-        'task': 'sunndari_apps.core.tasks.redispatch_unnotified_service_activations',
+    'redispatch-artist-announcements': {
+        'task': 'sunndari_apps.core.tasks.redispatch_unnotified_artist_announcements',
         'schedule': 600.0,
     },
     'retry-owed-refunds': {

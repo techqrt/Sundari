@@ -23,6 +23,12 @@ staticfiles/
 !.env.example
 firebase.json
 
+# Local databases and their backups: they hold real users' phone numbers, password hashes, OTPs and live
+# session tokens, so they must never be committed.
+*.sqlite3
+*.sqlite3.bak*
+db.sqlite3*
+
 # Celery
 celerybeat-schedule
 celerybeat.pid
