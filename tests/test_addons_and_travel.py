@@ -5,6 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from sunndari_apps.artists.models import PackageAddOn, ArtistServiceArea, ArtistProfile
+from tests.booking_address import address_for
 from sunndari_apps.core.models import LocationType, PaymentStatus
 from sunndari_apps.customers.models import Booking, BookingAddOn, BookingReschedule
 from sunndari_apps.payments.models import Payment
@@ -216,8 +217,7 @@ class BookingTotalsTest(TestCase):
         }
         if addon_ids is not None:
             payload['addon_ids'] = addon_ids
-        if address is not None:
-            payload['address_id'] = address.address_id
+        payload['address_id'] = address.address_id if address is not None else address_for(self.customer)['address_id']
         return self.customer.post(self.url, payload, format='json')
 
     # --- add-ons
@@ -307,6 +307,42 @@ class BookingTotalsTest(TestCase):
         bad = self.artist_client.get('/artists/bookings/get/', {'booking_id': booking_id, 'values': 'nonsense'})
         self.assertEqual(bad.status_code, 400)
 
+    def test_a_booking_cannot_be_made_without_an_address(self):
+        resp = self.customer.post(self.url, {
+            'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
+            'location_type_id': self.home.location_type_id, 'booking_date': self.date.strftime('%d-%m-%y'),
+            'start_time': '10:00:00',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(Booking.objects.exists())
+
+    def test_the_full_address_is_shown_to_the_customer_and_to_the_booking_artist(self):
+        address = CustomerAddress.objects.get(address_id=CustomerAddress().create(
+            user_id=self.customer_user.user_id, address_line_1='14 Rose Villa', address_line_2='Sector 4',
+            city='Gurugram', pin_code='122001'))
+        booking_id = self._book(address=address).data['data']['booking_id']
+        expected = {'addressId': address.address_id, 'addressLine1': '14 Rose Villa', 'addressLine2': 'Sector 4',
+                    'city': 'Gurugram', 'pinCode': '122001'}
+        for client, get_url, list_url in (
+            (self.customer, '/customers/bookings/get/', '/customers/bookings/get_all/'),
+            (self.artist_client, '/artists/bookings/get/', '/artists/bookings/get_all/'),
+        ):
+            self.assertEqual(client.get(get_url, {'booking_id': booking_id}).data['data']['address'], expected)
+            self.assertEqual(client.get(list_url).data['data']['data'][0]['address'], expected)
+
+    def test_another_artist_still_cannot_read_the_booking_or_its_address(self):
+        booking_id = self._book().data['data']['booking_id']
+        other_client, _, _ = make_artist(phone_number='+919000002299')
+        resp = other_client.get('/artists/bookings/get/', {'booking_id': booking_id})
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotIn('address', str(resp.data))
+
+    def test_a_booking_with_no_address_shows_null(self):
+        from tests.test_customers import make_booking
+        booking = make_booking(self.customer_user, self.profile, self.package, self.home, self.date, '10:00', '11:00')
+        self.assertIsNone(self.artist_client.get('/artists/bookings/get/', {'booking_id': booking.booking_id}).data['data']['address'])
+        self.assertIsNone(self.customer.get('/customers/bookings/get/', {'booking_id': booking.booking_id}).data['data']['address'])
+
     def test_old_bookings_without_snapshots_still_load(self):
         from tests.test_customers import make_booking
         booking = make_booking(self.customer_user, self.profile, self.package, self.home, self.date, '10:00', '11:00')
@@ -348,7 +384,7 @@ class BookingTotalsTest(TestCase):
         studio = make_location_type('Studio Visit')
         make_location_preference(self.profile, studio)
         ArtistServiceArea.objects.create(artist=self.profile, city='Lucknow', travel_charge_type='per_visit', charge_amount=Decimal('250'))
-        resp = self.customer.post(self.url, {
+        resp = self.customer.post(self.url, {**address_for(self.customer), 
             'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
             'location_type_id': studio.location_type_id, 'booking_date': self.date.strftime('%d-%m-%y'),
             'start_time': '10:00:00',
@@ -423,7 +459,7 @@ class TravelBufferTest(TestCase):
         self.customer, self.customer_user = make_customer(phone_number='+919000002401')
 
     def _book(self, start, location=None, customer=None):
-        return (customer or self.customer).post(self.url, {
+        return (customer or self.customer).post(self.url, {**address_for((customer or self.customer)), 
             'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
             'location_type_id': (location or self.home).location_type_id,
             'booking_date': self.date.strftime('%d-%m-%y'), 'start_time': start,

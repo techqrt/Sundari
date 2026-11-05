@@ -17,6 +17,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from sunndari_apps.authentication.models import User
+from tests.booking_address import address_for
 from sunndari_apps.authentication.utils import generate_jwt_token, generate_refresh_token
 from sunndari_apps.customers.models import Booking
 from sunndari_apps.help_center.models import SupportConversation
@@ -45,7 +46,7 @@ class MarketplaceMixin:
         make_schedule(self.profile, day_of_week=self.day.weekday())
 
     def book(self, client, start='10:00:00'):
-        return client.post(BOOK, {
+        return client.post(BOOK, {**address_for(client), 
             'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
             'location_type_id': self.location.location_type_id,
             'booking_date': self.day.strftime('%d-%m-%y'), 'start_time': start,

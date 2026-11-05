@@ -8,6 +8,14 @@ class BookingAddOnSerializer(serializers.Serializer):
     durationMinutes = serializers.IntegerField()
 
 
+class BookingAddressSerializer(serializers.Serializer):
+    addressId = serializers.IntegerField()
+    addressLine1 = serializers.CharField()
+    addressLine2 = serializers.CharField(allow_null=True, allow_blank=True)
+    city = serializers.CharField()
+    pinCode = serializers.CharField()
+
+
 class BookingSerializer(serializers.Serializer):
     bookingId = serializers.IntegerField()
     customerId = serializers.IntegerField()
@@ -16,6 +24,7 @@ class BookingSerializer(serializers.Serializer):
     packageId = serializers.IntegerField()
     locationTypeId = serializers.IntegerField()
     addressId = serializers.IntegerField(allow_null=True)
+    address = BookingAddressSerializer(allow_null=True, required=False)      # full address of the booking
     bookingDate = serializers.DateField()
     startTime = serializers.TimeField()
     endTime = serializers.TimeField()

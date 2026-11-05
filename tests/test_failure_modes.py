@@ -13,6 +13,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from sunndari_apps.customers.models import Booking
+from tests.booking_address import address_for
 from sunndari_apps.customers.tasks import cancel_stale_pending_bookings
 from sunndari_apps.notifications.models.notification import Notification
 from sunndari_apps.payments.models import Payment
@@ -52,7 +53,7 @@ class GatewayFixture:
         day = next_weekday(2)
         make_schedule(self.profile, day_of_week=day.weekday())
         self.client, self.customer = make_customer(phone_number='+919200000002')
-        resp = self.client.post('/customers/bookings/create/', {
+        resp = self.client.post('/customers/bookings/create/', {**address_for(self.client), 
             'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
             'location_type_id': location.location_type_id, 'booking_date': day.strftime('%d-%m-%y'), 'start_time': '10:00:00',
         }, format='json')

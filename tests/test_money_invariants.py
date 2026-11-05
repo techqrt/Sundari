@@ -18,6 +18,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from sunndari_apps.customers.models import Booking
+from tests.booking_address import address_for
 from sunndari_apps.payments.models import Payment
 from sunndari_apps.wallet.models import CoinConfig, CoinTransaction, CustomerWallet, RedemptionTier
 
@@ -61,7 +62,7 @@ class MoneyInvariantSimulation(TestCase):
         day = next_weekday(self.rng.randrange(7))
         make_schedule(profile, day_of_week=day.weekday())
         client, customer = make_customer(phone_number=f'+9196{n:08d}')
-        resp = client.post('/customers/bookings/create/', {
+        resp = client.post('/customers/bookings/create/', {**address_for(client), 
             'artist_id': profile.artist_id, 'package_id': package.package_id,
             'location_type_id': self.location.location_type_id,
             'booking_date': day.strftime('%d-%m-%y'), 'start_time': '10:00:00',

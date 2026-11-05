@@ -236,7 +236,7 @@ class BookingE2EQA(TestCase):
         record('BOOKING', 'inactive package cannot be booked', w.create_booking(C, A, day=15).status_code == 400, 400, 'checked', sev='P1')
         PricingPackage.objects.filter(package_id=A.package.package_id).update(is_active=True)
         r = C.client.post('/customers/bookings/create/', {'artist_id': A.profile.artist_id, 'package_id': A.package.package_id, 'location_type_id': w.location('Studio').location_type_id,
-                                                         'booking_date': w.fmt_date(w.future_date(15)), 'start_time': '10:00:00', 'total_amount': '1', 'travel_fee': '0', 'platform_fee': '0', 'status': 'confirmed'}, format='json')
+                                                         'booking_date': w.fmt_date(w.future_date(15)), 'start_time': '10:00:00', 'address_id': C.address.address_id, 'total_amount': '1', 'travel_fee': '0', 'platform_fee': '0', 'status': 'confirmed'}, format='json')
         b = Booking.objects.get(booking_id=data(r)['booking_id'])
         record('BOOKING', 'client-supplied price/status fields are ignored', b.total_amount == Decimal('2000.00') and b.status.name == 'pending', '2000 / pending', (b.total_amount, b.status.name), sev='P0')
         unverified('CONCURRENCY', 'two customers booking the same artist/slot at the same instant',

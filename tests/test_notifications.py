@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from sunndari_apps.notifications.models import Notification
+from tests.booking_address import address_for
 from sunndari_apps.notifications.utils import NotificationGateway, NotificationService
 from sunndari_apps.notifications.tasks import send_appointment_reminders
 from sunndari_apps.customers.models import Booking
@@ -103,7 +104,7 @@ class NotificationEventHookTest(TestCase):
         ArtistAvailabilitySchedule.objects.create(
             artist=profile, day_of_week=booking_date.weekday(), start_time='09:00:00', end_time='18:00:00',
         )
-        resp = customer_client.post('/customers/bookings/create/', {
+        resp = customer_client.post('/customers/bookings/create/', {**address_for(customer_client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,

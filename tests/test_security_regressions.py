@@ -8,6 +8,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from sunndari_apps.authentication.models import User
+from tests.booking_address import address_for
 from sunndari_apps.users.utils import UsersUtils
 
 from tests.test_authentication import make_user, make_authenticated_client
@@ -117,7 +118,7 @@ def _bookable(phone):
 
 
 def _book(customer_client, profile, package, location, date, start='10:00:00'):
-    return customer_client.post('/customers/bookings/create/', {
+    return customer_client.post('/customers/bookings/create/', {**address_for(customer_client), 
         'artist_id': profile.artist_id, 'package_id': package.package_id, 'location_type_id': location.location_type_id,
         'booking_date': date.strftime('%d-%m-%y'), 'start_time': start}, format='json')
 

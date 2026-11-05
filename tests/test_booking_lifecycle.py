@@ -14,6 +14,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from sunndari_apps.customers.models import Booking
+from tests.booking_address import address_for
 from sunndari_apps.notifications.models.notification import Notification
 from sunndari_apps.artists.models import ArtistAvailabilitySchedule
 from sunndari_apps.wallet.models import CustomerWallet, CoinTransaction, CoinConfig
@@ -82,7 +83,7 @@ class FullBookingLifecycleTest(TestCase):
         )
 
         # ── Customer books the artist ──────────────────────────────────────
-        create_resp = customer_client.post('/customers/bookings/create/', {
+        create_resp = customer_client.post('/customers/bookings/create/', {**address_for(customer_client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -235,7 +236,7 @@ class FullBookingLifecycleTest(TestCase):
             start_time='00:00:00', end_time='23:59:00',
         )
 
-        create_resp = customer_client.post('/customers/bookings/create/', {
+        create_resp = customer_client.post('/customers/bookings/create/', {**address_for(customer_client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,

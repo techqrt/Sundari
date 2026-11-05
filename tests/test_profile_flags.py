@@ -5,6 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from sunndari_apps.artists.models import ArtistProfile, Portfolio, PricingPackage
+from tests.booking_address import address_for
 from sunndari_apps.core.models import ApprovalStatus
 from sunndari_apps.customers.models import Booking
 
@@ -36,7 +37,7 @@ class AcceptingBookingsSwitchTest(TestCase):
         self.customer, self.customer_user = make_customer(phone_number='+919000005001')
 
     def _book(self, start='10:00:00'):
-        return self.customer.post('/customers/bookings/create/', {
+        return self.customer.post('/customers/bookings/create/', {**address_for(self.customer), 
             'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
             'location_type_id': self.location.location_type_id,
             'booking_date': self.date.strftime('%d-%m-%y'), 'start_time': start,

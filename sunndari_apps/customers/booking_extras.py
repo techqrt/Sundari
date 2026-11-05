@@ -1,5 +1,6 @@
 from sunndari_apps.customers.models.booking import Booking
 from sunndari_apps.customers.models.booking_addon import BookingAddOn
+from sunndari_apps.users.models.customer_address import CustomerAddress
 
 
 class BookingExtras:
@@ -18,10 +19,11 @@ class BookingExtras:
         'returnBufferMinutes': 'return_buffer_minutes',
     }
     ADDONS_COLUMN = 'addOns'
+    ADDRESS_COLUMN = 'address'          # the booking's full address, shown to its customer and its artist
 
     @classmethod
     def extra_names(cls, for_artist: bool) -> set:
-        return set((cls.ARTIST_COLUMNS if for_artist else cls.CUSTOMER_COLUMNS)) | {cls.ADDONS_COLUMN}
+        return set((cls.ARTIST_COLUMNS if for_artist else cls.CUSTOMER_COLUMNS)) | {cls.ADDONS_COLUMN, cls.ADDRESS_COLUMN}
 
     @classmethod
     def split_columns(cls, columns: list, for_artist: bool):
@@ -49,6 +51,16 @@ class BookingExtras:
             for row in Booking.objects.filter(booking_id__in=booking_ids).values('booking_id', *columns.values())
         }
         addons = BookingAddOn.get_for_bookings(booking_ids)
+        address_ids = {raw['address_id'] for raw in raw_rows if raw.get('address_id')}
+        addresses = {
+            row['address_id']: {
+                'addressId': row['address_id'], 'addressLine1': row['address_line_1'],
+                'addressLine2': row['address_line_2'], 'city': row['city'], 'pinCode': row['pin_code'],
+            }
+            for row in CustomerAddress.objects.filter(address_id__in=address_ids).values(
+                'address_id', 'address_line_1', 'address_line_2', 'city', 'pin_code',
+            )
+        } if address_ids else {}
         for raw, data in zip(raw_rows, mapped_rows):
             row = stored.get(raw['booking_id'], {})
             for api_name, field in columns.items():
@@ -62,4 +74,6 @@ class BookingExtras:
                      'price': cls._money(item['price']), 'durationMinutes': item['duration_minutes']}
                     for item in addons.get(raw['booking_id'], [])
                 ]
+            if wanted is None or cls.ADDRESS_COLUMN in wanted:
+                data[cls.ADDRESS_COLUMN] = addresses.get(raw.get('address_id'))
         return mapped_rows

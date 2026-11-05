@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from sunndari_apps.authentication.models import User
+from tests.booking_address import address_for
 from sunndari_apps.authentication.utils import generate_jwt_token
 from sunndari_apps.artists.models import (
     ArtistProfile, PricingPackage, ArtistLocationPreference, ArtistAvailabilitySchedule,
@@ -263,7 +264,7 @@ class CreateBookingTest(TestCase):
     def test_create_booking_success(self):
         client, _ = make_customer()
         profile, package, location_type, booking_date = self._setup_bookable_artist()
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -279,7 +280,7 @@ class CreateBookingTest(TestCase):
     def test_create_booking_still_stores_the_booking_otp_but_sends_no_otp_notification(self):
         client, _ = make_customer()
         profile, package, location_type, booking_date = self._setup_bookable_artist(phone_number='+919000000233')
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -312,7 +313,7 @@ class CreateBookingTest(TestCase):
         yesterday_ist = (timezone.now().astimezone(IST) - timedelta(days=1)).date()
         make_schedule(profile, day_of_week=yesterday_ist.weekday())
         seed_booking_statuses()
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -340,7 +341,7 @@ class CreateBookingTest(TestCase):
             target_date = target_date + timedelta(days=1)
         make_schedule(profile, day_of_week=target_date.weekday(), start='00:00:00', end='23:59:00')
         seed_booking_statuses()
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -359,7 +360,7 @@ class CreateBookingTest(TestCase):
         target = (timezone.now() + timedelta(hours=1)).astimezone(IST)
         make_schedule(profile, day_of_week=target.date().weekday(), start='00:00:00', end='23:59:00')
         seed_booking_statuses()
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -372,7 +373,7 @@ class CreateBookingTest(TestCase):
     def test_create_booking_outside_schedule_returns_400(self):
         client, _ = make_customer()
         profile, package, location_type, booking_date = self._setup_bookable_artist(phone_number='+919000000231')
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -390,7 +391,7 @@ class CreateBookingTest(TestCase):
         booking_date = next_weekday(2)
         make_schedule(profile, day_of_week=booking_date.weekday())
         seed_booking_statuses()
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': other_location.location_type_id,
@@ -409,7 +410,7 @@ class CreateBookingTest(TestCase):
         booking_date = next_weekday(2)
         make_schedule(profile, day_of_week=booking_date.weekday())
         seed_booking_statuses()
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,
@@ -430,9 +431,9 @@ class CreateBookingTest(TestCase):
             'booking_date': booking_date.strftime('%d-%m-%y'),
             'start_time': '10:00:00',
         }
-        resp1 = client.post(self.url, payload, format='json')
+        resp1 = client.post(self.url, {**payload, **address_for(client)}, format='json')
         self.assertEqual(resp1.status_code, 201)
-        resp2 = client2.post(self.url, payload, format='json')
+        resp2 = client2.post(self.url, {**payload, **address_for(client2)}, format='json')
         self.assertEqual(resp2.status_code, 400)
 
     def test_create_booking_unapproved_artist_returns_400(self):
@@ -442,7 +443,7 @@ class CreateBookingTest(TestCase):
         package = make_package(profile, sub_category=sub)
         location_type = make_location_type()
         seed_booking_statuses()
-        resp = client.post(self.url, {
+        resp = client.post(self.url, {**address_for(client), 
             'artist_id': profile.artist_id,
             'package_id': package.package_id,
             'location_type_id': location_type.location_type_id,

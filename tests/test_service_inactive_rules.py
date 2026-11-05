@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from sunndari_apps.artists.models import ArtistServiceOffering, ArtistSpeciality, PricingPackage
+from tests.booking_address import address_for
 from sunndari_apps.core.models import ServiceCategory, ServiceSubCategory
 from sunndari_apps.customers.models import Booking
 
@@ -53,7 +54,7 @@ class _Fixture(TestCase):
         return [row['name'] for row in resp.data['data']['data']]
 
     def book(self, package, client=None):
-        return (client or self.customer_client).post('/customers/bookings/create/', {
+        return (client or self.customer_client).post('/customers/bookings/create/', {**address_for((client or self.customer_client)), 
             'artist_id': self.profile.artist_id, 'package_id': package.package_id,
             'location_type_id': self.location.location_type_id,
             'booking_date': self.day.strftime('%d-%m-%y'), 'start_time': '10:00:00',
