@@ -4,6 +4,8 @@ from django.utils import timezone
 
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
+from sunndari_apps.customers.booking_alerts import notify_artist_booking_paid
+from sunndari_apps.customers.slot_rules import booking_conflicts
 from sunndari_apps.payments.models import Payment, PaymentOrder
 
 logger = logging.getLogger(__name__)
@@ -25,7 +27,10 @@ class PaymentSettlementService:
     APPLIED = 'applied'
     OVERPAID = 'overpaid'
     BOOKING_CLOSED = 'booking_closed'
+    SLOT_TAKEN = 'slot_taken'
     UNAPPLIED = 'unapplied'          # already recorded as unapplied (a replay): nothing more to do
+
+    REFUND_OUTCOMES = (OVERPAID, BOOKING_CLOSED, SLOT_TAKEN)
 
     @staticmethod
     def _decide(payment: Payment, booking: Booking) -> str:
@@ -33,12 +38,30 @@ class PaymentSettlementService:
             return PaymentSettlementService.BOOKING_CLOSED
         if Payment.total_settled_for_booking(payment.booking_id) + payment.amount > booking.total_amount:
             return PaymentSettlementService.OVERPAID
+        # An unpaid booking does not hold its slot, so someone else may have paid for it first. The
+        # first payment wins; this one is refunded.
+        if (
+            booking.status.name == 'pending'
+            and Payment.total_settled_for_booking(payment.booking_id) == 0
+            and booking_conflicts(booking)
+        ):
+            return PaymentSettlementService.SLOT_TAKEN
         return PaymentSettlementService.APPLIED
+
+    @staticmethod
+    def message_for(outcome: str) -> str:
+        from sunndari.constants import Constants
+        return {
+            PaymentSettlementService.OVERPAID: Constants.payment_overpaid,
+            PaymentSettlementService.SLOT_TAKEN: Constants.payment_slot_taken,
+        }.get(outcome, Constants.payment_booking_closed)
 
     @staticmethod
     def _reason(outcome: str, booking_status: str) -> str:
         if outcome == PaymentSettlementService.OVERPAID:
             return 'Overpayment: captured by the gateway but exceeds the booking total; refund owed'
+        if outcome == PaymentSettlementService.SLOT_TAKEN:
+            return 'Time slot was taken by another booking before this payment completed; refund owed'
         return f"Booking was '{booking_status}' when the payment was captured; refund owed"
 
     @staticmethod
@@ -80,8 +103,10 @@ class PaymentSettlementService:
             outcome = PaymentSettlementService._apply_one(
                 payment, booking, gateway_payment_id, paid_status.status_id, failed_status.status_id,
             )
-        if outcome in (PaymentSettlementService.OVERPAID, PaymentSettlementService.BOOKING_CLOSED):
+        if outcome in PaymentSettlementService.REFUND_OUTCOMES:
             PaymentSettlementService.refund_unapplied([payment_id])
+        elif outcome == PaymentSettlementService.APPLIED:
+            notify_artist_booking_paid(Payment.objects.values_list('booking_id', flat=True).get(payment_id=payment_id))
         return outcome
 
     @staticmethod
@@ -109,7 +134,10 @@ class PaymentSettlementService:
             order.failure_reason = None if any_applied else 'Captured by the gateway but not applied to any booking; refund owed'
             order.save()
         unapplied = [pid for pid, outcome in outcomes.items()
-                     if outcome in (PaymentSettlementService.OVERPAID, PaymentSettlementService.BOOKING_CLOSED)]
+                     if outcome in PaymentSettlementService.REFUND_OUTCOMES]
         if unapplied:
             PaymentSettlementService.refund_unapplied(unapplied)
+        for payment_id, outcome in outcomes.items():
+            if outcome == PaymentSettlementService.APPLIED:
+                notify_artist_booking_paid(Payment.objects.values_list('booking_id', flat=True).get(payment_id=payment_id))
         return outcomes

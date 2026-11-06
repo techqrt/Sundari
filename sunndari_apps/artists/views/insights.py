@@ -20,7 +20,7 @@ class ArtistInsightsView:
         profile = ArtistProfile.objects.filter(user_id=params.user_id).first()
         if not profile:
             raise ValueError(Constants.artist_not_found)
-        bookings = Booking.objects.filter(artist_id=profile.artist_id)
+        bookings = Booking.objects.filter(artist_id=profile.artist_id).filter(Booking.artist_visible_filter())
         from_date = params.from_date.date() if params.from_date else None
         to_date = params.to_date.date() if params.to_date else None
         if from_date and to_date and from_date > to_date:

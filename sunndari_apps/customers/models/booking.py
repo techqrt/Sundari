@@ -21,6 +21,19 @@ class Booking(models.Model):
 
     ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress']
 
+    @staticmethod
+    def blocking_filter() -> Q:
+        """Which bookings hold the artist's calendar. A booking blocks its slot only once the customer
+        has actually paid (or the artist has confirmed it). A 'pending' booking nobody has paid for is
+        just a reservation attempt: a customer who opens the payment page and leaves must not lock the
+        slot against everyone else. If two customers race for one slot, the first payment wins and the
+        other is refunded (see PaymentSettlementService)."""
+        from sunndari_apps.payments.models import Payment
+        paid = Exists(Payment.objects.filter(
+            booking_id=OuterRef('booking_id'), status__name__in=['paid', 'partially_refunded'],
+        ))
+        return Q(status__name__in=['confirmed', 'in_progress']) | (Q(status__name='pending') & paid)
+
     # 'in_progress' is deliberately absent from 'confirmed', and 'completed' from
     # 'in_progress' — those moves are only reachable through the Start Service PIN and
     # Completion PIN verification endpoints now.
@@ -276,7 +289,7 @@ class Booking(models.Model):
         if customer_id:
             data = data.filter(customer_id=customer_id)
         if artist_id:
-            data = data.filter(artist_id=artist_id)
+            data = data.filter(artist_id=artist_id).filter(Booking.artist_visible_filter())
         if payment_status:
             data = Booking.filter_by_payment(data, payment_status)
         if filter_key and filter_value:
@@ -313,13 +326,31 @@ class Booking(models.Model):
         qs = Booking.objects.filter(
             artist_id=artist_id,
             booking_date=booking_date,
-            status__name__in=Booking.ACTIVE_STATUSES,
             start_time__lt=end_time,
             end_time__gt=start_time,
-        )
+        ).filter(Booking.blocking_filter())
         if exclude_booking_id:
             qs = qs.exclude(booking_id=exclude_booking_id)
         return qs.exists()
+
+    @staticmethod
+    def artist_visible_filter() -> Q:
+        """Which bookings an artist may see. A booking the customer has not paid for is only a reservation
+        attempt, so it stays invisible to the artist while it is pending, and also if it is cancelled or
+        expires without ever being paid. Once any payment has succeeded (even if later refunded) the
+        artist can see it as before."""
+        from sunndari_apps.payments.models import Payment
+        ever_paid = Exists(Payment.objects.filter(
+            booking_id=OuterRef('booking_id'), status__name__in=['paid', 'partially_refunded', 'refunded'],
+        ))
+        return ever_paid | ~Q(status__name__in=['pending', 'cancelled'])
+
+    @staticmethod
+    def slot_taken_by_other(booking_id: int) -> bool:
+        """True when a paid/confirmed booking now occupies this (still unpaid) booking's slot."""
+        from sunndari_apps.customers.slot_rules import booking_conflicts
+        booking = Booking.objects.filter(booking_id=booking_id).first()
+        return bool(booking) and booking_conflicts(booking)
 
     @staticmethod
     def get_booked_ranges(artist_id: int, booking_date) -> list:
@@ -327,8 +358,7 @@ class Booking(models.Model):
             Booking.objects.filter(
                 artist_id=artist_id,
                 booking_date=booking_date,
-                status__name__in=Booking.ACTIVE_STATUSES,
-            ).values('start_time', 'end_time')
+            ).filter(Booking.blocking_filter()).values('start_time', 'end_time')
         )
 
     @staticmethod
@@ -342,8 +372,10 @@ class Booking(models.Model):
             {'start_time': shift(row['start_time'], -(row['travel_minutes_before'] or 0)),
              'end_time': shift(row['end_time'], row['return_buffer_minutes'] or 0)}
             for row in Booking.objects.filter(
-                artist_id=artist_id, booking_date=booking_date, status__name__in=Booking.ACTIVE_STATUSES,
-            ).values('start_time', 'end_time', 'travel_minutes_before', 'return_buffer_minutes')
+                artist_id=artist_id, booking_date=booking_date,
+            ).filter(Booking.blocking_filter()).values(
+                'start_time', 'end_time', 'travel_minutes_before', 'return_buffer_minutes',
+            )
         ]
 
     @staticmethod

@@ -112,8 +112,19 @@ class NotificationEventHookTest(TestCase):
             'start_time': '10:00:00',
         }, format='json')
         self.assertEqual(resp.status_code, 201)
-        self.assertTrue(
+        # Unpaid: the artist is not told yet.
+        self.assertFalse(
             Notification.objects.filter(user_id=artist_user.user_id, type='new_booking_alert').exists()
+        )
+        # Once the payment is applied the artist hears about it, exactly once.
+        from tests.booking_paid import pay_booking
+        from sunndari_apps.customers.booking_alerts import notify_artist_booking_paid
+        booking_id = resp.data['data']['booking_id']
+        pay_booking(booking_id)
+        notify_artist_booking_paid(booking_id)
+        notify_artist_booking_paid(booking_id)
+        self.assertEqual(
+            Notification.objects.filter(user_id=artist_user.user_id, type='new_booking_alert', booking_id=booking_id).count(), 1,
         )
 
     def test_confirm_booking_notifies_customer(self):

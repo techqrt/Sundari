@@ -145,30 +145,8 @@ class CreateBookingView:
             booking_otp = Booking.generate_booking_otp(
                 booking_id=booking_id, booking_date=params.booking_date, end_time=end_time,
             )
-        NotificationService.notify(
-            user_id=artist.user_id,
-            title='New booking request',
-            message=f'You have a new booking request for {params.booking_date}.',
-            type='new_booking_alert',
-            booking_id=booking_id,
-        )
-        # The artist no longer enters a Booking OTP on arrival (arrived goes straight to the Start
-        # PIN), so this "Booking verification code" notification is switched off.
-        # NotificationService.notify(
-        #     user_id=artist.user_id,
-        #     title='Booking verification code',
-        #     message=f'Your booking OTP is {booking_otp}. Share it with the customer to verify arrival.',
-        #     type='booking_otp_issued',
-        #     booking_id=booking_id,
-        # )
-        try:
-            if artist.user.phone_number:
-                send_otp_sms(artist.user.phone_number, booking_otp)
-            elif artist.user.email:
-                send_otp_email(artist.user.email, booking_otp)
-        except Exception:
-            # The booking is committed and the OTP is also delivered as an in-app notification.
-            logger.exception('Booking OTP delivery failed for booking %s', booking_id)
+        # The artist is told about this booking (and sent its OTP) only once it is paid; see
+        # customers/booking_alerts.py. Until then it is invisible to them.
         BookingFirebaseUtils.sync_booking(booking_id=booking_id)
         return Response(
             status=status.HTTP_201_CREATED,

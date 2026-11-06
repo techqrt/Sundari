@@ -323,7 +323,8 @@ class VerifyPaymentTest(TestCase):
             'booking_id': booking.booking_id, 'status': 'confirmed',
         }, format='json')
         self.assertEqual(confirm_resp.status_code, 400)
-        self.assertIn('payment', confirm_resp.data['message'].lower())
+        # An unpaid booking is invisible to the artist, so there is nothing for them to confirm.
+        self.assertIn('not found', confirm_resp.data['message'].lower())
 
         # The failed attempt is still visible in the customer's payment history.
         history_resp = client.get(self.get_all_url)

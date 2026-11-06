@@ -97,7 +97,8 @@ class FullBookingLifecycleTest(TestCase):
         booking = Booking.objects.get(booking_id=booking_id)
         self.assertIsNotNone(booking.booking_otp)
         booking_otp = booking.booking_otp
-        self.assertTrue(
+        # The artist is not told about the booking until it is paid for.
+        self.assertFalse(
             Notification.objects.filter(booking_id=booking_id, type='new_booking_alert', user_id=artist_user.user_id).exists()
         )
         # The "Booking verification code" notification is switched off (arrival no longer needs the OTP).
@@ -105,6 +106,9 @@ class FullBookingLifecycleTest(TestCase):
 
         # ── Customer pays — required before the artist can confirm ─────────
         self._pay_for_booking(customer_client, booking_id)
+        self.assertTrue(
+            Notification.objects.filter(booking_id=booking_id, type='new_booking_alert', user_id=artist_user.user_id).exists()
+        )
 
         # ── Artist accepts ──────────────────────────────────────────────────
         accept_resp = artist_client.put('/artists/bookings/update_status/', {
@@ -246,6 +250,7 @@ class FullBookingLifecycleTest(TestCase):
         booking_id = create_resp.data['data']['booking_id']
         booking = Booking.objects.get(booking_id=booking_id)
         booking_otp = booking.booking_otp
+        self._pay_for_booking(customer_client, booking_id)     # the artist only sees a paid booking
 
         reject_resp = artist_client.put('/artists/bookings/update_status/', {
             'booking_id': booking_id, 'status': 'cancelled',

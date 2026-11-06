@@ -38,6 +38,11 @@ class ArtistBookingView:
     def __init__(self):
         self.data_get = Constants.data_get
 
+    @staticmethod
+    def _visible(booking_id: int) -> bool:
+        """An artist cannot see (or act on) a booking its customer has not paid for."""
+        return Booking.objects.filter(booking_id=booking_id).filter(Booking.artist_visible_filter()).exists()
+
     def _get_artist_id(self, user_id: int) -> int:
         profile = ArtistProfile.objects.filter(user_id=user_id).first()
         if not profile:
@@ -48,7 +53,7 @@ class ArtistBookingView:
     def get_extract(self, params: GetArtistBookingRequest):
         artist_id = self._get_artist_id(user_id=params.user_id)
         booking = Booking.get(booking_id=params.booking_id)
-        if not booking or booking['artist_id'] != artist_id:
+        if not booking or booking['artist_id'] != artist_id or not self._visible(params.booking_id):
             raise ValueError(Constants.booking_not_found)
         if params.filter_key in Booking.PAYMENT_FILTER_KEYS and not Booking.filter_by_payment(
             Booking.objects.filter(booking_id=params.booking_id), params.filter_value,
@@ -112,7 +117,7 @@ class ArtistBookingView:
     def _update_status_locked(self, params: UpdateBookingStatusRequest):
         artist_id = self._get_artist_id(user_id=params.user_id)
         booking = Booking.get(booking_id=params.booking_id)
-        if not booking or booking['artist_id'] != artist_id:
+        if not booking or booking['artist_id'] != artist_id or not self._visible(params.booking_id):
             raise ValueError(Constants.booking_not_found)
 
         current_status = BookingStatus.objects.filter(

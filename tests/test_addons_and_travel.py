@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from sunndari_apps.artists.models import PackageAddOn, ArtistServiceArea, ArtistProfile
 from tests.booking_address import address_for
+from tests.booking_paid import pay_booking, pay_response
 from sunndari_apps.core.models import LocationType, PaymentStatus
 from sunndari_apps.customers.models import Booking, BookingAddOn, BookingReschedule
 from sunndari_apps.payments.models import Payment
@@ -209,7 +210,7 @@ class BookingTotalsTest(TestCase):
             duration_minutes=duration, **extra,
         )
 
-    def _book(self, addon_ids=None, start='10:00:00', address=None, **extra):
+    def _book(self, addon_ids=None, start='10:00:00', address=None, pay=True, **extra):
         payload = {
             'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
             'location_type_id': self.home.location_type_id, 'booking_date': self.date.strftime('%d-%m-%y'),
@@ -218,7 +219,8 @@ class BookingTotalsTest(TestCase):
         if addon_ids is not None:
             payload['addon_ids'] = addon_ids
         payload['address_id'] = address.address_id if address is not None else address_for(self.customer)['address_id']
-        return self.customer.post(self.url, payload, format='json')
+        resp = self.customer.post(self.url, payload, format='json')
+        return pay_response(resp) if pay else resp
 
     # --- add-ons
     def test_total_and_duration_include_selected_addons_and_are_snapshotted(self):
@@ -340,12 +342,14 @@ class BookingTotalsTest(TestCase):
     def test_a_booking_with_no_address_shows_null(self):
         from tests.test_customers import make_booking
         booking = make_booking(self.customer_user, self.profile, self.package, self.home, self.date, '10:00', '11:00')
+        pay_booking(booking.booking_id)
         self.assertIsNone(self.artist_client.get('/artists/bookings/get/', {'booking_id': booking.booking_id}).data['data']['address'])
         self.assertIsNone(self.customer.get('/customers/bookings/get/', {'booking_id': booking.booking_id}).data['data']['address'])
 
     def test_old_bookings_without_snapshots_still_load(self):
         from tests.test_customers import make_booking
         booking = make_booking(self.customer_user, self.profile, self.package, self.home, self.date, '10:00', '11:00')
+        pay_booking(booking.booking_id)
         data = self.artist_client.get('/artists/bookings/get/', {'booking_id': booking.booking_id}).data['data']
         self.assertEqual(data['travelFee'], '0.00')
         self.assertIsNone(data['platformFee'])
@@ -411,7 +415,7 @@ class BookingTotalsTest(TestCase):
         ArtistProfile.objects.filter(artist_id=self.profile.artist_id).update(commission_rate=Decimal('10.00'))
         ArtistServiceArea.objects.create(artist=self.profile, city='Lucknow', travel_charge_type='per_visit', charge_amount=Decimal('250'))
         addon = self._addon(); addon.packages.add(self.package)
-        booking_id = self._book(addon_ids=[addon.addon_id], address=make_address_in(self.customer_user, 'Lucknow')).data['data']['booking_id']
+        booking_id = self._book(addon_ids=[addon.addon_id], address=make_address_in(self.customer_user, 'Lucknow'), pay=False).data['data']['booking_id']
         # the artist's rate changes AFTER the booking was quoted
         ArtistProfile.objects.filter(artist_id=self.profile.artist_id).update(commission_rate=Decimal('25.00'))
         with patch('sunndari_apps.payments.views.initiate_payment.RazorpayGateway.get_client') as get_client:
@@ -459,11 +463,11 @@ class TravelBufferTest(TestCase):
         self.customer, self.customer_user = make_customer(phone_number='+919000002401')
 
     def _book(self, start, location=None, customer=None):
-        return (customer or self.customer).post(self.url, {**address_for((customer or self.customer)), 
+        return pay_response((customer or self.customer).post(self.url, {**address_for((customer or self.customer)), 
             'artist_id': self.profile.artist_id, 'package_id': self.package.package_id,
             'location_type_id': (location or self.home).location_type_id,
             'booking_date': self.date.strftime('%d-%m-%y'), 'start_time': start,
-        }, format='json')
+        }, format='json'))
 
     def test_snapshots_are_taken_only_for_home_visits(self):
         home = self._book('10:00:00').data['data']['booking_id']

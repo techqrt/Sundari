@@ -131,6 +131,8 @@ class Constants:
     service_unavailable = 'This service is currently unavailable'
     service_announce_inactive = 'Activate the service before notifying artists'
     announcement_message_too_long = 'The notification message must be 300 characters or fewer'
+    payment_slot_taken = 'This time slot was booked by someone else before your payment completed, so the payment was not applied; it will be refunded'
+    payment_slot_taken_before_pay = 'This time slot has just been booked by someone else. Please choose another time.'
     payment_booking_closed = 'This booking is no longer active, so the payment was not applied; it will be refunded'
     webhook_not_configured = 'Payment webhook is not configured'
     webhook_signature_invalid = 'Invalid webhook signature'

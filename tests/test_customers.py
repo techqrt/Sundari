@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from sunndari_apps.authentication.models import User
 from tests.booking_address import address_for
+from tests.booking_paid import pay_response
 from sunndari_apps.authentication.utils import generate_jwt_token
 from sunndari_apps.artists.models import (
     ArtistProfile, PricingPackage, ArtistLocationPreference, ArtistAvailabilitySchedule,
@@ -300,7 +301,8 @@ class CreateBookingTest(TestCase):
         # The OTP is still stored, but the "Booking verification code" notification is switched off
         # (the artist no longer enters it on arrival).
         self.assertFalse(Notification.objects.filter(booking_id=booking.booking_id, type='booking_otp_issued').exists())
-        self.assertTrue(Notification.objects.filter(
+        # The artist is told only once the booking is paid for (see test_notifications).
+        self.assertFalse(Notification.objects.filter(
             booking_id=booking.booking_id, type='new_booking_alert', user_id=profile.user_id).exists())
 
     def test_create_booking_in_the_past_returns_400(self):
@@ -431,7 +433,7 @@ class CreateBookingTest(TestCase):
             'booking_date': booking_date.strftime('%d-%m-%y'),
             'start_time': '10:00:00',
         }
-        resp1 = client.post(self.url, {**payload, **address_for(client)}, format='json')
+        resp1 = pay_response(client.post(self.url, {**payload, **address_for(client)}, format='json'))
         self.assertEqual(resp1.status_code, 201)
         resp2 = client2.post(self.url, {**payload, **address_for(client2)}, format='json')
         self.assertEqual(resp2.status_code, 400)
@@ -597,16 +599,20 @@ class ArtistBookingTest(TestCase):
     get_all_url = '/artists/bookings/get_all/'
     update_status_url = '/artists/bookings/update_status/'
 
-    def _make_booking(self, profile, customer_phone='+919000000270', status_name='pending'):
+    def _make_booking(self, profile, customer_phone='+919000000270', status_name='pending', paid=True):
         sub = make_sub_category()
         package = make_package(profile, sub_category=sub)
         location_type = make_location_type()
         _, customer = make_customer(phone_number=customer_phone)
-        return make_booking(
+        booking = make_booking(
             customer, profile, package, location_type,
             booking_date=next_weekday(2), start_time='10:00:00', end_time='11:00:00',
             status_name=status_name,
         )
+        # The artist only sees a booking once it is paid for.
+        if paid:
+            make_paid_payment(booking)
+        return booking
 
     def test_artist_get_all_bookings(self):
         client, _, profile = make_artist(phone_number='+919000000271')
@@ -633,18 +639,20 @@ class ArtistBookingTest(TestCase):
     def test_confirm_pending_booking_returns_200(self):
         client, _, profile = make_artist(phone_number='+919000000273')
         booking = self._make_booking(profile, customer_phone='+919000000274')
-        make_paid_payment(booking)
         resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'confirmed'}, format='json')
         self.assertEqual(resp.status_code, 200)
         booking.refresh_from_db()
         self.assertEqual(booking.status.name, 'confirmed')
 
-    def test_confirm_unpaid_booking_returns_400(self):
+    def test_artist_cannot_see_or_act_on_an_unpaid_booking(self):
         client, _, profile = make_artist(phone_number='+919000000278')
-        booking = self._make_booking(profile, customer_phone='+919000000279')
-        resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'confirmed'}, format='json')
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn(Constants.payment_required_to_confirm, resp.data['message'])
+        booking = self._make_booking(profile, customer_phone='+919000000279', paid=False)
+        self.assertEqual(client.get(self.get_all_url).data['data']['data'], [])
+        self.assertEqual(client.get('/artists/bookings/get/', {'booking_id': booking.booking_id}).status_code, 400)
+        for status_name in ('confirmed', 'cancelled'):
+            resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': status_name}, format='json')
+            self.assertEqual(resp.status_code, 400)
+            self.assertIn(Constants.booking_not_found, resp.data['message'])
         booking.refresh_from_db()
         self.assertEqual(booking.status.name, 'pending')
 
@@ -664,7 +672,7 @@ class ArtistBookingTest(TestCase):
 
     def test_artist_cancel_paid_confirmed_booking_triggers_refund(self):
         client, _, profile = make_artist(phone_number='+919000000322')
-        booking = self._make_booking(profile, customer_phone='+919000000323', status_name='confirmed')
+        booking = self._make_booking(profile, customer_phone='+919000000323', status_name='confirmed', paid=False)
         payment = make_paid_payment(booking)
         resp = client.put(self.update_status_url, {'booking_id': booking.booking_id, 'status': 'cancelled'}, format='json')
         self.assertEqual(resp.status_code, 200)
@@ -1279,6 +1287,7 @@ class ExpiredBookingApiGuardTest(TestCase):
             end_time=(target + timedelta(hours=1)).time().replace(microsecond=0),
             status_name='pending',
         )
+        make_paid_payment(booking)
         return artist_client, booking
 
     def _expired_confirmed_booking(self, artist_phone, customer_phone, **extra_fields):

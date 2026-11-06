@@ -24,7 +24,7 @@ STATES = ['pending_unpaid', 'pending_paid', 'confirmed', 'on_my_way', 'arrived',
 # action -> {state: expected HTTP status}; a state that is absent must be refused (400)
 ALLOWED = {
     'accept':               {'pending_paid': 200},
-    'artist_cancel':        {'pending_unpaid': 200, 'pending_paid': 200, 'confirmed': 200, 'on_my_way': 200, 'arrived': 200},
+    'artist_cancel':        {'pending_paid': 200, 'confirmed': 200, 'on_my_way': 200, 'arrived': 200},
     'artist_no_show':       {'in_progress': 200, 'completion_requested': 200},
     'on_my_way':            {'confirmed': 200},
     'arrived':              {'on_my_way': 200},

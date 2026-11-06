@@ -17,8 +17,10 @@ class BookingPaymentFilterTest(TestCase):
         location = make_location_type()
         day = next_weekday(2)
         self.paid = make_booking(self.customer, self.profile, package, location, day, '09:00:00', '10:00:00')
-        self.unpaid = make_booking(self.customer, self.profile, package, location, day, '12:00:00', '13:00:00')
-        self.unpaid_two = make_booking(self.customer, self.profile, package, location, day, '15:00:00', '16:00:00')
+        # Confirmed-but-unpaid rows keep these filter tests about the filter: an unpaid *pending* booking is
+        # hidden from the artist altogether (see ArtistBookingTest).
+        self.unpaid = make_booking(self.customer, self.profile, package, location, day, '12:00:00', '13:00:00', status_name='confirmed')
+        self.unpaid_two = make_booking(self.customer, self.profile, package, location, day, '15:00:00', '16:00:00', status_name='confirmed')
         make_paid_payment(self.paid)
 
     def ids(self, client, url, **query):

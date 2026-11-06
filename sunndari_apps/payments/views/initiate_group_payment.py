@@ -41,6 +41,8 @@ class InitiateGroupPaymentView:
             ).values_list('name', flat=True).first()
             if status_name not in Booking.ACTIVE_STATUSES:
                 raise ValueError(f"Payment cannot be initiated — booking #{booking_id} is '{status_name}'.")
+            if status_name == 'pending' and Booking.slot_taken_by_other(booking_id):
+                raise ValueError(f"Booking #{booking_id}: {Constants.payment_slot_taken_before_pay}")
 
             # Group payments are always "full" for each booking (see InitiatePaymentView
             # for the payment_type/partial-amount option on a solo payment) — every

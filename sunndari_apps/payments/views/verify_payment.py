@@ -119,7 +119,7 @@ class VerifyPaymentView:
         )
         if outcome != PaymentSettlementService.APPLIED:
             raise ValueError(
-                Constants.payment_overpaid if outcome == PaymentSettlementService.OVERPAID else Constants.payment_booking_closed
+                PaymentSettlementService.message_for(outcome)
             )
         NotificationService.notify(
             user_id=payment['customer_id'],
@@ -198,7 +198,11 @@ class VerifyPaymentView:
         applied_ids = [pid for pid, outcome in outcomes.items() if outcome == PaymentSettlementService.APPLIED]
         if not applied_ids:
             raise ValueError(
-                Constants.payment_overpaid if PaymentSettlementService.OVERPAID in outcomes.values() else Constants.payment_booking_closed
+                PaymentSettlementService.message_for(
+                    PaymentSettlementService.SLOT_TAKEN if PaymentSettlementService.SLOT_TAKEN in outcomes.values()
+                    else PaymentSettlementService.OVERPAID if PaymentSettlementService.OVERPAID in outcomes.values()
+                    else PaymentSettlementService.BOOKING_CLOSED
+                )
             )
         # One notification per booking that took its payment, same as if each had been paid
         # individually — every Payment in a group belongs to the same customer

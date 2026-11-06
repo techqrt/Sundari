@@ -63,8 +63,7 @@ def validate_slot(
     locked = Booking.objects.select_for_update().filter(
         artist_id=artist_id,
         booking_date=booking_date,
-        status__name__in=Booking.ACTIVE_STATUSES,
-    )
+    ).filter(Booking.blocking_filter())
     if exclude_booking_id:
         locked = locked.exclude(booking_id=exclude_booking_id)
     # Two bookings conflict when those occupied windows overlap, so back-to-back appointments need
@@ -76,3 +75,21 @@ def validate_slot(
         existing_to = minutes_of(existing.end_time) + (existing.return_buffer_minutes or 0)
         if existing_from < new_to and existing_to > new_from:
             raise ValueError(Constants.double_booking)
+
+
+def booking_conflicts(booking) -> bool:
+    """True when another booking that holds the calendar (paid or confirmed) overlaps this one, buffers
+    included. Used at payment time, because an unpaid booking does not reserve its slot: the slot may have
+    been taken by someone else between booking and paying."""
+    ArtistProfile.objects.select_for_update().filter(artist_id=booking.artist_id).first()
+    new_from = minutes_of(booking.start_time) - (booking.travel_minutes_before or 0)
+    new_to = minutes_of(booking.end_time) + (booking.return_buffer_minutes or 0)
+    others = Booking.objects.filter(
+        artist_id=booking.artist_id, booking_date=booking.booking_date,
+    ).filter(Booking.blocking_filter()).exclude(booking_id=booking.booking_id)
+    for other in others:
+        other_from = minutes_of(other.start_time) - (other.travel_minutes_before or 0)
+        other_to = minutes_of(other.end_time) + (other.return_buffer_minutes or 0)
+        if other_from < new_to and other_to > new_from:
+            return True
+    return False

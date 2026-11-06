@@ -735,6 +735,8 @@ class RedemptionReversalOnCancelTest(TestCase):
         client, artist_client, customer, booking, tier = self._make_booking_with_redemption('+919000000598', '+919000000599')
         wallet = CustomerWallet.objects.get(customer_id=customer.user_id)
         self.assertEqual(wallet.balance_coins, 0)  # spent on redemption
+        # The artist can only act on a booking that has been paid for.
+        Payment.objects.filter(booking_id=booking.booking_id).update(status=PaymentStatus.objects.get(name='paid'))
 
         resp = artist_client.put('/artists/bookings/update_status/', {
             'booking_id': booking.booking_id, 'status': 'cancelled',

@@ -18,6 +18,7 @@ from rest_framework.test import APIClient
 
 from sunndari_apps.authentication.models import User
 from tests.booking_address import address_for
+from tests.booking_paid import pay_response
 from sunndari_apps.authentication.utils import generate_jwt_token, generate_refresh_token
 from sunndari_apps.customers.models import Booking
 from sunndari_apps.help_center.models import SupportConversation
@@ -52,6 +53,9 @@ class MarketplaceMixin:
             'booking_date': self.day.strftime('%d-%m-%y'), 'start_time': start,
         }, format='json')
 
+    def book_paid(self, client, start='10:00:00'):
+        return pay_response(self.book(client, start=start))
+
     def live_bookings(self):
         return Booking.objects.filter(artist_id=self.profile.artist_id).exclude(status__name='cancelled')
 
@@ -63,20 +67,20 @@ class SlotContentionTest(MarketplaceMixin, TestCase):
     def test_second_customer_cannot_take_an_already_booked_slot(self):
         first, _ = make_customer(phone_number='+919100000101')
         second, _ = make_customer(phone_number='+919100000102')
-        self.assertEqual(self.book(first).status_code, 201)
+        self.assertEqual(self.book_paid(first).status_code, 201)
         self.assertEqual(self.book(second).status_code, 400)
         self.assertEqual(self.live_bookings().count(), 1)
 
     def test_double_tap_by_one_customer_creates_one_booking(self):
         client, _ = make_customer(phone_number='+919100000103')
-        statuses = [self.book(client).status_code, self.book(client).status_code]
+        statuses = [self.book_paid(client).status_code, self.book_paid(client).status_code]
         self.assertEqual(sorted(statuses), [201, 400])
         self.assertEqual(self.live_bookings().count(), 1)
 
     def test_an_overlapping_start_time_is_refused(self):
         first, _ = make_customer(phone_number='+919100000104')
         second, _ = make_customer(phone_number='+919100000105')
-        self.assertEqual(self.book(first, start='10:00:00').status_code, 201)
+        self.assertEqual(self.book_paid(first, start='10:00:00').status_code, 201)
         self.assertEqual(self.book(second, start='10:30:00').status_code, 400)   # inside 10:00-11:00
         self.assertEqual(self.live_bookings().count(), 1)
 

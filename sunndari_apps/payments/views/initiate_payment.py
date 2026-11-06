@@ -13,6 +13,7 @@ from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.customers.models.booking import Booking
+from sunndari_apps.customers.booking_alerts import notify_artist_booking_paid
 from sunndari_apps.payments.models import Payment
 from sunndari_apps.payments.gateway import RazorpayGateway
 from sunndari_apps.payments.dataclasses.request.create.initiate_payment import InitiatePaymentRequest
@@ -61,6 +62,9 @@ class InitiatePaymentView:
         ).values_list('name', flat=True).first()
         if status_name not in Booking.ACTIVE_STATUSES:
             raise ValueError(f"Payment cannot be initiated — booking is '{status_name}'.")
+        # An unpaid booking does not hold its slot, so check it is still free before taking money.
+        if status_name == 'pending' and Booking.slot_taken_by_other(params.booking_id):
+            raise ValueError(Constants.payment_slot_taken_before_pay)
 
         # Counts cash paid PLUS any coin-redeemed value already settled on a prior
         # successful payment for this booking (e.g. an earlier advance payment that
@@ -160,6 +164,7 @@ class InitiatePaymentView:
             )
             paid_status = PaymentStatus.objects.filter(name='paid').first()
             Payment.mark_paid_via_wallet(payment_id=payment_id, status_id=paid_status.status_id)
+            notify_artist_booking_paid(params.booking_id)
             return Response(
                 status=status.HTTP_201_CREATED,
                 data=Utils.success_response_data(

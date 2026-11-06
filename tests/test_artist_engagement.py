@@ -8,7 +8,7 @@ from sunndari_apps.notifications.models.notification import Notification
 
 from tests.test_customers import (
     make_customer, make_artist, make_package, make_sub_category, make_category, make_location_type,
-    make_booking, seed_booking_statuses, next_weekday,
+    make_booking, make_paid_payment, seed_booking_statuses, next_weekday,
 )
 
 
@@ -187,8 +187,9 @@ class InsightsTest(EngagementBase):
         self._booking(status='completed', start='09:00', end='10:00')
         self._booking(status='completed', day_offset=1, start='09:00', end='10:00')
         self._booking(status='completed', customer=second_customer, day_offset=2, start='09:00', end='10:00', package=other_package)
-        self._booking(status='cancelled', day_offset=3, start='09:00', end='10:00')
-        self._booking(status='pending', day_offset=4, start='09:00', end='10:00')
+        make_paid_payment(self._booking(status='cancelled', day_offset=3, start='09:00', end='10:00'))   # paid, then cancelled
+        pending = self._booking(status='pending', day_offset=4, start='09:00', end='10:00')
+        make_paid_payment(pending)     # an unpaid pending booking is not counted for the artist
         type(self.profile).objects.filter(artist_id=self.profile.artist_id).update(profile_view_count=42)
         data = self.artist_client.get(self.url).data['data']
         self.assertEqual(data['totalBookings'], 5)
