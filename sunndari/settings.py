@@ -286,6 +286,10 @@ CELERY_BEAT_SCHEDULE = {
         # Each payment backs off on its own (1m, 2m, 4m ... capped); this is just how often the queue is looked at.
         'schedule': 300.0,
     },
+    'retry-owed-registration-refunds': {
+        'task': 'sunndari_apps.payments.tasks.retry_owed_registration_refunds',
+        'schedule': 300.0,
+    },
     'reconcile-pending-payments': {
         'task': 'sunndari_apps.payments.tasks.reconcile_pending_payments',
         'schedule': 600.0,

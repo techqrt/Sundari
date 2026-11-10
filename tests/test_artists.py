@@ -86,7 +86,7 @@ def make_address(user, city='Lucknow'):
     return address_id
 
 
-def complete_onboarding_steps(client, user):
+def complete_onboarding_steps(client, user, pay_fee=True):
     """Drives every onboarding step to completion via the real HTTP endpoints
     (reusing the pre-existing service/package/location/availability APIs), so
     onboarding status/submit tests exercise the same path a real artist would."""
@@ -117,7 +117,20 @@ def complete_onboarding_steps(client, user):
         'account_holder_name': 'Test Artist', 'bank_account_number': '111122223333', 'ifsc_code': 'HDFC0001234',
     }, format='json')
     client.put('/artists/profile/agreement/accept/', {}, format='json')
+    if pay_fee:
+        pay_registration_fee(client)
     return get_artist_profile(user)
+
+
+def pay_registration_fee(client):
+    """The registration fee is an onboarding step too. A 100% promo code completes it through the real endpoint
+    without a gateway call (the paid path is covered in test_registration_*). A rejected artist pays again with
+    this to resubmit: the code is free to use again once the earlier payment was voided."""
+    from sunndari_apps.artists.models import PromoCode
+    from tests.test_customers import seed_payment_statuses
+    seed_payment_statuses()
+    PromoCode.objects.get_or_create(code='ONBOARDFREE', defaults={'discount_percent': 100})
+    return client.post('/artists/registration/payment/initiate/', {'promo_code': 'ONBOARDFREE'}, format='json')
 
 
 # ─── ArtistProfile Auto-Creation ──────────────────────────────────────────────

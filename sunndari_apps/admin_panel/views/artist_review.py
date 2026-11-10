@@ -11,6 +11,8 @@ from sunndari_apps.authentication.models import User
 from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.artists.models.document import ArtistDocument
 from sunndari_apps.artists.models.review_feedback import ArtistReviewFeedback
+from sunndari_apps.artists.registration_fee import RegistrationFee
+from sunndari_apps.artists.registration_payment_service import RegistrationPaymentService
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.artists.utils import ArtistsUtils
 from sunndari_apps.core.models.approval_status import ApprovalStatus
@@ -78,11 +80,22 @@ class AdminArtistReviewView:
             raise ValueError(Constants.artist_suspended)
         return artist
 
+    @staticmethod
+    def _registration_fee_settled(artist_id: int) -> bool:
+        return (
+            ArtistProfile.objects.filter(artist_id=artist_id, registration_fee_exempt=True).exists()
+            or RegistrationFee.is_paid(artist_id)
+        )
+
     @Common().exception_handler
     def approve_extract(self, params):
         with transaction.atomic():
             self._require_admin(user_id=params.user_id)
             self._get_reviewable_artist(artist_id=params.artist_id)
+            # Backstop for the onboarding rule: an artist who has not paid the registration fee (and is not
+            # exempt) cannot be approved, whatever state their submission is in.
+            if not self._registration_fee_settled(params.artist_id):
+                raise ValueError(Constants.registration_fee_unpaid)
             if not ArtistDocument.objects.filter(
                 artist_id=params.artist_id, document_type='id_proof', verification_status__name='approved',
             ).exists():
@@ -116,6 +129,8 @@ class AdminArtistReviewView:
             self._require_admin(user_id=params.user_id)
             self._get_reviewable_artist(artist_id=params.artist_id)
             ArtistProfile.reject(artist_id=params.artist_id, reason=params.reason or None)
+            # The registration fee is returned on rejection; the artist pays again to resubmit.
+            owed_refund = RegistrationPaymentService.void_for_rejection(params.artist_id)
             artist = ArtistProfile.get(artist_id=params.artist_id)
             ArtistReviewFeedback.record(
                 artist_id=params.artist_id, admin_user_id=params.user_id,
@@ -126,6 +141,8 @@ class AdminArtistReviewView:
                 message=params.reason or 'Your artist profile needs changes. Please review and resubmit.',
                 type='artist_rejected',
             )
+        if owed_refund:
+            RegistrationPaymentService.refund(owed_refund)      # calls the gateway, so only after the commit
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message='Artist rejected')
@@ -169,6 +186,8 @@ class AdminArtistReviewView:
             'approvalStatus': artist.approval_status.name if artist.approval_status else None,
             'portfolioApprovalStatus': artist.portfolio_approval_status,
             'submittedForReviewAt': artist.submitted_for_review_at,
+            'registrationFeePaid': RegistrationFee.is_paid(artist.artist_id),
+            'registrationFeeExempt': artist.registration_fee_exempt,
             'rejectionReason': artist.rejection_reason,
         }
         return Response(

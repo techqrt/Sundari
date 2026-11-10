@@ -4,7 +4,9 @@ from django.test import TestCase
 
 from sunndari_apps.core.models import ApprovalStatus
 
-from tests.test_artists import make_authenticated_client, get_artist_profile, complete_onboarding_steps
+from tests.test_artists import (
+    make_authenticated_client, get_artist_profile, complete_onboarding_steps, pay_registration_fee,
+)
 
 
 def make_admin_client(phone_number='+919400000101'):
@@ -196,6 +198,7 @@ class AdminArtistApproveRejectTest(TestCase):
         artist_ids = [row['artistId'] for row in resp.data['data']['data']]
         self.assertNotIn(profile.artist_id, artist_ids, 'a rejected artist must not sit in the pending queue')
 
+        pay_registration_fee(artist_client)     # a rejection returns the fee; the artist pays again to resubmit
         artist_client.post('/artists/onboarding/submit/', {}, format='json')
         resp = admin_client.get(self.queue_url)
         artist_ids = [row['artistId'] for row in resp.data['data']['data']]
@@ -380,6 +383,7 @@ class ReviewFeedbackHistoryTest(TestCase):
 
     def test_every_round_of_feedback_is_kept(self):
         self.admin.put(self.reject_url, {'artist_id': self.profile.artist_id, 'reason': 'Round 1: blurry'}, format='json')
+        pay_registration_fee(self.client_a)     # a rejection returns the fee; the artist pays again to resubmit
         self.client_a.post('/artists/onboarding/submit/', {}, format='json')
         self.admin.put(self.reject_url, {'artist_id': self.profile.artist_id, 'reason': 'Round 2: wrong city'}, format='json')
         listed = self.client_a.get(self.feedback_url).data['data']['data']

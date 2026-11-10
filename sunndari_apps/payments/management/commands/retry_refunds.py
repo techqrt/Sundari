@@ -13,3 +13,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         totals = Payment.retry_owed_refunds(force=True)
         self.stdout.write(f"refunded={totals['refunded']} still_pending={totals['pending']}")
+        from sunndari_apps.artists.registration_payment_service import RegistrationPaymentService
+        registration = RegistrationPaymentService.retry_owed_refunds(force=True)
+        self.stdout.write(f"registration refunded={registration['refunded']} still_pending={registration['pending']}")

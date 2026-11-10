@@ -55,6 +55,8 @@ class ArtistProfile(models.Model):
     agreement_version = models.CharField(max_length=20, null=True, blank=True)
     # The artist's on/off switch: when False, no new bookings can be made (existing ones are unaffected).
     is_accepting_bookings = models.BooleanField(default=True)
+    # Artists approved before the registration fee existed, or waived by an admin, do not have to pay it.
+    registration_fee_exempt = models.BooleanField(default=False)
     # Stable, unguessable-enough share handle, created on first request (see ensure_public_slug).
     public_slug = models.SlugField(max_length=80, unique=True, null=True, blank=True)
     profile_view_count = models.PositiveIntegerField(default=0)

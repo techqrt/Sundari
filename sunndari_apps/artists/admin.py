@@ -6,6 +6,7 @@ from sunndari_apps.artists.models import (
     ArtistAvailabilitySchedule, ArtistAvailabilityBlock,
     ArtistDocument, ArtistPayoutAccount, ArtistSpeciality, ArtistReviewFeedback,
     PackageAddOn, ArtistServiceArea, ArtistClientNote, BrandRequest,
+    PromoCode, PromoRedemption, ArtistRegistrationPayment,
 )
 from sunndari_apps.common.admin_columns import related_column, preview_column
 
@@ -18,7 +19,9 @@ class ArtistProfileAdmin(ModelAdmin):
         'artist_id', 'artist_name', 'phone_number', 'city', 'approval_status', 'portfolio_approval_status',
         'is_accepting_bookings', 'avg_rating', 'created_at',
     )
-    list_filter = ('approval_status', 'portfolio_approval_status', 'is_accepting_bookings', 'profile_type')
+    list_filter = (
+        'approval_status', 'portfolio_approval_status', 'is_accepting_bookings', 'profile_type', 'registration_fee_exempt',
+    )
     search_fields = ('user__name', 'user__phone_number', 'user__email', 'display_name', 'city')
     list_select_related = ('user', 'approval_status')
 
@@ -170,4 +173,37 @@ class PricingPackageAdmin(ModelAdmin):
     list_filter = ('is_active', 'sub_category__category')
     search_fields = ARTIST_SEARCH + ('name', 'sub_category__name')
     list_select_related = ('artist__user', 'sub_category__category')
+    artist_name = related_column('Artist', 'artist__user__name', 'artist__user__phone_number')
+
+
+@admin.register(PromoCode)
+class PromoCodeAdmin(ModelAdmin):
+    list_display = ('promo_id', 'code', 'discount_percent', 'is_active', 'valid_from', 'valid_until', 'max_redemptions', 'used')
+    list_filter = ('is_active',)
+    search_fields = ('code',)
+    readonly_fields = ('created_at', 'updated_at')
+
+    @admin.display(description='Used')
+    def used(self, obj):
+        return obj.redemptions.filter(status__in=['reserved', 'redeemed']).count()
+
+
+@admin.register(PromoRedemption)
+class PromoRedemptionAdmin(ModelAdmin):
+    list_display = ('redemption_id', 'promo', 'artist_name', 'status', 'created_at')
+    list_filter = ('status',)
+    search_fields = ('promo__code',) + ARTIST_SEARCH
+    list_select_related = ('promo', 'artist__user')
+    artist_name = related_column('Artist', 'artist__user__name', 'artist__user__phone_number')
+
+
+@admin.register(ArtistRegistrationPayment)
+class ArtistRegistrationPaymentAdmin(ModelAdmin):
+    list_display = (
+        'registration_payment_id', 'artist_name', 'fee_amount', 'discount_percent', 'payable_amount',
+        'promo', 'status', 'gateway', 'paid_at', 'created_at',
+    )
+    list_filter = ('status', 'gateway')
+    search_fields = ARTIST_SEARCH + ('gateway_order_id', 'gateway_payment_id', 'promo__code')
+    list_select_related = ('artist__user', 'promo', 'status')
     artist_name = related_column('Artist', 'artist__user__name', 'artist__user__phone_number')

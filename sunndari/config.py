@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from decouple import config
 
 
@@ -43,6 +45,9 @@ class Configurations:
     max_portfolio_items = 20
     max_saved_addresses = 5
     min_package_price = 500
+    # One-time fee an artist pays before submitting their profile for review (promo codes discount it).
+    # Set ARTIST_REGISTRATION_FEE in the environment to change it without a deploy; unset means 1999.
+    artist_registration_fee = config('ARTIST_REGISTRATION_FEE', default='1999.00', cast=Decimal)
     commission_min = 10
     commission_max = 25
     brevo_smtp_login = config('BREVO_SMTP_LOGIN')

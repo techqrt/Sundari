@@ -27,7 +27,7 @@ ROLE_OVERRIDES = {
 TAG_GROUPS = [
     ('Authentication', ['Authentication - Phone OTP', 'Authentication - Email OTP', 'Authentication - Password', 'Authentication - Google', 'Authentication']),
     ('Users', ['Users - Profile', 'Users - Address']),
-    ('Artist · profile & onboarding', ['Artists - Profile', 'Artists - Onboarding', 'Artists - Services', 'Artists - Locations', 'Artists - Availability']),
+    ('Artist · profile & onboarding', ['Artists - Profile', 'Artists - Onboarding', 'Artists - Registration Fee', 'Artists - Services', 'Artists - Locations', 'Artists - Availability']),
     ('Artist · catalogue', ['Artists - Portfolio', 'Artists - Packages', 'Artists - Add-ons', 'Artists - Service areas', 'Artists - Brands']),
     ('Artist · bookings & business', ['Artists - Bookings', 'Artists - Reschedule', 'Artists - Reviews', 'Artists - Customer reviews', 'Artists - Clients', 'Artists - Insights']),
     ('Customer', ['Customers - Search', 'Customers - Artists', 'Customers - Booking', 'Customers - Reschedule', 'Customers - Reviews']),
@@ -77,6 +77,11 @@ RETURNS = {
     '/help_center/tickets/get/': _TICKET, '/help_center/tickets/get_all/': _PAGE([_TICKET]),
     '/help_center/admin/tickets/get/': {**_TICKET, 'userId': 21, 'userName': 'Riya', 'userRole': 'customer'},
     '/help_center/admin/tickets/get_all/': _PAGE([{**_TICKET, 'userId': 21, 'userName': 'Riya', 'userRole': 'customer'}]),
+    '/artists/registration/fee/': {'feeAmount': '1999.00', 'currency': 'INR', 'paid': False, 'exempt': False, 'registrationRequired': True, 'paidAt': None},
+    '/artists/registration/promo/validate/': {'promoCode': 'WELCOME50', 'feeAmount': '1999.00', 'discountPercent': '50.00', 'discountAmount': '999.50',
+                                             'payableAmount': '999.50', 'currency': 'INR', 'requiresPayment': True},
+    '/artists/registration/payment/initiate/': {'registration_payment_id': 3, 'gateway_order_id': 'order_Nxyz123', 'razorpay_key_id': 'rzp_test_xxxxxxxx', 'amount': 99950,
+                                               'currency': 'INR', 'fee_amount': '1999.00', 'discount_amount': '999.50', 'payable_amount': '999.50', 'fully_covered_by_promo': False},
     '/artists/documents/file/': None,
     '/public/artists/get/': {'displayName': 'Glam Studio', 'profileType': 'studio', 'bio': 'Bridal specialist', 'city': 'Lucknow', 'yearsExperience': 6, 'instagramUrl': 'https://instagram.com/glam',
                              'avgRating': '4.80', 'totalReviews': 25, 'isAcceptingBookings': True, 'profilePhotoUrl': 'https://api.example.com/media/artist_photos/artist_7/a.png', 'coverPhotoUrl': None,
@@ -87,16 +92,22 @@ RETURNS = {
     '/admin-panel/artists/review/get/': {'artistId': 7, 'userId': 30, 'fullName': 'Asha Verma', 'displayName': 'Glam Studio', 'dateOfBirth': '1992-03-04', 'instagramUrl': 'https://instagram.com/glam',
                                          'profilePhotoUrl': '/media/artist_photos/artist_7/a.png', 'coverPhotoUrl': None, 'profileType': 'studio', 'bio': 'Bridal specialist', 'yearsExperience': 6,
                                          'city': 'Lucknow', 'specialities': [{'subCategoryId': 3, 'name': 'Bridal Makeup'}], 'workSamples': [{'portfolioId': 40, 'fileUrl': '/media/portfolios/artist_7/w.png', 'caption': None}],
-                                         'approvalStatus': 'pending', 'submittedForReviewAt': '2026-10-05T10:00:00+00:00', 'rejectionReason': None},
+                                         'approvalStatus': 'pending', 'submittedForReviewAt': '2026-10-05T10:00:00+00:00', 'registrationFeePaid': True, 'registrationFeeExempt': False, 'rejectionReason': None},
 }
 RETURNS = {k: v for k, v in RETURNS.items() if v is not None}
 MESSAGES = {
     '/customers/bookings/create/': 'Slot locked. Complete payment within 15 minutes.', '/customers/payments/initiate/': 'Payment initiated. Complete payment using the returned order reference.',
     '/artists/documents/create/': 'Document uploaded successfully',
+    '/artists/registration/promo/validate/': 'Promo code applied', '/artists/registration/payment/initiate/': 'Registration payment initiated. Complete payment using the returned order reference.',
+    '/artists/registration/payment/verify/': 'Payment verified successfully',
 }
 
 # ───────────────────────── extra notes / field notes ─────────────────────────
 ENDPOINT_NOTES = {
+    '/artists/registration/fee/': 'Shows the one-time registration fee and whether this artist still has to pay it. <code>registrationRequired</code> is <code>false</code> once it is paid <b>or</b> the artist is exempt (artists approved before the fee existed). The fee is set on the server; never hard-code the amount in the app.',
+    '/artists/registration/promo/validate/': 'A <b>preview only</b>: it returns the discount and the amount to pay for a promo code and records nothing, so call it as the artist types the code. The code is reserved only when the payment is started. Codes are not case-sensitive. 400 if the code is unknown, switched off, expired, already used by this artist, or fully redeemed.',
+    '/artists/registration/payment/initiate/': 'Send an optional <code>promo_code</code> only &mdash; <b>never an amount</b>; the server works out every figure. <b>201</b> = new order, <b>200</b> = the same open order again (a double tap is safe); changing or removing the code replaces the open attempt. If <code>fully_covered_by_promo</code> is <code>true</code> (a 100% code) there is <b>no Razorpay step</b>: <code>amount</code> is 0, <code>gateway_order_id</code> is <code>null</code> and the fee is already paid. Otherwise open Razorpay Checkout with <code>gateway_order_id</code>, <code>razorpay_key_id</code> and <code>amount</code> (in paise), then call verify. Starting a payment does <b>not</b> mark the fee paid.',
+    '/artists/registration/payment/verify/': 'Call this right after Razorpay Checkout succeeds, with the three values Razorpay returns. It is idempotent. The fee counts as paid only after the server has confirmed the payment with Razorpay; if the app is closed first, Razorpay&rsquo;s webhook settles it, so re-read <a href="#get-artists-registration-fee-get">the fee status</a> when the app reopens. If the payment cannot be applied (for example the fee was already paid) it answers 400 and the money is refunded automatically.',
     '/artists/documents/file/': 'Returns the <b>file bytes</b>, not JSON. It needs the Bearer header, so a plain <code>&lt;img src&gt;</code> will not work — fetch it with your HTTP client and show a blob/object URL. Query: <code>document_id</code>, optional <code>side=front|back</code> (default front).',
     '/help_center/tickets/attachment/': 'Returns the <b>file bytes</b> (needs the Bearer header — fetch and show as a blob).',
     '/customers/payments/initiate/': 'Send the <code>booking_id</code> only (and <code>amount</code> for an advance/partial payment). <b>Never send a price</b> — the server computes it. Status <b>201</b> = new order; status <b>200</b> = an identical open order already existed and is returned again (same <code>gateway_order_id</code>) — treat both as success and open the Razorpay checkout with the returned order.',
@@ -166,8 +177,8 @@ CHANGED = {
     '/artists/documents/get/': (B, '<code>fileUrl</code> is now an API <b>route</b> (<code>/artists/documents/file/?document_id=…</code>), not a media path — prepend your base URL and fetch it with the Bearer header. New fields <code>idType</code>, <code>backFileUrl</code>; <code>documentNumber</code> is <b>masked</b> (only the last 4 characters).'),
     '/artists/documents/get_all/': (B, 'Same as the single get: <code>fileUrl</code>/<code>backFileUrl</code> are authenticated routes, <code>documentNumber</code> is masked, new <code>idType</code>.'),
     '/artists/documents/delete/': (CH, 'Also deletes the stored files.'),
-    '/artists/onboarding/status/': (CH, '<code>steps</code> has two new booleans, <code>registrationFields</code> and <code>workSamples</code>; new <code>latestFeedback</code> (<code>null</code> or the last admin decision).'),
-    '/artists/onboarding/submit/': (CH, 'Stricter: also requires display name, date of birth, profile type and at least one work sample. Approval additionally needs the ID proof to be verified by an admin.'),
+    '/artists/onboarding/status/': (CH, '<code>steps</code> has new booleans <code>registrationFields</code>, <code>workSamples</code> and <b><code>registrationFee</code></b> (true once the registration fee is paid or the artist is exempt); new <code>latestFeedback</code> (<code>null</code> or the last admin decision).'),
+    '/artists/onboarding/submit/': (CH, 'Stricter: also requires display name, date of birth, profile type, at least one work sample and the <b>registration fee</b> (paid or exempt; see [[GET /artists/registration/fee/]]). Approval additionally needs the ID proof to be verified by an admin and the fee settled.'),
     '/customers/artists/search/': (CH, 'Artists who switched bookings off no longer appear. An artist is found only through packages that are active <b>and</b> under a service that is switched on; <code>startingPrice</code> ignores the rest, and an artist with nothing bookable drops out of the results.'),
     '/customers/artists/get/': (CH, 'Adds <code>addOns</code> (active, each with <code>packageIds</code>) and <code>serviceAreas</code> (active); <code>profile</code> gains <code>displayName</code>, <code>instagramUrl</code>, <code>profileType</code>, <code>isAcceptingBookings</code>; packages gain the new package fields; portfolio is in the artist\'s chosen order and excludes work samples. Each successful call counts as a profile view.'),
     '/customers/artists/availability/': (CH, 'Adds <code>blockedRanges</code>, <code>bufferBeforeMinutes</code>, <code>bufferAfterMinutes</code> — use these (not just <code>bookedRanges</code>) to decide which times to offer.'),
@@ -182,8 +193,9 @@ CHANGED = {
     '/customers/payments/verify/': (CH, 'A capture that would push the booking above its total is refused (400 "…exceed the booking total… will be refunded") and the payment is marked failed. If the booking is no longer active when the payment is confirmed (it expired or was cancelled while the customer was paying), the answer is HTTP 400 &ldquo;This booking is no longer active&hellip; it will be refunded&rdquo; and the server <b>refunds the money itself</b> &mdash; nothing to do in the app. Overpaid captures are refunded the same way (the payment becomes <code>refunded</code>, not <code>failed</code>).'),
     '/customers/reviews/get/': (CH, 'Reviews now include <code>reply</code> and <code>repliedAt</code> (the artist\'s answer, or <code>null</code>).'),
     '/customers/reviews/get_all/': (CH, 'Each review includes <code>reply</code> and <code>repliedAt</code>.'),
-    '/admin-panel/artists/approve/': (CH, 'Optional <code>message</code> (kept in the artist\'s feedback history). Requires the artist\'s ID proof to be <b>verified</b> first, refuses suspended artists, is idempotent, and notifies the artist.'),
-    '/admin-panel/artists/reject/': (CH, 'The reason is added to the artist\'s feedback history and sent as a notification; refuses suspended artists.'),
+    '/admin-panel/artists/approve/': (CH, 'Optional <code>message</code> (kept in the artist\'s feedback history). Requires the artist\'s ID proof to be <b>verified</b> first and the registration fee to be paid (or the artist exempt), refuses suspended artists, is idempotent, and notifies the artist.'),
+    '/admin-panel/artists/reject/': (CH, 'The reason is added to the artist\'s feedback history and sent as a notification; refuses suspended artists. The artist\'s <b>registration fee is refunded</b> to the original payment method (a free 100%-promo registration just releases the promo), so they must pay again to resubmit.'),
+    '/admin-panel/artists/review/get/': (CH, 'Adds <code>registrationFeePaid</code> and <code>registrationFeeExempt</code>.'),
 }
 
 
@@ -363,7 +375,7 @@ Failure:  { "status": false, "message": "…",  "error": ["…"] }</pre>
 FLOWS = r"""
 <p class="lead">Each flow lists the calls in order. Click an endpoint to jump to its full reference (fields, limits, examples).</p>
 <nav class="flowindex">
-  <a href="#flow-auth">1 · Sign-in &amp; passwords</a><a href="#flow-onboarding">2 · Artist onboarding &amp; approval</a><a href="#flow-kyc">3 · KYC &amp; bank</a>
+  <a href="#flow-auth">1 · Sign-in &amp; passwords</a><a href="#flow-onboarding">2 · Artist onboarding &amp; approval</a><a href="#flow-registration-fee">2b · Registration fee</a><a href="#flow-kyc">3 · KYC &amp; bank</a>
   <a href="#flow-booking">4 · Booking (customer)</a><a href="#flow-payment">5 · Payment &amp; refunds</a><a href="#flow-lifecycle">6 · Booking day (artist)</a>
   <a href="#flow-reschedule">7 · Reschedule</a><a href="#flow-artist-tools">8 · Artist tools</a><a href="#flow-contact">9 · Change email / phone</a>
   <a href="#flow-support">10 · Support, chat &amp; notifications</a><a href="#flow-admin">11 · Admin screens</a><a href="#flow-new-services">12 · New services</a>
@@ -393,6 +405,7 @@ FLOWS = r"""
 <tr><td><code>documents</code></td><td>an ID proof</td><td>see <a href="#flow-kyc">KYC</a></td></tr>
 <tr><td><code>payoutAccount</code></td><td>bank account saved</td><td>[[PUT /artists/payout_account/set/]]</td></tr>
 <tr><td><code>agreement</code></td><td>Terms &amp; Privacy accepted</td><td>[[PUT /artists/profile/agreement/accept/]] (get the links from [[GET /core/pages/get/]])</td></tr>
+<tr><td><code>registrationFee</code></td><td>the registration fee is paid, or the artist is exempt</td><td>see <a href="#flow-registration-fee">Registration fee</a></td></tr>
 </tbody></table>
 <p>Nice-to-haves that are not required to submit: profile/cover photo [[PUT /artists/profile/photo/upload/]], specialities [[PUT /artists/profile/specialities/set/]] (must be a subset of the services the artist offers, max 10), package extras/photo, add-ons, service areas.</p>
 <h4>Submit, review, feedback, resubmit</h4>
@@ -403,7 +416,25 @@ FLOWS = r"""
  <li>After a rejection the artist fixes things and calls [[POST /artists/onboarding/submit/]] again (resubmit) — it goes back to <code>submitted</code>.</li>
  <li>Once <code>approved</code>, editing services, packages, photos etc. does <b>not</b> take the profile offline.</li>
 </ol>
+<div class="callout"><b>Rejected = fee returned.</b> When an admin rejects an artist the registration fee is refunded, so <code>registrationFee</code> goes back to <code>false</code> and the artist pays again before resubmitting (a promo code used earlier can be used again). Paying never approves anyone: the profile still waits for the admin.</div>
 <div class="callout">The “changes required” state is shown with <code>status: "rejected"</code> plus the admin's message — there is no separate status value.</div>
+</section>
+
+<section class="flow" id="flow-registration-fee"><h3>2b · Registration fee and promo codes</h3>
+<p>Every new artist pays a one-time registration fee before they can submit their profile. The amount and every discount are calculated on the server; the app only shows them. Artists approved before the fee existed are exempt (<code>exempt: true</code>).</p>
+<ol class="steps">
+ <li>[[GET /artists/registration/fee/]] — show the fee and whether payment is still required (<code>registrationRequired</code>).</li>
+ <li>Optional promo code: [[POST /artists/registration/promo/validate/]] shows the discount and the amount to pay without recording anything. Show the server&rsquo;s numbers, never your own.</li>
+ <li>[[POST /artists/registration/payment/initiate/]] with the same <code>promo_code</code> (or none). Two outcomes:
+  <ul><li><code>fully_covered_by_promo: true</code> (a 100% code) — done, the fee is paid and no checkout is needed.</li>
+  <li>otherwise — open Razorpay Checkout with the returned order, then call [[POST /artists/registration/payment/verify/]] with the three values Razorpay returns.</li></ul></li>
+ <li>Re-read [[GET /artists/onboarding/status/]]: <code>steps.registrationFee</code> is now <code>true</code>, so the artist can submit.</li>
+</ol>
+<table class="kv"><thead><tr><th>Promo</th><th>Discount</th><th>Artist pays</th></tr></thead><tbody>
+<tr><td>none</td><td>₹0</td><td>₹1,999.00</td></tr><tr><td>25%</td><td>₹499.75</td><td>₹1,499.25</td></tr>
+<tr><td>50%</td><td>₹999.50</td><td>₹999.50</td></tr><tr><td>75%</td><td>₹1,499.25</td><td>₹499.75</td></tr><tr><td>100%</td><td>₹1,999.00</td><td>₹0 (no checkout)</td></tr>
+</tbody></table>
+<div class="callout"><b>Good to know.</b> A promo code is used once per artist and may have an overall limit; it is held while a payment is open and only counts as used once the payment completes. If the app is closed after paying, the server still settles the payment (webhook), so re-read the fee status on reopening instead of asking the artist to pay again. Promo codes are created by an admin in the Django admin.</div>
 </section>
 
 <section class="flow" id="flow-kyc"><h3>3 · KYC documents and bank account</h3>
@@ -659,6 +690,10 @@ ERRORS = """
 <tr><td>To change your email or phone number, request a verification code…</td><td>profile update</td><td>Route to the contact-change flow</td></tr>
 <tr><td>Incomplete: &lt;step name&gt; (one entry per missing step)</td><td>onboarding submit</td><td><code>error</code> lists each missing step; highlight them</td></tr>
 <tr><td>The artist has no verified ID proof; verify the identity document first</td><td>admin approve</td><td>Open the KYC panel</td></tr>
+<tr><td>The artist has not paid the registration fee; it must be paid before approval</td><td>admin approve</td><td>Tell the admin the artist still owes the fee</td></tr>
+<tr><td>Invalid promo code / This promo code is not valid at this time / You have already used this promo code / This promo code has been fully redeemed</td><td>promo validate, registration initiate</td><td>Show as-is under the code field</td></tr>
+<tr><td>The registration fee does not apply to this account or has already been paid</td><td>registration initiate, promo validate</td><td>Hide the fee screen and refresh the onboarding status</td></tr>
+<tr><td>This payment could not be applied to your registration, so it will be refunded</td><td>registration verify</td><td>Tell the artist the money will be returned; refresh the status</td></tr>
 <tr><td>Only genuine JPEG, PNG or WEBP images are allowed / The uploaded file is too large</td><td>uploads</td><td>Show as-is</td></tr>
 </tbody></table>
 """
@@ -668,10 +703,10 @@ ERRORS = """
 FLOW_DIAGRAMS = {
     'flow-onboarding': r"""stateDiagram-v2
   [*] --> in_progress: register as artist
-  in_progress --> submitted: all steps done, submit
+  in_progress --> submitted: all steps done incl. registration fee, submit
   submitted --> approved: admin verifies ID, approves
   submitted --> rejected: admin rejects with a message
-  rejected --> submitted: artist fixes things, resubmits
+  rejected --> submitted: fee refunded on rejection; artist fixes things, pays again, resubmits
   approved --> [*]""",
     'flow-booking': r"""flowchart LR
   S["Search artists"] --> D["Artist page\npackages, add-ons, areas"]

@@ -22,6 +22,7 @@ from sunndari_apps.artists.serializers.response.get.get_onboarding_status import
 from sunndari_apps.artists.serializers.response.get_all.get_all_review_feedback import (
     ReviewFeedbackResponseGetAllSerializer,
 )
+from sunndari_apps.artists.registration_fee import RegistrationFee
 from sunndari_apps.artists.utils import ArtistsUtils
 from sunndari.constants import Constants
 
@@ -35,6 +36,7 @@ STEP_LABELS = {
     'documents': 'Identity/verification document',
     'payoutAccount': 'Payout bank account',
     'agreement': 'Partner agreement acceptance',
+    'registrationFee': 'Registration fee payment',
 }
 
 
@@ -65,6 +67,11 @@ class ArtistOnboardingView:
             'documents': ArtistDocument.has_type(artist_id=artist_id, document_type='id_proof'),
             'payoutAccount': ArtistPayoutAccount.get(artist_id=artist_id) is not None,
             'agreement': profile['terms_accepted_at'] is not None,
+            # Paid, or exempt (approved before the fee existed, or waived by an admin).
+            'registrationFee': (
+                ArtistProfile.objects.filter(artist_id=artist_id, registration_fee_exempt=True).exists()
+                or RegistrationFee.is_paid(artist_id)
+            ),
         }
 
     def _compute_status(self, profile: dict, steps: dict) -> str:

@@ -7,6 +7,7 @@ from sunndari_apps.artists.controllers.booking import ArtistBookingController
 from sunndari_apps.artists.controllers.document import ArtistDocumentController
 from sunndari_apps.artists.controllers.payout_account import ArtistPayoutAccountController
 from sunndari_apps.artists.controllers.onboarding import ArtistOnboardingController
+from sunndari_apps.artists.controllers.registration_payment import ArtistRegistrationPaymentController
 from sunndari_apps.artists.controllers.addon import AddOnController
 from sunndari_apps.artists.controllers.reschedule import ArtistRescheduleController
 from sunndari_apps.artists.controllers.review import ArtistReviewController
@@ -111,4 +112,10 @@ urlpatterns = [
     path('onboarding/status/', ArtistOnboardingController.get_status, name='artist_onboarding_status'),
     path('review/feedback/get_all/', ArtistOnboardingController.get_feedback, name='artist_review_feedback_get_all'),
     path('onboarding/submit/', ArtistOnboardingController.submit, name='artist_onboarding_submit'),
+
+    # Registration fee
+    path('registration/fee/', ArtistRegistrationPaymentController.get_fee, name='artist_registration_fee'),
+    path('registration/payment/initiate/', ArtistRegistrationPaymentController.initiate_payment, name='artist_registration_payment_initiate'),
+    path('registration/payment/verify/', ArtistRegistrationPaymentController.verify_payment, name='artist_registration_payment_verify'),
+    path('registration/promo/validate/', ArtistRegistrationPaymentController.validate_promo, name='artist_registration_promo_validate'),
 ]

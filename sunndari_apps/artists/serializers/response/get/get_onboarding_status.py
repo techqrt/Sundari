@@ -11,6 +11,7 @@ class OnboardingStepsSerializer(serializers.Serializer):
     documents = serializers.BooleanField()
     payoutAccount = serializers.BooleanField()
     agreement = serializers.BooleanField()
+    registrationFee = serializers.BooleanField()
 
 
 class LatestFeedbackSerializer(serializers.Serializer):

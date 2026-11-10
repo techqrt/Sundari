@@ -14,3 +14,5 @@ from .review_feedback import ArtistReviewFeedback
 from .client_note import ArtistClientNote
 from .brand_request import BrandRequest
 from .payout_account import ArtistPayoutAccount
+from .promo_code import PromoCode, PromoRedemption
+from .registration_payment import ArtistRegistrationPayment

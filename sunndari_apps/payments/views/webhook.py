@@ -10,6 +10,8 @@ from sunndari.constants import Constants
 from sunndari_apps.common.utils import Utils
 from sunndari_apps.core.models.payment_status import PaymentStatus
 from sunndari_apps.notifications.utils import NotificationService
+from sunndari_apps.artists.models.registration_payment import ArtistRegistrationPayment
+from sunndari_apps.artists.registration_payment_service import RegistrationPaymentService
 from sunndari_apps.payments.models import Payment, PaymentOrder
 from sunndari_apps.payments.services import PaymentSettlementService
 
@@ -106,7 +108,8 @@ class RazorpayWebhookView:
             return
         order = PaymentOrder.get_by_gateway_order_id(gateway_order_id=gateway_order_id)
         if order is None:
-            logger.warning('Webhook for unknown gateway order %s', gateway_order_id)
+            if not self._registration_captured(entity, gateway_payment_id, gateway_order_id):
+                logger.warning('Webhook for unknown gateway order %s', gateway_order_id)
             return
         if entity.get('amount') != int(round(order['total_amount'] * 100)):
             logger.error('Webhook amount %s does not match order %s', entity.get('amount'), order['order_id'])
@@ -121,11 +124,39 @@ class RazorpayWebhookView:
                     message='Your payment was received successfully.', booking_id=booking_id,
                 )
 
+    def _registration_captured(self, entity: dict, gateway_payment_id: str, gateway_order_id: str) -> bool:
+        """An artist's registration-fee payment, settled through the same rules as /registration/payment/verify/.
+        Returns False when the order is not a registration payment at all."""
+        registration = ArtistRegistrationPayment.objects.select_related('artist').filter(
+            gateway_order_id=gateway_order_id,
+        ).first()
+        if registration is None:
+            return False
+        if entity.get('amount') != int(round(registration.payable_amount * 100)):
+            logger.error('Webhook amount %s does not match registration payment %s',
+                         entity.get('amount'), registration.registration_payment_id)
+            return True
+        if _text(entity.get('currency')) not in ('', Configurations.razorpay_currency):
+            logger.error('Webhook currency %s does not match registration payment %s',
+                         entity.get('currency'), registration.registration_payment_id)
+            return True
+        outcome = RegistrationPaymentService.settle(
+            registration_payment_id=registration.registration_payment_id, gateway_payment_id=gateway_payment_id,
+        )
+        if outcome == RegistrationPaymentService.APPLIED:
+            RegistrationPaymentService.notify_paid(registration.artist.user_id)
+        return True
+
     def _refund_processed(self, payload: dict) -> None:
         """The gateway finished a refund we asked for: record its id, and close the obligation if the call
         that asked for it never reported success (a lost reply). Only refunds this system made are acted on
         (they carry our payment id in the notes); anything done by hand on the dashboard is left alone."""
         entity = _dict(_dict(payload.get('refund')).get('entity'))
+        registration_id = _dict(entity.get('notes')).get('registration_payment_id')
+        if isinstance(registration_id, (str, int)) and str(registration_id).isdigit() and len(str(registration_id)) <= 18 \
+                and _text(entity.get('id')):
+            RegistrationPaymentService.record_refund_processed(int(registration_id), entity['id'])
+            return
         payment_id = _dict(entity.get('notes')).get('payment_id')
         if not (isinstance(payment_id, (str, int)) and str(payment_id).isdigit() and len(str(payment_id)) <= 18) or not _text(entity.get('id')):
             return
