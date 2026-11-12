@@ -48,6 +48,33 @@ class ArtistProfileDjangoAdminTest(TestCase):
         self.assertContains(response, 'Artist List Name')
         self.assertContains(response, '+919400000098')
 
+    def test_the_bookings_switch_and_the_admin_lock_cannot_be_edited_here(self):
+        """Editing them here would bypass the rules that guard them (approval, a settled registration fee, the admin
+        lock). They are shown, but only the artist's own switch and the admin panel's can change them; the fee waiver
+        stays editable."""
+        _, artist_user = make_authenticated_client(phone_number='+919400000097')
+        profile = get_artist_profile(artist_user)
+        admin_user = get_user_model().objects.create_superuser(
+            username='switch-admin', email='switch-admin@example.com', password='test-password',
+        )
+        self.client.force_login(admin_user)
+        change_url = reverse('admin:artists_artistprofile_change', args=[profile.artist_id])
+
+        response = self.client.get(change_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="is_accepting_bookings"')
+        self.assertNotContains(response, 'name="accepting_locked_by_admin"')
+        self.assertContains(response, 'name="registration_fee_exempt"')
+
+        self.client.post(change_url, {
+            'user': profile.user_id, 'years_experience': '0', 'service_radius_km': '10',
+            'travel_time_before_minutes': '0', 'return_buffer_minutes': '0', 'avg_rating': '0.00',
+            'total_reviews': '0', 'commission_rate': '10.00', 'approval_status': profile.approval_status_id,
+            'is_accepting_bookings': 'on', 'accepting_locked_by_admin': '',
+        })
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_accepting_bookings)        # an unpaid artist cannot be switched on from here
+
     def test_portfolio_approval_status_is_editable(self):
         _, artist_user = make_authenticated_client(phone_number='+919400000099')
         profile = get_artist_profile(artist_user)

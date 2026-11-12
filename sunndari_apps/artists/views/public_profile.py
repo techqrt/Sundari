@@ -24,7 +24,7 @@ class PublicArtistView:
     @Common().exception_handler
     def get_extract(self, slug: str, present_url: str):
         artist = ArtistProfile.objects.select_related('user').filter(
-            public_slug=slug, approval_status__name='approved',
+            ArtistProfile.public_filter(), public_slug=slug,
         ).first()
         if not artist:
             raise ValueError(Constants.artist_not_found)

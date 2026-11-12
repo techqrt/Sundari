@@ -124,6 +124,14 @@ class ArtistBookingView:
             status_id=booking['status_id'],
         ).values_list('name', flat=True).first()
 
+        # An artist whose bookings are off, who was switched off by an admin, or whose registration payment is not
+        # settled cannot accept a request. Only accepting is blocked: declining, cancelling, starting and completing
+        # existing bookings stay allowed, so nothing already booked is disturbed.
+        if params.status == 'confirmed':
+            block_reason = ArtistProfile.accept_block_reason(artist_id)
+            if block_reason:
+                raise ValueError(block_reason)
+
         # Accepting is the only forward-progressing move this generic endpoint can make
         # (cancelling/no-show are closing moves, always allowed even on an expired
         # booking) — block it once the booking's own window has elapsed, rather than

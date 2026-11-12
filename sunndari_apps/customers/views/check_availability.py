@@ -19,7 +19,7 @@ class CheckAvailabilityView:
     @Common(response_handler=AvailabilityResponseSerializer).exception_handler
     def get_extract(self, params: CheckAvailabilityRequest):
         artist = ArtistProfile.objects.filter(
-            artist_id=params.artist_id, approval_status__name='approved',
+            ArtistProfile.public_filter(), artist_id=params.artist_id,
         ).first()
         if not artist:
             raise ValueError(Constants.artist_not_found)

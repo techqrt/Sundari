@@ -110,7 +110,7 @@ class PortfolioView:
         # Someone else's list: only an approved artist's active items — never drafts or
         # hidden items of an artist who is still pending, rejected or suspended.
         is_foreign = profile.user_id != params.user_id
-        if is_foreign and (not profile.approval_status or profile.approval_status.name != 'approved'):
+        if is_foreign and not ArtistProfile.is_public(profile.artist_id):
             raise ValueError(Constants.artist_not_found)
         reversed_mapped = ArtistsUtils.reverse_mapper('portfolio', [params.sort_by, params.filter_key])
         pages = Paginator(

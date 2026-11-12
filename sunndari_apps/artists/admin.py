@@ -24,6 +24,12 @@ class ArtistProfileAdmin(ModelAdmin):
     )
     search_fields = ('user__name', 'user__phone_number', 'user__email', 'display_name', 'city')
     list_select_related = ('user', 'approval_status')
+    # The bookings switch and the admin lock are changed only through the rules that guard them (the artist's own
+    # switch, and the admin panel's, which needs approval and a settled fee to switch on). Left editable here, one
+    # tick could store ON for an unpaid artist, who would then go live by themselves the moment they pay, or clear an
+    # admin's switch-off. They are still shown, just not editable. The fee waiver (registration_fee_exempt) stays
+    # editable: it is the admin's deliberate way to waive the fee.
+    readonly_fields = ('is_accepting_bookings', 'accepting_locked_by_admin')
 
     @admin.display(description='Name', ordering='user__name')
     def artist_name(self, obj):

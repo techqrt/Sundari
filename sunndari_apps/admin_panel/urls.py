@@ -15,4 +15,6 @@ urlpatterns = [
     path('brands/requests/get_all/', AdminBrandController.get_all_requests, name='admin_get_all_brand_requests'),
     path('brands/requests/decide/', AdminBrandController.decide_request, name='admin_decide_brand_request'),
     path('artists/reject/', AdminArtistReviewController.reject_artist, name='admin_reject_artist'),
+    path('artists/get_all/', AdminArtistReviewController.get_all_artists, name='admin_get_all_artists'),
+    path('artists/accepting_bookings/', AdminArtistReviewController.set_artist_accepting_bookings, name='admin_set_artist_accepting_bookings'),
 ]

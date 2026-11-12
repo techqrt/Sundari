@@ -1,5 +1,6 @@
 import json
 from django.db import transaction
+from django.db.models import Exists, OuterRef, Q
 from django.core.paginator import Paginator
 from rest_framework import status
 from rest_framework.response import Response
@@ -10,12 +11,15 @@ from sunndari_apps.common.dataclasses.request.get_all import GetAll
 from sunndari_apps.authentication.models import User
 from sunndari_apps.artists.models.artist_profile import ArtistProfile
 from sunndari_apps.artists.models.document import ArtistDocument
+from sunndari_apps.artists.models.registration_payment import ArtistRegistrationPayment
 from sunndari_apps.artists.models.review_feedback import ArtistReviewFeedback
 from sunndari_apps.artists.registration_fee import RegistrationFee
 from sunndari_apps.artists.registration_payment_service import RegistrationPaymentService
 from sunndari_apps.notifications.utils import NotificationService
 from sunndari_apps.artists.utils import ArtistsUtils
 from sunndari_apps.core.models.approval_status import ApprovalStatus
+from sunndari_apps.admin_panel.dataclasses.request.get.get_all_artists import GetAllArtistsRequest
+from sunndari_apps.admin_panel.serializers.response.get_all.get_all_artist import ArtistAdminResponseGetAllSerializer
 from sunndari_apps.admin_panel.serializers.response.get_all.get_all_artist_review import (
     ArtistReviewQueueResponseGetAllSerializer,
 )
@@ -80,22 +84,13 @@ class AdminArtistReviewView:
             raise ValueError(Constants.artist_suspended)
         return artist
 
-    @staticmethod
-    def _registration_fee_settled(artist_id: int) -> bool:
-        return (
-            ArtistProfile.objects.filter(artist_id=artist_id, registration_fee_exempt=True).exists()
-            or RegistrationFee.is_paid(artist_id)
-        )
-
     @Common().exception_handler
     def approve_extract(self, params):
         with transaction.atomic():
             self._require_admin(user_id=params.user_id)
             self._get_reviewable_artist(artist_id=params.artist_id)
-            # Backstop for the onboarding rule: an artist who has not paid the registration fee (and is not
-            # exempt) cannot be approved, whatever state their submission is in.
-            if not self._registration_fee_settled(params.artist_id):
-                raise ValueError(Constants.registration_fee_unpaid)
+            # Approval does not depend on the registration fee: an artist can be approved with the payment
+            # pending, and only the fee decides whether they may switch bookings on.
             if not ArtistDocument.objects.filter(
                 artist_id=params.artist_id, document_type='id_proof', verification_status__name='approved',
             ).exists():
@@ -115,7 +110,11 @@ class AdminArtistReviewView:
             )
             NotificationService.notify(
                 user_id=artist['user_id'], title='Profile approved',
-                message='Your artist profile has been approved. You can now receive bookings.',
+                message=(
+                    'Your artist profile has been approved. You can now receive bookings.'
+                    if ArtistProfile.is_eligible(params.artist_id) else
+                    'Your artist profile has been approved. Complete your registration payment to start receiving bookings.'
+                ),
                 type='artist_approved',
             )
         return Response(
@@ -146,6 +145,100 @@ class AdminArtistReviewView:
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message='Artist rejected')
+        )
+
+    @Common().exception_handler
+    def set_accepting_extract(self, params):
+        """An admin switches an artist's bookings ON or OFF. See ArtistProfile.admin_set_accepting_bookings: OFF
+        locks the artist out of switching them back on, ON needs approval and a settled registration payment."""
+        self._require_admin(user_id=params.user_id)
+        profile, changed = ArtistProfile.admin_set_accepting_bookings(
+            artist_id=params.artist_id, accepting=params.is_accepting_bookings,
+        )
+        if changed:
+            NotificationService.notify(
+                user_id=profile.user_id, title='Bookings switched on' if profile.is_accepting_bookings else 'Bookings switched off',
+                message=(
+                    'An admin has switched your bookings back on.' if profile.is_accepting_bookings else
+                    'An admin has switched off new bookings for your profile. Contact support to turn them back on.'
+                ),
+            )
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(
+                message='Bookings are now ' + ('on' if profile.is_accepting_bookings else 'off'),
+                data={
+                    'artistId': profile.artist_id,
+                    'isAcceptingBookings': profile.is_accepting_bookings,
+                    'acceptingLockedByAdmin': profile.accepting_locked_by_admin,
+                },
+            )
+        )
+
+    ARTIST_SORTS = {'artistId': 'artist_id', 'createdAt': 'created_at', 'name': 'user__name'}
+
+    @Common(response_handler=ArtistAdminResponseGetAllSerializer).exception_handler
+    def get_all_artists_extract(self, params: GetAllArtistsRequest):
+        """Every artist, whatever their approval state (the review queue only holds those still awaiting a
+        decision), each row carrying approval, registration payment, bookings and customer-visibility state. The
+        filters combine: approval_status=approved with registration=unpaid lists the approved artists whose
+        registration payment is still pending."""
+        self._require_admin(user_id=params.user_id)
+        paid = Exists(ArtistRegistrationPayment.objects.filter(
+            artist_id=OuterRef('artist_id'), paid_at__isnull=False, refund_requested_at__isnull=True,
+        ))
+        qs = ArtistProfile.objects.select_related('user', 'approval_status').annotate(has_paid=paid)
+        if params.approval_status:
+            qs = qs.filter(approval_status__name=params.approval_status)
+        if params.registration == 'paid':
+            qs = qs.filter(has_paid=True)
+        elif params.registration == 'exempt':
+            qs = qs.filter(registration_fee_exempt=True)
+        elif params.registration == 'unpaid':                       # neither paid nor exempt
+            qs = qs.filter(has_paid=False, registration_fee_exempt=False)
+        if params.accepting is not None:
+            qs = qs.filter(is_accepting_bookings=params.accepting)
+        if params.search_key:
+            qs = qs.filter(
+                Q(user__name__icontains=params.search_key) | Q(display_name__icontains=params.search_key)
+                | Q(city__icontains=params.search_key) | Q(user__phone_number__icontains=params.search_key)
+            )
+        sort_field = self.ARTIST_SORTS.get(params.sort_by, 'artist_id')
+        descending = params.sort_order == 'desc' if params.sort_by in self.ARTIST_SORTS else True
+        qs = qs.order_by(('-' if descending else '') + sort_field, 'artist_id')
+        pages = Paginator(qs, per_page=params.limit)
+        if pages.num_pages < params.page_num:
+            raise ValueError('Page limit exceeded!')
+        rows = []
+        for artist in pages.page(params.page_num):
+            approval = artist.approval_status.name if artist.approval_status else None
+            eligible = artist.registration_fee_exempt or artist.has_paid
+            rows.append({
+                'artistId': artist.artist_id,
+                'userId': artist.user_id,
+                'fullName': artist.user.name,
+                'displayName': artist.display_name,
+                'phoneNumber': artist.user.phone_number,
+                'city': artist.city,
+                'approvalStatus': approval,
+                'registrationFeePaid': artist.has_paid,
+                'registrationFeeExempt': artist.registration_fee_exempt,
+                'registrationEligible': eligible,
+                'isAcceptingBookings': artist.is_accepting_bookings,
+                'acceptingLockedByAdmin': artist.accepting_locked_by_admin,
+                'visibleToCustomers': approval == 'approved' and artist.is_accepting_bookings and eligible,
+                'createdAt': artist.created_at,
+            })
+        data = Utils.add_page_parameter(
+            final_data=json.loads(json.dumps(rows, default=str)),
+            page_num=params.page_num,
+            total_page=pages.num_pages,
+            present_url=params.present_url,
+            next_page_required=pages.num_pages != params.page_num,
+        )
+        return Response(
+            status=status.HTTP_200_OK,
+            data=Utils.success_response_data(message=self.data_get, data=data)
         )
 
     @Common().exception_handler
@@ -188,6 +281,9 @@ class AdminArtistReviewView:
             'submittedForReviewAt': artist.submitted_for_review_at,
             'registrationFeePaid': RegistrationFee.is_paid(artist.artist_id),
             'registrationFeeExempt': artist.registration_fee_exempt,
+            'registrationEligible': ArtistProfile.is_eligible(artist.artist_id),
+            'isAcceptingBookings': artist.is_accepting_bookings,
+            'acceptingLockedByAdmin': artist.accepting_locked_by_admin,
             'rejectionReason': artist.rejection_reason,
         }
         return Response(

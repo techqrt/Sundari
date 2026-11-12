@@ -25,8 +25,7 @@ class ArtistDetailView:
     @Common(response_handler=ArtistDetailResponseSerializer).exception_handler
     def get_extract(self, params: ArtistDetailRequest):
         profile_dict = ArtistProfile.objects.filter(
-            artist_id=params.artist_id,
-            approval_status__name='approved',
+            ArtistProfile.public_filter(), artist_id=params.artist_id,
         ).values(
             'artist_id', 'user_id', 'display_name', 'instagram_url', 'profile_type', 'is_accepting_bookings', 'bio',
             'years_experience', 'city', 'service_radius_km', 'avg_rating', 'total_reviews',

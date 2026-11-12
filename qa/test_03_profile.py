@@ -79,10 +79,10 @@ class ProfileQA(TestCase):
         approved = ApprovalStatus.objects.get(name='approved').status_id
         c.put('/artists/profile/update/', {'commission_rate': '0.00', 'approval_status_id': approved, 'avg_rating': '5.00', 'total_reviews': 999,
                                           'user_id': other.id, 'artist_id': other.profile.artist_id, 'public_slug': 'hijack', 'profile_view_count': 9999,
-                                          'is_accepting_bookings': False, 'terms_accepted_at': '2020-01-01T00:00:00Z', 'rejection_reason': 'x', 'bio': 'ok'}, format='json')
+                                          'is_accepting_bookings': True, 'terms_accepted_at': '2020-01-01T00:00:00Z', 'rejection_reason': 'x', 'bio': 'ok'}, format='json')
         p = ArtistProfile.objects.get(artist_id=art.profile.artist_id)
         record('SECURITY', 'profile update ignores protected fields (commission, approval, rating, slug, counters, agreement)',
-               p.commission_rate == 10 and p.approval_status.name == 'pending' and p.avg_rating == 0 and p.total_reviews == 0 and p.public_slug is None and p.profile_view_count == 0 and p.is_accepting_bookings and p.terms_accepted_at is None,
+               p.commission_rate == 10 and p.approval_status.name == 'pending' and p.avg_rating == 0 and p.total_reviews == 0 and p.public_slug is None and p.profile_view_count == 0 and not p.is_accepting_bookings and p.terms_accepted_at is None,
                'all unchanged', f'commission={p.commission_rate} status={p.approval_status.name} rating={p.avg_rating} reviews={p.total_reviews} slug={p.public_slug}', sev='P0')
         o = ArtistProfile.objects.get(artist_id=other.profile.artist_id)
         record('SECURITY', 'profile update with another artist_id/user_id does not touch that artist', o.bio != 'ok' and o.user_id == other.id, 'unchanged', o.bio, sev='P0')

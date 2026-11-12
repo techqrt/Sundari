@@ -51,6 +51,11 @@ def make_artist(phone_number='+919000000200', name='Test Artist', approved=True)
     if approved:
         approved_status, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
         profile.approval_status = approved_status
+        # An approved artist here is a live one: customers can see and book them. A newly registered artist starts
+        # with bookings OFF (see ArtistProfile.create_for_user) and must have settled the registration fee (or be
+        # exempt) to be visible, so say both explicitly.
+        profile.is_accepting_bookings = True
+        profile.registration_fee_exempt = True
         profile.save()
     return make_client(user), user, profile
 

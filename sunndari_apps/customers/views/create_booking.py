@@ -53,7 +53,10 @@ class CreateBookingView:
                 # No role check exists (an account is one role), so the ownership test is the guard:
                 # a self-booking would earn cashback and allow a self-review.
                 raise ValueError(Constants.self_booking_not_allowed)
-            if not artist.is_accepting_bookings:
+            # Bookings ON and the registration payment settled (or exempt): the same test customer search uses.
+            # An approved artist who fails it is simply "not accepting"; the payment reason is theirs alone.
+            if (not artist.is_accepting_bookings or artist.accepting_locked_by_admin
+                    or not ArtistProfile.is_eligible(artist.artist_id)):
                 raise ValueError(Constants.artist_not_accepting)
 
             package = PricingPackage.objects.filter(

@@ -151,14 +151,14 @@ class ServiceSubCategory(models.Model):
     @staticmethod
     def bookable_filter() -> Q:
         """Keeps only services a customer could book right now: live (see live_filter) AND at least one active package
-        under it belongs to an approved artist who is accepting bookings (the same artist test customer search uses).
-        A service nobody has added packages for yet, or whose artists are pending, suspended, not accepting bookings or
-        have switched the packages off, is not bookable, so customers do not see it. Used in an Exists, so a service with
+        under it belongs to an artist customers can see: approved, registration payment settled (or exempt) and bookings
+        ON (ArtistProfile.public_filter, the same test customer search uses). A service nobody has added packages for
+        yet, or whose artists are pending, suspended, unpaid, not accepting bookings or have switched the packages off,
+        is not bookable, so customers do not see it. Used in an Exists, so a service with
         many packages or artists still appears once."""
-        from sunndari_apps.artists.models import PricingPackage
+        from sunndari_apps.artists.models import ArtistProfile, PricingPackage
         has_package = Exists(PricingPackage.objects.filter(
-            sub_category=OuterRef('pk'), is_active=True,
-            artist__approval_status__name='approved', artist__is_accepting_bookings=True,
+            ArtistProfile.public_filter('artist__'), sub_category=OuterRef('pk'), is_active=True,
         ))
         return Q(has_package, **ServiceSubCategory.live_filter())
 

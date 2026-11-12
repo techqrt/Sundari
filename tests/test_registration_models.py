@@ -17,8 +17,9 @@ class RegistrationModelsTest(TestCase):
 
     def setUp(self):
         seed_payment_statuses()
-        _, _, self.profile = make_artist(phone_number='+919100001001')
-        _, _, self.other = make_artist(phone_number='+919100001002')
+        # Pending artists: the tests here are about the exemption, which a live fixture artist already has.
+        _, _, self.profile = make_artist(phone_number='+919100001001', approved=False)
+        _, _, self.other = make_artist(phone_number='+919100001002', approved=False)
         self.pending = PaymentStatus.objects.get(name='pending')
 
     def _payment(self, artist, paid=False, promo=None):

@@ -43,6 +43,10 @@ def make_bookable_artist(phone, name, price=1500, duration=60, approved=True):
     profile = ArtistProfile.objects.get(user_id=actor.id)
     if approved:
         profile.approval_status = ApprovalStatus.objects.get(name='approved')
+        # A live artist: bookings ON and fee-exempt, so customers can see and book them. A newly registered one
+        # starts with bookings OFF and must pay the registration fee (ArtistProfile.create_for_user).
+        profile.is_accepting_bookings = True
+        profile.registration_fee_exempt = True
     profile.display_name = name
     profile.city = 'Lucknow'
     profile.save()

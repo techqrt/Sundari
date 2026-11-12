@@ -14,6 +14,7 @@ class ArtistsUtils:
             'instagram_url': 'instagramUrl',
             'profile_type': 'profileType',
             'is_accepting_bookings': 'isAcceptingBookings',
+            'accepting_locked_by_admin': 'acceptingLockedByAdmin',
             'public_slug': 'publicSlug',
             'profile_view_count': 'profileViewCount',
             'agreement_version': 'agreementVersion',

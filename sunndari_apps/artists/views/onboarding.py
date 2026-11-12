@@ -22,10 +22,12 @@ from sunndari_apps.artists.serializers.response.get.get_onboarding_status import
 from sunndari_apps.artists.serializers.response.get_all.get_all_review_feedback import (
     ReviewFeedbackResponseGetAllSerializer,
 )
-from sunndari_apps.artists.registration_fee import RegistrationFee
 from sunndari_apps.artists.utils import ArtistsUtils
 from sunndari.constants import Constants
 
+# The steps an artist must finish before submitting for review. The registration fee is deliberately not one of
+# them: it is reported in the status (so the app can prompt for it) but never blocks submitting or approval; it
+# only decides whether the artist may switch bookings on.
 STEP_LABELS = {
     'basicInfo': 'Basic info (name, bio, city)',
     'location': 'Base address/location',
@@ -36,7 +38,6 @@ STEP_LABELS = {
     'documents': 'Identity/verification document',
     'payoutAccount': 'Payout bank account',
     'agreement': 'Partner agreement acceptance',
-    'registrationFee': 'Registration fee payment',
 }
 
 
@@ -67,11 +68,9 @@ class ArtistOnboardingView:
             'documents': ArtistDocument.has_type(artist_id=artist_id, document_type='id_proof'),
             'payoutAccount': ArtistPayoutAccount.get(artist_id=artist_id) is not None,
             'agreement': profile['terms_accepted_at'] is not None,
-            # Paid, or exempt (approved before the fee existed, or waived by an admin).
-            'registrationFee': (
-                ArtistProfile.objects.filter(artist_id=artist_id, registration_fee_exempt=True).exists()
-                or RegistrationFee.is_paid(artist_id)
-            ),
+            # Paid, or exempt (approved before the fee existed, or waived by an admin). Informational: see
+            # STEP_LABELS, it does not block submitting.
+            'registrationFee': ArtistProfile.is_eligible(artist_id),
         }
 
     def _compute_status(self, profile: dict, steps: dict) -> str:
@@ -126,7 +125,7 @@ class ArtistOnboardingView:
                 raise ValueError(Constants.artist_suspended)
             user_row = User.get(user_id=params.user_id)
             steps = self._compute_steps(profile=profile, user_row=user_row)
-            missing = [STEP_LABELS[key] for key, done in steps.items() if not done]
+            missing = [STEP_LABELS[key] for key, done in steps.items() if not done and key in STEP_LABELS]
             if missing:
                 raise ValidationErrors(errors=[f'Incomplete: {label}' for label in missing])
             ArtistProfile.submit_for_review(user_id=params.user_id)

@@ -63,6 +63,10 @@ def mark_missed_bookings() -> int:
     for booking in candidates:
         if Booking.is_past_missed_deadline(booking['booking_date'], booking['start_time']):
             Booking.mark_missed(booking_id=booking['booking_id'], no_show_status_id=no_show_status.status_id)
+            # The paid cash of a missed booking is refunded in full by the retry_owed_refunds job, so any coins
+            # redeemed against it go back too, exactly as on every cancellation path. Without this the customer
+            # got the cash back but permanently lost the coins.
+            CustomerWallet.reverse_all_redemptions_for_booking(booking_id=booking['booking_id'])
             NotificationService.notify(
                 user_id=booking['customer_id'],
                 title='Booking missed',

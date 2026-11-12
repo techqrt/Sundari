@@ -80,7 +80,7 @@ class ServiceAreaView:
     def get_all_extract(self, params):
         own = ArtistProfile.objects.filter(user_id=params.user_id).first()
         if params.artist_id and (not own or own.artist_id != params.artist_id):
-            target = ArtistProfile.objects.filter(artist_id=params.artist_id, approval_status__name='approved').first()
+            target = ArtistProfile.objects.filter(ArtistProfile.public_filter(), artist_id=params.artist_id).first()
             if not target:
                 raise ValueError(Constants.artist_not_found)
             profile, only_active = target, True

@@ -75,18 +75,18 @@ class RegistrationRefundTest(TestCase):
         self._submit_and_reject()
         self.assertEqual(self.gateway.payment.refund.call_args.args[1]['amount'], 99950)
 
-    def test_after_rejection_the_artist_must_pay_again_to_resubmit(self):
+    def test_after_rejection_the_fee_is_owed_again_but_resubmitting_is_not_blocked(self):
         self._pay_with_gateway()
         self._submit_and_reject()
         fee = self._fee()
         self.assertEqual((fee['paid'], fee['registrationRequired']), (False, True))
-        resp = self.client_.post(SUBMIT, {}, format='json')
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn('Registration fee payment', str(resp.data))
-        # paying again works (a second payment is allowed because the first was voided) and unlocks submit
+        # payment no longer gates submitting, so the artist can resubmit while the fee is unpaid ...
+        self.assertEqual(self.client_.post(SUBMIT, {}, format='json').status_code, 200)
+        self.assertFalse(self.client_.get('/artists/onboarding/status/').data['data']['steps']['registrationFee'])
+        # ... and can still pay again (a second payment is allowed because the first was voided)
         self._pay_with_gateway(payment_id='pay_2')
         self.assertEqual(ArtistRegistrationPayment.objects.filter(refund_requested_at__isnull=True, paid_at__isnull=False).count(), 1)
-        self.assertEqual(self.client_.post(SUBMIT, {}, format='json').status_code, 200)
+        self.assertTrue(self.client_.get('/artists/onboarding/status/').data['data']['steps']['registrationFee'])
 
     def test_the_voided_payment_can_no_longer_be_applied(self):
         payment = self._pay_with_gateway()

@@ -5,6 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from sunndari_apps.artists.models import ArtistProfile, Portfolio, PricingPackage
+from sunndari.constants import Constants
 from tests.booking_address import address_for
 from sunndari_apps.core.models import ApprovalStatus
 from sunndari_apps.customers.models import Booking
@@ -19,8 +20,10 @@ from tests.test_customers import (
 
 
 def approve(user):
+    """Approves the artist and makes them visible to customers: bookings on and the registration fee settled
+    (waived here). Approval alone no longer makes an artist visible."""
     approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
-    ArtistProfile.objects.filter(user_id=user.user_id).update(approval_status=approved)
+    ArtistProfile.objects.filter(user_id=user.user_id).update(approval_status=approved, is_accepting_bookings=True, registration_fee_exempt=True)
 
 
 class AcceptingBookingsSwitchTest(TestCase):
@@ -29,6 +32,8 @@ class AcceptingBookingsSwitchTest(TestCase):
     def setUp(self):
         seed_booking_statuses()
         self.artist_client, self.artist_user, self.profile = make_artist(phone_number='+919000005000')
+        # A live artist: approved, and exempt from the registration fee so they may switch bookings back on.
+        ArtistProfile.objects.filter(artist_id=self.profile.artist_id).update(registration_fee_exempt=True)
         self.package = make_package(self.profile, price=1500)
         self.location = make_location_type('Studio')
         make_location_preference(self.profile, self.location)
@@ -71,8 +76,11 @@ class AcceptingBookingsSwitchTest(TestCase):
 
     def test_customers_see_the_flag_and_cannot_flip_it(self):
         self.artist_client.put(self.url, {'is_accepting_bookings': False}, format='json')
-        detail = self.customer.get('/customers/artists/get/', {'artist_id': self.profile.artist_id}).data['data']
-        self.assertFalse(detail['profile']['isAcceptingBookings'])
+        # Switched off means hidden: customers can no longer open the artist's profile at all.
+        detail = self.customer.get('/customers/artists/get/', {'artist_id': self.profile.artist_id})
+        self.assertEqual(detail.status_code, 400)
+        self.assertIn(Constants.artist_not_found, detail.data['message'])
+        self.assertFalse(self.artist_client.get('/artists/profile/get/').data['data']['isAcceptingBookings'])
         self.assertEqual(self.customer.put(self.url, {'is_accepting_bookings': True}, format='json').status_code, 400)
         self.assertEqual(APIClient().put(self.url, {'is_accepting_bookings': True}, format='json').status_code, 401)
         self.assertEqual(self.artist_client.put(self.url, {}, format='json').status_code, 400)

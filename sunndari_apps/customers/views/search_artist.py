@@ -31,10 +31,7 @@ class SearchArtistView:
         # service's category) is live. An artist whose every package is under a switched-off service
         # therefore disappears from search, exactly as one with no active package already did.
         bookable = Q(pricing_packages__is_active=True, **ServiceSubCategory.live_filter('pricing_packages__sub_category__'))
-        qs = ArtistProfile.objects.filter(
-            approval_status__name='approved',
-            is_accepting_bookings=True,
-        ).annotate(
+        qs = ArtistProfile.objects.filter(ArtistProfile.public_filter()).annotate(
             starting_price=Min('pricing_packages__price', filter=bookable),
         ).filter(starting_price__isnull=False)
 

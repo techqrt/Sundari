@@ -178,6 +178,9 @@ class RegistrationPaymentService:
         PromoRedemption.objects.filter(registration_payment=payment, status__in=['reserved', 'redeemed']).update(
             status='released', updated_at=timezone.now(),
         )
+        # The payment no longer counts, so the artist can no longer take bookings: switch them OFF. Paying again
+        # makes them eligible again but never switches them back on by itself.
+        ArtistProfile.objects.filter(artist_id=artist_id).update(is_accepting_bookings=False)
         return payment.pk
 
     @staticmethod

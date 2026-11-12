@@ -2,7 +2,7 @@ import os
 import uuid
 
 from django.db import models, transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 
@@ -55,6 +55,8 @@ class ArtistProfile(models.Model):
     agreement_version = models.CharField(max_length=20, null=True, blank=True)
     # The artist's on/off switch: when False, no new bookings can be made (existing ones are unaffected).
     is_accepting_bookings = models.BooleanField(default=True)
+    # Set when an admin switches bookings off: the artist cannot switch them back on; only an admin can.
+    accepting_locked_by_admin = models.BooleanField(default=False)
     # Artists approved before the registration fee existed, or waived by an admin, do not have to pay it.
     registration_fee_exempt = models.BooleanField(default=False)
     # Stable, unguessable-enough share handle, created on first request (see ensure_public_slug).
@@ -75,9 +77,54 @@ class ArtistProfile(models.Model):
     def create_for_user(user_id: int) -> 'ArtistProfile':
         from sunndari_apps.core.models.approval_status import ApprovalStatus
         pending_status = ApprovalStatus.objects.filter(name='pending').first()
+        # A new artist starts with bookings OFF: paying the registration fee only makes them eligible to
+        # switch it on, it never switches it on for them.
         return ArtistProfile.objects.create(
             user_id=user_id,
             approval_status=pending_status,
+            is_accepting_bookings=False,
+        )
+
+    @staticmethod
+    def eligible_filter(prefix: str = '') -> Q:
+        """The registration-payment condition for use in a query: exempt, or holding a completed registration
+        payment that has not been voided or refunded. The same test as is_eligible(), as a filter. The payment
+        subquery refers to the artist through `artist_id`, which is a column of ArtistProfile and of any model
+        with an `artist` foreign key (e.g. PricingPackage), so it works inside a filter on either; `prefix` is
+        only the path to the artist's exempt flag, e.g. 'artist__'."""
+        from sunndari_apps.artists.models.registration_payment import ArtistRegistrationPayment
+        paid = Exists(ArtistRegistrationPayment.objects.filter(
+            artist_id=OuterRef('artist_id'), paid_at__isnull=False, refund_requested_at__isnull=True,
+        ))
+        return Q(**{f'{prefix}registration_fee_exempt': True}) | Q(paid)
+
+    @staticmethod
+    def public_filter(prefix: str = '') -> Q:
+        """What a customer may see and book: approved by an admin, registration payment settled (or exempt),
+        bookings switched ON, and not switched off by an admin. These are separate facts that are only combined
+        here, at read time, so a refund or an admin switching bookings off takes effect at once everywhere this
+        filter is used. The admin lock is checked on its own rather than left to "locked implies OFF": if the two
+        ever disagree (a race between the artist's switch and an admin's, or a stray edit) the admin's decision
+        still wins. `prefix` is the path to the artist, e.g. 'artist__' when querying PricingPackage."""
+        return (
+            Q(**{f'{prefix}approval_status__name': 'approved', f'{prefix}is_accepting_bookings': True,
+                 f'{prefix}accepting_locked_by_admin': False})
+            & ArtistProfile.eligible_filter(prefix)
+        )
+
+    @staticmethod
+    def is_public(artist_id: int) -> bool:
+        """Whether customers may see this artist at all (see public_filter)."""
+        return ArtistProfile.objects.filter(ArtistProfile.public_filter(), artist_id=artist_id).exists()
+
+    @staticmethod
+    def is_eligible(artist_id: int) -> bool:
+        """Whether this artist may switch bookings ON as far as payment goes: exempt, or a completed,
+        un-voided registration payment. Approval is a separate check."""
+        from sunndari_apps.artists.registration_fee import RegistrationFee
+        return (
+            ArtistProfile.objects.filter(artist_id=artist_id, registration_fee_exempt=True).exists()
+            or RegistrationFee.is_paid(artist_id)
         )
 
     @staticmethod
@@ -92,7 +139,7 @@ class ArtistProfile(models.Model):
         return qs.values(
             'artist_id', 'user_id', 'display_name', 'date_of_birth', 'instagram_url', 'profile_type',
             'profile_photo', 'cover_photo', 'travel_time_before_minutes', 'return_buffer_minutes',
-            'is_accepting_bookings', 'public_slug', 'profile_view_count', 'agreement_version', 'bio', 'years_experience', 'city',
+            'is_accepting_bookings', 'accepting_locked_by_admin', 'public_slug', 'profile_view_count', 'agreement_version', 'bio', 'years_experience', 'city',
             'service_radius_km', 'avg_rating', 'total_reviews',
             'commission_rate', 'approval_status_id', 'portfolio_approval_status', 'base_address_id',
             'terms_accepted_at', 'submitted_for_review_at', 'rejection_reason',
@@ -184,8 +231,79 @@ class ArtistProfile(models.Model):
         )
 
     @staticmethod
+    def _cannot_take_bookings_reason(profile: 'ArtistProfile'):
+        """Why this artist may not take bookings (ignoring their own ON/OFF switch), or None: not approved or
+        suspended, switched off by an admin, or the registration payment is not settled. In that order, so the
+        message names the cause the artist cannot fix by paying."""
+        from sunndari.constants import Constants
+        approval_name = profile.approval_status.name if profile.approval_status else None
+        if approval_name == 'suspended':
+            return Constants.artist_suspended
+        if approval_name != 'approved':
+            return Constants.accepting_requires_approval
+        if profile.accepting_locked_by_admin:
+            return Constants.accepting_locked_by_admin
+        if not ArtistProfile.is_eligible(profile.artist_id):
+            return Constants.accepting_requires_payment
+        return None
+
+    @staticmethod
+    def accept_block_reason(artist_id: int):
+        """Why this artist may not accept a booking request right now, or None. Checked when an artist confirms a
+        request (the only way a booking becomes confirmed), so the switch cannot be bypassed with a direct call.
+        Declining, cancelling, starting and completing are not checked: existing bookings are never affected."""
+        from sunndari.constants import Constants
+        profile = ArtistProfile.objects.select_related('approval_status').filter(artist_id=artist_id).first()
+        if profile is None:
+            return Constants.artist_not_found
+        reason = ArtistProfile._cannot_take_bookings_reason(profile)
+        if reason:
+            return reason
+        if not profile.is_accepting_bookings:
+            return Constants.accepting_off_cannot_confirm
+        return None
+
+    @staticmethod
     def set_accepting_bookings(user_id: int, accepting: bool) -> None:
-        ArtistProfile.objects.filter(user_id=user_id).update(is_accepting_bookings=accepting)
+        """The artist's own switch. OFF is always allowed. ON needs, in this order: not suspended and approved, not
+        switched off by an admin, and registration payment settled (or exempt); otherwise a ValueError saying which.
+        Done under a row lock so it cannot race an admin's change or a refund."""
+        with transaction.atomic():
+            profile = ArtistProfile.objects.select_for_update().select_related('approval_status').get(user_id=user_id)
+            if accepting:
+                reason = ArtistProfile._cannot_take_bookings_reason(profile)
+                if reason:
+                    raise ValueError(reason)
+            profile.is_accepting_bookings = accepting
+            profile.save(update_fields=['is_accepting_bookings', 'updated_at'])
+
+    @staticmethod
+    def admin_set_accepting_bookings(artist_id: int, accepting: bool) -> tuple:
+        """An admin's switch. OFF always works and sets the lock, so the artist cannot switch bookings back on
+        themselves. ON needs the artist to be approved and payment-eligible (an admin cannot get around the fee),
+        and clears the lock. Returns (profile, changed), `changed` being False for a repeat request."""
+        from sunndari.constants import Constants
+        with transaction.atomic():
+            profile = ArtistProfile.objects.select_for_update().select_related('approval_status').filter(
+                artist_id=artist_id,
+            ).first()
+            if profile is None:
+                raise ValueError(Constants.artist_not_found)
+            if accepting:
+                approval_name = profile.approval_status.name if profile.approval_status else None
+                if approval_name == 'suspended':
+                    raise ValueError(Constants.artist_suspended)
+                if approval_name != 'approved':
+                    raise ValueError(Constants.admin_accepting_requires_approval)
+                if not ArtistProfile.is_eligible(profile.artist_id):
+                    raise ValueError(Constants.admin_accepting_requires_payment)
+            locked = not accepting
+            changed = profile.is_accepting_bookings != accepting or profile.accepting_locked_by_admin != locked
+            if changed:
+                profile.is_accepting_bookings = accepting
+                profile.accepting_locked_by_admin = locked
+                profile.save(update_fields=['is_accepting_bookings', 'accepting_locked_by_admin', 'updated_at'])
+            return profile, changed
 
     @staticmethod
     def ensure_public_slug(user_id: int) -> str:
@@ -234,8 +352,10 @@ class ArtistProfile(models.Model):
     def reject(artist_id: int, reason: str = None) -> None:
         from sunndari_apps.core.models.approval_status import ApprovalStatus
         rejected = ApprovalStatus.objects.filter(name='rejected').first()
+        # Bookings go OFF too, so re-approving later (or paying again) never switches them back on by itself.
         ArtistProfile.objects.filter(artist_id=artist_id).update(
             approval_status=rejected, submitted_for_review_at=None, rejection_reason=reason,
+            is_accepting_bookings=False,
         )
 
     @staticmethod

@@ -65,6 +65,11 @@ class InitiatePaymentView:
         # An unpaid booking does not hold its slot, so check it is still free before taking money.
         if status_name == 'pending' and Booking.slot_taken_by_other(params.booking_id):
             raise ValueError(Constants.payment_slot_taken_before_pay)
+        # Do not take money for a request the artist cannot accept (switched off, locked, not approved or unpaid):
+        # it could only sit unaccepted until the booking date passes. The customer can cancel it instead. A payment
+        # already in progress when the artist went off is still settled, and refunded if nobody acts.
+        if status_name == 'pending' and ArtistProfile.accept_block_reason(booking['artist_id']):
+            raise ValueError(Constants.payment_artist_cannot_accept)
 
         # Counts cash paid PLUS any coin-redeemed value already settled on a prior
         # successful payment for this booking (e.g. an earlier advance payment that

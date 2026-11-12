@@ -64,6 +64,10 @@ RETURNS = {
     '/customers/bookings/create/': {'booking_id': 41, 'total_amount': '2500.00', 'travel_fee': '0.00'},
     '/customers/payments/initiate/': {'payment_id': 18, 'gateway_order_id': 'order_Nxyz123', 'razorpay_key_id': 'rzp_live_xxxx', 'amount': 250000, 'currency': 'INR'},
     '/artists/profile/accepting_bookings/': {'isAcceptingBookings': False},
+    '/admin-panel/artists/accepting_bookings/': {'artistId': 7, 'isAcceptingBookings': False, 'acceptingLockedByAdmin': True},
+    '/admin-panel/artists/get_all/': _PAGE([{'artistId': 7, 'userId': 30, 'fullName': 'Asha Verma', 'displayName': 'Glam Studio', 'phoneNumber': '+919812345670', 'city': 'Lucknow',
+                                             'approvalStatus': 'approved', 'registrationFeePaid': False, 'registrationFeeExempt': False, 'registrationEligible': False,
+                                             'isAcceptingBookings': False, 'acceptingLockedByAdmin': False, 'visibleToCustomers': False, 'createdAt': '2026-10-05T10:00:00+00:00'}]),
     '/artists/profile/share_link/': {'slug': 'glam-studio-a1b2c3', 'url': 'https://api.example.com/public/artists/get/?slug=glam-studio-a1b2c3'},
     '/artists/profile/specialities/get_all/': [{'subCategoryId': 3, 'name': 'Bridal Makeup'}],
     '/artists/insights/summary/': {'fromDate': None, 'toDate': None, 'totalBookings': 12, 'bookingsByStatus': {'completed': 8, 'cancelled': 2, 'pending': 2}, 'completedBookings': 8,
@@ -92,7 +96,8 @@ RETURNS = {
     '/admin-panel/artists/review/get/': {'artistId': 7, 'userId': 30, 'fullName': 'Asha Verma', 'displayName': 'Glam Studio', 'dateOfBirth': '1992-03-04', 'instagramUrl': 'https://instagram.com/glam',
                                          'profilePhotoUrl': '/media/artist_photos/artist_7/a.png', 'coverPhotoUrl': None, 'profileType': 'studio', 'bio': 'Bridal specialist', 'yearsExperience': 6,
                                          'city': 'Lucknow', 'specialities': [{'subCategoryId': 3, 'name': 'Bridal Makeup'}], 'workSamples': [{'portfolioId': 40, 'fileUrl': '/media/portfolios/artist_7/w.png', 'caption': None}],
-                                         'approvalStatus': 'pending', 'submittedForReviewAt': '2026-10-05T10:00:00+00:00', 'registrationFeePaid': True, 'registrationFeeExempt': False, 'rejectionReason': None},
+                                         'approvalStatus': 'pending', 'submittedForReviewAt': '2026-10-05T10:00:00+00:00', 'registrationFeePaid': True, 'registrationFeeExempt': False, 'registrationEligible': True, 'isAcceptingBookings': False,
+                                         'acceptingLockedByAdmin': False, 'rejectionReason': None},
 }
 RETURNS = {k: v for k, v in RETURNS.items() if v is not None}
 MESSAGES = {
@@ -104,7 +109,7 @@ MESSAGES = {
 
 # ───────────────────────── extra notes / field notes ─────────────────────────
 ENDPOINT_NOTES = {
-    '/artists/registration/fee/': 'Shows the one-time registration fee and whether this artist still has to pay it. <code>registrationRequired</code> is <code>false</code> once it is paid <b>or</b> the artist is exempt (artists approved before the fee existed). The fee is set on the server; never hard-code the amount in the app.',
+    '/artists/registration/fee/': 'Shows the one-time registration fee and whether this artist still has to pay it. <code>registrationRequired</code> is <code>false</code> once it is paid <b>or</b> the artist is exempt (artists approved before the fee existed). The fee is set on the server; never hard-code the amount in the app. Paying does not approve the artist and does not switch bookings on.',
     '/artists/registration/promo/validate/': 'A <b>preview only</b>: it returns the discount and the amount to pay for a promo code and records nothing, so call it as the artist types the code. The code is reserved only when the payment is started. Codes are not case-sensitive. 400 if the code is unknown, switched off, expired, already used by this artist, or fully redeemed.',
     '/artists/registration/payment/initiate/': 'Send an optional <code>promo_code</code> only &mdash; <b>never an amount</b>; the server works out every figure. <b>201</b> = new order, <b>200</b> = the same open order again (a double tap is safe); changing or removing the code replaces the open attempt. If <code>fully_covered_by_promo</code> is <code>true</code> (a 100% code) there is <b>no Razorpay step</b>: <code>amount</code> is 0, <code>gateway_order_id</code> is <code>null</code> and the fee is already paid. Otherwise open Razorpay Checkout with <code>gateway_order_id</code>, <code>razorpay_key_id</code> and <code>amount</code> (in paise), then call verify. Starting a payment does <b>not</b> mark the fee paid.',
     '/artists/registration/payment/verify/': 'Call this right after Razorpay Checkout succeeds, with the three values Razorpay returns. It is idempotent. The fee counts as paid only after the server has confirmed the payment with Razorpay; if the app is closed first, Razorpay&rsquo;s webhook settles it, so re-read <a href="#get-artists-registration-fee-get">the fee status</a> when the app reopens. If the payment cannot be applied (for example the fee was already paid) it answers 400 and the money is refunded automatically.',
@@ -160,7 +165,7 @@ CHANGED = {
     '/customers/artists/availability/': (CH, '<code>isBlocked</code> is true only for a <b>whole-day</b> block. Blocked <i>hours</i> are listed in <code>blockedRanges</code> (<code>startTime</code>/<code>endTime</code>) together with booked ranges; keep applying the same overlap check (including the buffers) to <code>blockedRanges</code>. Bookings and reschedules inside blocked hours are refused with the usual slot-unavailable error.'),
     '/core/service-sub-category/get_all/': (CH, '<code>filter_key</code> works with <code>categoryId</code> (alias <code>category_id</code>) for the parent service id, and with <code>categoryName</code> for the parent service name (partial, case-insensitive); also <code>subCategoryId</code>, <code>name</code>, <code>description</code>. Rows now include <code>categoryName</code>. An unknown <code>filter_key</code> returns <b>400</b> instead of silently returning everything; <code>sort_by=categoryName</code> works and <code>values</code> can be combined with filters. <b>What each role sees:</b> a <b>customer</b> sees a service only while it can be booked &mdash; it and its parent service are active <i>and</i> at least one active package under it belongs to an approved artist who is accepting bookings (a brand-new service stays hidden from customers until an artist creates a package for it); an <b>artist</b> sees every live service, so they can add one nobody offers yet; an <b>admin</b> sees every row. A single service can still be fetched by id with [[GET /core/service-sub-category/get/]], so older bookings and packages keep their name (<code>isActive</code> tells you it is off).'),
     '/core/service-category/get_all/': (CH, 'Switched-off services are not listed for customers and artists (admins still see all). Switching one <i>service</i> off never hides its parent; switching a <i>parent</i> off hides all its services.'),
-    '/artists/profile/get/': (CH, 'New fields: <code>displayName</code>, <code>dateOfBirth</code> (own only), <code>instagramUrl</code>, <code>profileType</code>, <code>specialities</code> (array of sub-category ids), <code>profilePhotoUrl</code>, <code>coverPhotoUrl</code> (absolute URLs or <code>null</code>), <code>isAcceptingBookings</code>, and (own only) <code>publicSlug</code>, <code>profileViewCount</code>, <code>agreementVersion</code>, <code>travelTimeBeforeMinutes</code>, <code>returnBufferMinutes</code>. Viewing <i>another</i> artist returns only the public subset, and only for approved artists.'),
+    '/artists/profile/get/': (CH, 'New fields: <code>displayName</code>, <code>dateOfBirth</code> (own only), <code>instagramUrl</code>, <code>profileType</code>, <code>specialities</code> (array of sub-category ids), <code>profilePhotoUrl</code>, <code>coverPhotoUrl</code> (absolute URLs or <code>null</code>), <code>isAcceptingBookings</code>, and (own only) <code>acceptingLockedByAdmin</code>, <code>registrationEligible</code>, <code>publicSlug</code>, <code>profileViewCount</code>, <code>agreementVersion</code>, <code>travelTimeBeforeMinutes</code>, <code>returnBufferMinutes</code>. Viewing <i>another</i> artist returns only the public subset, and only for artists customers can see (approved, registration fee settled, bookings on); anyone else gets “Artist not found”.'),
     '/artists/profile/update/': (CH, 'New optional fields: <code>display_name</code>, <code>date_of_birth</code> (YYYY-MM-DD, age ≥ 18), <code>instagram_url</code> (<code>https://instagram.com/&lt;handle&gt;</code> only), <code>profile_type</code> (<code>freelance</code>|<code>studio</code>), <code>travel_time_before_minutes</code>, <code>return_buffer_minutes</code> (0–240). Commission, approval, rating etc. are ignored if sent.'),
     '/artists/profile/agreement/accept/': (CH, 'Now records the accepted <b>version</b> as well as the date (<code>agreementVersion</code> on the profile).'),
     '/artists/services/add/': (CH, 'Adding a service no longer sends an approved artist back to <code>pending</code>. A service that is switched off cannot be added (HTTP 400 &ldquo;This service is currently unavailable&rdquo;); existing offerings stay as they are.'),
@@ -177,10 +182,10 @@ CHANGED = {
     '/artists/documents/get/': (B, '<code>fileUrl</code> is now an API <b>route</b> (<code>/artists/documents/file/?document_id=…</code>), not a media path — prepend your base URL and fetch it with the Bearer header. New fields <code>idType</code>, <code>backFileUrl</code>; <code>documentNumber</code> is <b>masked</b> (only the last 4 characters).'),
     '/artists/documents/get_all/': (B, 'Same as the single get: <code>fileUrl</code>/<code>backFileUrl</code> are authenticated routes, <code>documentNumber</code> is masked, new <code>idType</code>.'),
     '/artists/documents/delete/': (CH, 'Also deletes the stored files.'),
-    '/artists/onboarding/status/': (CH, '<code>steps</code> has new booleans <code>registrationFields</code>, <code>workSamples</code> and <b><code>registrationFee</code></b> (true once the registration fee is paid or the artist is exempt); new <code>latestFeedback</code> (<code>null</code> or the last admin decision).'),
-    '/artists/onboarding/submit/': (CH, 'Stricter: also requires display name, date of birth, profile type, at least one work sample and the <b>registration fee</b> (paid or exempt; see [[GET /artists/registration/fee/]]). Approval additionally needs the ID proof to be verified by an admin and the fee settled.'),
+    '/artists/onboarding/status/': (CH, '<code>steps</code> has new booleans <code>registrationFields</code>, <code>workSamples</code> and <b><code>registrationFee</code></b> (true once the registration fee is paid or the artist is exempt; informational, it does not block submitting); new <code>latestFeedback</code> (<code>null</code> or the last admin decision).'),
+    '/artists/onboarding/submit/': (CH, 'Stricter: also requires display name, date of birth, profile type and at least one work sample. The <b>registration fee is not required</b> to submit or to be approved; it only decides whether the artist can switch bookings on (see <a href="#flow-go-live">Going live</a>). Approval additionally needs the ID proof to be verified by an admin.'),
     '/customers/artists/search/': (CH, 'Artists who switched bookings off no longer appear. An artist is found only through packages that are active <b>and</b> under a service that is switched on; <code>startingPrice</code> ignores the rest, and an artist with nothing bookable drops out of the results.'),
-    '/customers/artists/get/': (CH, 'Adds <code>addOns</code> (active, each with <code>packageIds</code>) and <code>serviceAreas</code> (active); <code>profile</code> gains <code>displayName</code>, <code>instagramUrl</code>, <code>profileType</code>, <code>isAcceptingBookings</code>; packages gain the new package fields; portfolio is in the artist\'s chosen order and excludes work samples. Each successful call counts as a profile view.'),
+    '/customers/artists/get/': (CH, 'Adds <code>addOns</code> (active, each with <code>packageIds</code>) and <code>serviceAreas</code> (active); <code>profile</code> gains <code>displayName</code>, <code>instagramUrl</code>, <code>profileType</code>, <code>isAcceptingBookings</code>; packages gain the new package fields; portfolio is in the artist\'s chosen order and excludes work samples. Each successful call counts as a profile view. Only artists customers can see (approved, registration fee settled, bookings on) can be opened; otherwise “Artist not found”.'),
     '/customers/artists/availability/': (CH, 'Adds <code>blockedRanges</code>, <code>bufferBeforeMinutes</code>, <code>bufferAfterMinutes</code> — use these (not just <code>bookedRanges</code>) to decide which times to offer.'),
     '/customers/bookings/create/': (CH, '<code>address_id</code> is now <b>required</b> (HTTP 400 without it, or if it is not the customer\'s own address). New optional <code>addon_ids</code>. The <b>total is computed on the server</b> (package + add-ons + travel fee); any price you send is ignored. Response now includes <code>total_amount</code> and <code>travel_fee</code>. New refusals: your own services, an artist who switched bookings off, an add-on that is inactive/not linked to the package, a Home Visit address outside the artist\'s service areas (or no address when the artist has areas), a slot that clashes with another booking\'s travel/return buffers. A service that has been switched off cannot be booked: HTTP 400 &ldquo;This service is currently unavailable&rdquo;. Bookings made earlier are not affected.'),
     '/customers/bookings/get/': (CH, 'Adds <code>address</code> (full address of the booking), <code>travelFee</code> and <code>addOns</code> (each <code>{addOnId, name, price, durationMinutes}</code>). <code>totalAmount</code> already includes both. Optional <code>filter_key=paymentStatus</code> + <code>filter_value=paid|unpaid</code>: returned only if it matches, otherwise 400 "Booking not found".'),
@@ -193,9 +198,9 @@ CHANGED = {
     '/customers/payments/verify/': (CH, 'A capture that would push the booking above its total is refused (400 "…exceed the booking total… will be refunded") and the payment is marked failed. If the booking is no longer active when the payment is confirmed (it expired or was cancelled while the customer was paying), the answer is HTTP 400 &ldquo;This booking is no longer active&hellip; it will be refunded&rdquo; and the server <b>refunds the money itself</b> &mdash; nothing to do in the app. Overpaid captures are refunded the same way (the payment becomes <code>refunded</code>, not <code>failed</code>).'),
     '/customers/reviews/get/': (CH, 'Reviews now include <code>reply</code> and <code>repliedAt</code> (the artist\'s answer, or <code>null</code>).'),
     '/customers/reviews/get_all/': (CH, 'Each review includes <code>reply</code> and <code>repliedAt</code>.'),
-    '/admin-panel/artists/approve/': (CH, 'Optional <code>message</code> (kept in the artist\'s feedback history). Requires the artist\'s ID proof to be <b>verified</b> first and the registration fee to be paid (or the artist exempt), refuses suspended artists, is idempotent, and notifies the artist.'),
-    '/admin-panel/artists/reject/': (CH, 'The reason is added to the artist\'s feedback history and sent as a notification; refuses suspended artists. The artist\'s <b>registration fee is refunded</b> to the original payment method (a free 100%-promo registration just releases the promo), so they must pay again to resubmit.'),
-    '/admin-panel/artists/review/get/': (CH, 'Adds <code>registrationFeePaid</code> and <code>registrationFeeExempt</code>.'),
+    '/admin-panel/artists/approve/': (CH, 'Optional <code>message</code> (kept in the artist\'s feedback history). Requires the artist\'s ID proof to be <b>verified</b> first; the registration fee is <b>not</b> needed (an approved artist who has not paid stays hidden and cannot switch bookings on), refuses suspended artists, is idempotent, and notifies the artist.'),
+    '/admin-panel/artists/reject/': (CH, 'The reason is added to the artist\'s feedback history and sent as a notification; refuses suspended artists. The artist\'s <b>registration fee is refunded</b> to the original payment method (a free 100%-promo registration just releases the promo), and their bookings are switched off. They can resubmit without paying, but must pay again before they can switch bookings on.'),
+    '/admin-panel/artists/review/get/': (CH, 'Adds <code>registrationFeePaid</code>, <code>registrationFeeExempt</code>, <code>registrationEligible</code>, <code>isAcceptingBookings</code> and <code>acceptingLockedByAdmin</code>.'),
 }
 
 
@@ -262,6 +267,9 @@ CHANGES_STATIC = """
 <tr><td>[[GET /artists/documents/get_all/]] / [[GET /artists/documents/get/]] <small>(new on the server)</small></td><td>If the app expects <code>fileUrl</code> to be an image URL and the number in clear</td><td><code>fileUrl</code> = API route needing the Bearer header; number masked</td><td>Fetch files with auth and show as blob</td></tr>
 <tr><td>Registration endpoints</td><td><code>role</code> could be <code>admin</code>; any 8+ char password</td><td>Only <code>customer</code>/<code>artist</code>; weak passwords rejected</td><td>Show the validation error from <code>error[0].password</code></td></tr>
 <tr><td>Login / OTP verify / refresh</td><td>Deactivated users still got tokens</td><td>HTTP 403 “This account is deactivated”</td><td>Handle 403 as “account disabled”</td></tr>
+<tr><td>[[PUT /artists/profile/accepting_bookings/]]</td><td>New artists were on by default; any artist could switch on</td><td>New artists start OFF. ON is refused (400 with a reason) until the artist is approved and the registration fee is settled, and after an admin switch-off</td><td>Show the reason; after paying, prompt the artist to switch bookings on</td></tr>
+<tr><td>[[POST /customers/payments/initiate/]] and [[POST /customers/payments/initiate_group/]]</td><td>Payment could be started for any active booking</td><td>Refused (400) for a pending request whose artist can no longer accept it</td><td>Show the message and offer to cancel the booking</td></tr>
+<tr><td>[[GET /customers/artists/get/]] and the artist pages, share link and lists</td><td>An approved artist stayed viewable even with bookings off</td><td>Artists who are not approved, unpaid, refunded or switched off return “Artist not found”</td><td>Handle not-found for saved or shared links; do not rely on <code>isAcceptingBookings</code> being false on these pages</td></tr>
 </tbody></table></div>
 
 <h3 id="behaviour">Behaviour changes that need UI work</h3>
@@ -375,7 +383,7 @@ Failure:  { "status": false, "message": "…",  "error": ["…"] }</pre>
 FLOWS = r"""
 <p class="lead">Each flow lists the calls in order. Click an endpoint to jump to its full reference (fields, limits, examples).</p>
 <nav class="flowindex">
-  <a href="#flow-auth">1 · Sign-in &amp; passwords</a><a href="#flow-onboarding">2 · Artist onboarding &amp; approval</a><a href="#flow-registration-fee">2b · Registration fee</a><a href="#flow-kyc">3 · KYC &amp; bank</a>
+  <a href="#flow-auth">1 · Sign-in &amp; passwords</a><a href="#flow-onboarding">2 · Artist onboarding &amp; approval</a><a href="#flow-registration-fee">2b · Registration fee</a><a href="#flow-go-live">2c · Going live</a><a href="#flow-kyc">3 · KYC &amp; bank</a>
   <a href="#flow-booking">4 · Booking (customer)</a><a href="#flow-payment">5 · Payment &amp; refunds</a><a href="#flow-lifecycle">6 · Booking day (artist)</a>
   <a href="#flow-reschedule">7 · Reschedule</a><a href="#flow-artist-tools">8 · Artist tools</a><a href="#flow-contact">9 · Change email / phone</a>
   <a href="#flow-support">10 · Support, chat &amp; notifications</a><a href="#flow-admin">11 · Admin screens</a><a href="#flow-new-services">12 · New services</a>
@@ -394,7 +402,7 @@ FLOWS = r"""
 </section>
 
 <section class="flow" id="flow-onboarding"><h3>2 · Artist onboarding and approval</h3>
-<p>The artist is shown a checklist from [[GET /artists/onboarding/status/]]. Each key in <code>steps</code> turns <code>true</code> when it is done; when all are true the artist can submit.</p>
+<p>The artist is shown a checklist from [[GET /artists/onboarding/status/]]. Each key in <code>steps</code> turns <code>true</code> when it is done; when all are true (except <code>registrationFee</code>, which is informational) the artist can submit.</p>
 <table class="kv"><thead><tr><th>steps key</th><th>What completes it</th><th>Calls</th></tr></thead><tbody>
 <tr><td><code>basicInfo</code></td><td>name, bio and city set</td><td>[[PUT /users/profile/update/]] (<code>name</code>), [[PUT /artists/profile/update/]] (<code>bio</code>, <code>city</code>)</td></tr>
 <tr><td><code>registrationFields</code></td><td><code>display_name</code>, <code>date_of_birth</code> (18+), <code>profile_type</code> (instagram link & experience are optional)</td><td>[[PUT /artists/profile/update/]] — also <code>years_experience</code>, <code>instagram_url</code></td></tr>
@@ -405,36 +413,56 @@ FLOWS = r"""
 <tr><td><code>documents</code></td><td>an ID proof</td><td>see <a href="#flow-kyc">KYC</a></td></tr>
 <tr><td><code>payoutAccount</code></td><td>bank account saved</td><td>[[PUT /artists/payout_account/set/]]</td></tr>
 <tr><td><code>agreement</code></td><td>Terms &amp; Privacy accepted</td><td>[[PUT /artists/profile/agreement/accept/]] (get the links from [[GET /core/pages/get/]])</td></tr>
-<tr><td><code>registrationFee</code></td><td>the registration fee is paid, or the artist is exempt</td><td>see <a href="#flow-registration-fee">Registration fee</a></td></tr>
+<tr><td><code>registrationFee</code></td><td>the registration fee is paid, or the artist is exempt. <b>Not required to submit</b>: it decides whether the artist can switch bookings on</td><td>see <a href="#flow-registration-fee">Registration fee</a> and <a href="#flow-go-live">Going live</a></td></tr>
 </tbody></table>
 <p>Nice-to-haves that are not required to submit: profile/cover photo [[PUT /artists/profile/photo/upload/]], specialities [[PUT /artists/profile/specialities/set/]] (must be a subset of the services the artist offers, max 10), package extras/photo, add-ons, service areas.</p>
 <h4>Submit, review, feedback, resubmit</h4>
 <ol>
  <li>[[POST /artists/onboarding/submit/]] — 400 with the list of unfinished steps if something is missing. On success <code>status</code> becomes <code>submitted</code>.</li>
- <li>Admin reviews (see <a href="#flow-admin">Admin screens</a>): either <b>approves</b> (<code>status: approved</code>, the artist is now searchable and bookable) or <b>rejects with a reason</b> (<code>status: rejected</code>). The artist gets a notification (<code>artist_approved</code> / <code>artist_rejected</code>).</li>
+ <li>Admin reviews (see <a href="#flow-admin">Admin screens</a>): either <b>approves</b> (<code>status: approved</code>; the artist becomes searchable and bookable once the registration fee is settled and they switch bookings on, see <a href="#flow-go-live">Going live</a>) or <b>rejects with a reason</b> (<code>status: rejected</code>). The artist gets a notification (<code>artist_approved</code> / <code>artist_rejected</code>).</li>
  <li>The artist reads the admin's message in <code>latestFeedback</code> of [[GET /artists/onboarding/status/]] or the full history from [[GET /artists/review/feedback/get_all/]] (oldest first; add <code>sort_order=desc</code> for newest first).</li>
  <li>After a rejection the artist fixes things and calls [[POST /artists/onboarding/submit/]] again (resubmit) — it goes back to <code>submitted</code>.</li>
  <li>Once <code>approved</code>, editing services, packages, photos etc. does <b>not</b> take the profile offline.</li>
 </ol>
-<div class="callout"><b>Rejected = fee returned.</b> When an admin rejects an artist the registration fee is refunded, so <code>registrationFee</code> goes back to <code>false</code> and the artist pays again before resubmitting (a promo code used earlier can be used again). Paying never approves anyone: the profile still waits for the admin.</div>
+<div class="callout"><b>Rejected = fee returned.</b> When an admin rejects an artist the registration fee is refunded, so <code>registrationFee</code> goes back to <code>false</code> and bookings are switched off. The artist can resubmit without paying but must pay again before switching bookings on (a promo code used earlier can be used again). Paying never approves anyone: the profile still waits for the admin.</div>
 <div class="callout">The “changes required” state is shown with <code>status: "rejected"</code> plus the admin's message — there is no separate status value.</div>
 </section>
 
 <section class="flow" id="flow-registration-fee"><h3>2b · Registration fee and promo codes</h3>
-<p>Every new artist pays a one-time registration fee before they can submit their profile. The amount and every discount are calculated on the server; the app only shows them. Artists approved before the fee existed are exempt (<code>exempt: true</code>).</p>
+<p>Every new artist pays a one-time registration fee. It is not needed to submit or to be approved, but until it is paid the artist cannot switch bookings on and is not shown to customers. The amount and every discount are calculated on the server; the app only shows them. Artists approved before the fee existed are exempt (<code>exempt: true</code>).</p>
 <ol class="steps">
  <li>[[GET /artists/registration/fee/]] — show the fee and whether payment is still required (<code>registrationRequired</code>).</li>
  <li>Optional promo code: [[POST /artists/registration/promo/validate/]] shows the discount and the amount to pay without recording anything. Show the server&rsquo;s numbers, never your own.</li>
  <li>[[POST /artists/registration/payment/initiate/]] with the same <code>promo_code</code> (or none). Two outcomes:
   <ul><li><code>fully_covered_by_promo: true</code> (a 100% code) — done, the fee is paid and no checkout is needed.</li>
   <li>otherwise — open Razorpay Checkout with the returned order, then call [[POST /artists/registration/payment/verify/]] with the three values Razorpay returns.</li></ul></li>
- <li>Re-read [[GET /artists/onboarding/status/]]: <code>steps.registrationFee</code> is now <code>true</code>, so the artist can submit.</li>
+ <li>Re-read [[GET /artists/onboarding/status/]]: <code>steps.registrationFee</code> is now <code>true</code>, so the artist can now switch bookings on (see <a href="#flow-go-live">Going live</a>).</li>
 </ol>
 <table class="kv"><thead><tr><th>Promo</th><th>Discount</th><th>Artist pays</th></tr></thead><tbody>
 <tr><td>none</td><td>₹0</td><td>₹1,999.00</td></tr><tr><td>25%</td><td>₹499.75</td><td>₹1,499.25</td></tr>
 <tr><td>50%</td><td>₹999.50</td><td>₹999.50</td></tr><tr><td>75%</td><td>₹1,499.25</td><td>₹499.75</td></tr><tr><td>100%</td><td>₹1,999.00</td><td>₹0 (no checkout)</td></tr>
 </tbody></table>
 <div class="callout"><b>Good to know.</b> A promo code is used once per artist and may have an overall limit; it is held while a payment is open and only counts as used once the payment completes. If the app is closed after paying, the server still settles the payment (webhook), so re-read the fee status on reopening instead of asking the artist to pay again. Promo codes are created by an admin in the Django admin.</div>
+</section>
+
+<section class="flow" id="flow-go-live"><h3>2c · Going live: approval, payment, bookings switch and visibility</h3>
+<p>Four separate facts decide whether customers can find and book an artist. None of them changes another by itself: approving does not take payment, paying does not approve, and neither switches bookings on.</p>
+<table class="kv"><thead><tr><th>Admin approval</th><th>Registration fee</th><th>Bookings switch</th><th>Customers</th></tr></thead><tbody>
+<tr><td>Pending or rejected</td><td>any</td><td>OFF</td><td>Hidden</td></tr>
+<tr><td>Approved</td><td>unpaid</td><td>OFF</td><td>Hidden</td></tr>
+<tr><td>Approved</td><td>paid, or exempt</td><td>OFF</td><td>Hidden</td></tr>
+<tr><td>Approved</td><td>paid, or exempt</td><td>ON</td><td><b>Visible</b></td></tr>
+<tr><td>Approved</td><td>refunded</td><td>OFF</td><td>Hidden</td></tr>
+</tbody></table>
+<ul>
+ <li><b>New artists start with bookings OFF.</b> Paying only makes them <i>eligible</i> to switch bookings on; it never switches them on.</li>
+ <li><b>The artist's switch</b> &mdash; [[PUT /artists/profile/accepting_bookings/]]. OFF always works. ON is refused (HTTP 400, read <code>message</code>) unless the artist is approved, the fee is settled and an admin has not switched them off. Read <code>registrationEligible</code> and <code>acceptingLockedByAdmin</code> from [[GET /artists/profile/get/]] to show the right prompt (&ldquo;pay the registration fee&rdquo;, &ldquo;contact support&rdquo;) before the artist taps.</li>
+ <li><b>The admin's switch</b> &mdash; [[PUT /admin-panel/artists/accepting_bookings/]]. OFF works for any artist and the artist then cannot switch back on. ON works only for an approved artist whose fee is settled, and clears the earlier switch-off. The artist is notified of both.</li>
+ <li><b>Hidden artists</b> (not approved, unpaid, refunded or switched off) return &ldquo;Artist not found&rdquo; everywhere a customer could look: search, the artist page, availability, packages, portfolio, add-ons, service areas, the shared link. Creating a booking is refused (&ldquo;not accepting new bookings&rdquo;). The artist and the admin still see everything about their own and every artist.</li>
+ <li><b>Paying for a request the artist can no longer accept is refused</b> &mdash; [[POST /customers/payments/initiate/]] and [[POST /customers/payments/initiate_group/]] return 400 &ldquo;This artist can no longer accept this booking, so it cannot be paid. You can cancel it.&rdquo; Offer the customer the cancel button. A payment that was already in progress is still settled; if nobody acts it is refunded (cash, and any redeemed coins) after the booking&rsquo;s date passes.</li>
+ <li><b>While bookings are OFF</b> the artist cannot <i>accept</i> a new request (400 with the reason). Nothing that already exists changes: confirmed bookings stay confirmed, the artist can still decline, cancel and complete them, and the customer still sees theirs.</li>
+ <li><b>Refund or rejection</b> &mdash; if a registration payment is refunded (including on rejection) the artist is no longer eligible and bookings are switched off. Paying again makes them eligible again, but they must switch bookings on themselves.</li>
+</ul>
 </section>
 
 <section class="flow" id="flow-kyc"><h3>3 · KYC documents and bank account</h3>
@@ -465,7 +493,7 @@ file=@front.jpg  back_file=@back.jpg</pre>
 
 <section class="flow" id="flow-booking"><h3>4 · Booking (customer app)</h3>
 <ol>
- <li><b>Discover</b> — [[GET /customers/artists/search/]] (approved artists who are accepting bookings), then [[GET /customers/artists/get/]] for the artist page: <code>profile</code>, <code>packages</code> (with extras and category), <code>portfolio</code> (artist's order), <code>services</code>, <code>addOns</code> (each lists the <code>packageIds</code> it applies to) and <code>serviceAreas</code>. Show a “not accepting bookings” state when <code>profile.isAcceptingBookings</code> is false.</li>
+ <li><b>Discover</b> — [[GET /customers/artists/search/]] (artists customers can see: approved, registration fee settled, bookings on), then [[GET /customers/artists/get/]] for the artist page: <code>profile</code>, <code>packages</code> (with extras and category), <code>portfolio</code> (artist's order), <code>services</code>, <code>addOns</code> (each lists the <code>packageIds</code> it applies to) and <code>serviceAreas</code>. An artist who is not visible (including one who has since switched bookings off) returns “Artist not found”, so handle that for saved or shared links.</li>
  <li><i>Services switched off by an admin no longer appear in the lists above or in search, and cannot be booked (HTTP 400 “This service is currently unavailable”); bookings already made are unaffected.</i></li>
  <li><b>Pick a day</b> — [[GET /customers/artists/availability/]] for that date (<code>booking_date=DD-MM-YY</code>). Offer only times that fit the rules in the endpoint note (working window, <code>blockedRanges</code>, buffers).</li>
  <li><b>Address</b> — every booking needs a saved address ([[POST /users/address/create/]]); <code>address_id</code> is required. For a <b>Home Visit</b>, if the artist has service areas, the address <code>city</code> must match one of them (case-insensitive) and the area's travel charge is added.</li>
@@ -551,7 +579,7 @@ file=@front.jpg  back_file=@back.jpg</pre>
 <tr><td>Travel / return buffers</td><td>[[PUT /artists/profile/update/]] <code>travel_time_before_minutes</code>, <code>return_buffer_minutes</code></td><td>Apply to Home Visits; block neighbouring time</td></tr>
 <tr><td>Package extras</td><td>[[POST /artists/packages/create/]], [[PUT /artists/packages/photo/upload/]], [[DELETE /artists/packages/photo/delete/]]</td><td><code>makeup_type</code>, <code>brands</code> (free text), <code>product_details</code>, photo</td></tr>
 <tr><td>Brands</td><td>[[GET /core/brands/get_all/]] · [[POST /artists/brands/request/]] · [[GET /artists/brands/requests/get_all/]]</td><td>Offer the list as suggestions; “request a brand” when missing (max 5 pending). Package <code>brands</code> stays free text</td></tr>
-<tr><td>Accepting bookings switch</td><td>[[PUT /artists/profile/accepting_bookings/]]</td><td>Off = hidden from search and unbookable; existing bookings unaffected</td></tr>
+<tr><td>Accepting bookings switch</td><td>[[PUT /artists/profile/accepting_bookings/]]</td><td>Off = hidden from customers and unbookable, and the artist cannot accept new requests; existing bookings unaffected. On needs approval, a settled registration fee and no admin switch-off (see <a href="#flow-go-live">Going live</a>)</td></tr>
 <tr><td>Share profile</td><td>[[GET /artists/profile/share_link/]] → open [[GET /public/artists/get/]]</td><td>Stable link; public page shows only public data of approved artists</td></tr>
 <tr><td>Portfolio order</td><td>[[PUT /artists/portfolio/reorder/]]</td><td>Send ids in the order wanted; unlisted items follow</td></tr>
 <tr><td>My Clients</td><td>[[GET /artists/clients/get_all/]] · [[PUT /artists/clients/note/set/]]</td><td>Customers with a confirmed/started/completed booking; notes are private to the artist (blank note deletes it); <code>sort_by</code> <code>name|lastBookingDate|bookingsCount</code></td></tr>
@@ -584,7 +612,9 @@ file=@front.jpg  back_file=@back.jpg</pre>
  <li><b>Review queue</b> — [[GET /admin-panel/artists/review_queue/get_all/]] (artists who submitted for review).</li>
  <li><b>Artist details</b> — [[GET /admin-panel/artists/review/get/]] (registration fields, specialities, work-sample photo URLs; these <code>fileUrl</code>s start with <code>/media/</code> — prepend the base URL).</li>
  <li><b>KYC</b> — [[GET /admin-panel/artists/documents/get_all/]] shows the <i>full</i> ID number to admins; view images with [[GET /artists/documents/file/]] (admins are allowed); decide with [[PUT /admin-panel/artists/documents/verify/]] (<code>approved</code>, or <code>rejected</code> + reason). A decided document can't be changed.</li>
- <li><b>Decision</b> — [[PUT /admin-panel/artists/approve/]] (needs the ID proof verified first) or [[PUT /admin-panel/artists/reject/]] with a reason the artist will read.</li>
+ <li><b>Decision</b> — [[PUT /admin-panel/artists/approve/]] (needs the ID proof verified first; the registration fee is not needed) or [[PUT /admin-panel/artists/reject/]] with a reason the artist will read.</li>
+ <li><b>All artists</b> — [[GET /admin-panel/artists/get_all/]] lists every artist, not only those awaiting a decision, with approval, fee, bookings switch and <code>visibleToCustomers</code> on each row. Filters combine: <code>approval_status=approved&amp;registration=unpaid</code> finds approved artists whose fee is still pending (<code>registration</code> is <code>paid</code>, <code>unpaid</code> or <code>exempt</code>; <code>accepting=true|false</code>).</li>
+ <li><b>Bookings switch</b> — [[PUT /admin-panel/artists/accepting_bookings/]] with <code>artist_id</code> and <code>is_accepting_bookings</code>. OFF works for any artist and locks them out of switching back on; ON needs an approved artist whose fee is settled.</li>
  <li><b>Brands</b> — [[POST /admin-panel/brands/create/]], [[PUT /admin-panel/brands/update/]], requests [[GET /admin-panel/brands/requests/get_all/]] (<code>filter_key=status&amp;filter_value=pending</code>) and [[PUT /admin-panel/brands/requests/decide/]] (approving adds the brand).</li>
  <li><b>Support</b> — [[GET /help_center/admin/tickets/get_all/]], [[GET /help_center/admin/tickets/get/]], [[PUT /help_center/admin/tickets/update_status/]], plus the existing admin chat endpoints.</li>
 </ol>
@@ -601,7 +631,7 @@ file=@front.jpg  back_file=@back.jpg</pre>
    <li>Do not call this endpoint as a customer or admin (standard 400), and do not pass parameters (they are ignored): the 15 days and the clock are the server&rsquo;s.</li>
   </ul></li>
  <li><b>The artist adds it</b> &mdash; with the existing endpoints: [[POST /artists/services/add/]] (<code>sub_category_id</code>), then [[POST /artists/packages/create/]] for a package (and portfolio items as usual). Once the artist has added it, it drops out of their popup. Adding a service that is switched off is refused.</li>
- <li><b>Customers see it only when it is bookable</b> &mdash; [[GET /core/service-sub-category/get_all/]] shows a customer a service only while it is live <i>and</i> at least one active package under it belongs to an approved artist who is accepting bookings. Until an artist creates a package, customers do not see the new service; if the last package is switched off, it disappears again. Artists see every live service in that list; admins see everything.</li>
+ <li><b>Customers see it only when it is bookable</b> &mdash; [[GET /core/service-sub-category/get_all/]] shows a customer a service only while it is live <i>and</i> at least one active package under it belongs to an artist customers can see (approved, registration fee settled, bookings on). Until an artist creates a package, customers do not see the new service; if the last package is switched off, it disappears again. Artists see every live service in that list; admins see everything.</li>
  <li><b>Switched-off services</b> disappear from the service lists and from search, cannot be announced, booked or newly added by artists, and drop out of the popup. Bookings already made, and what an artist already has, are not touched. Switching one service off never hides its parent service.</li>
 </ol>
 </section>
@@ -690,7 +720,12 @@ ERRORS = """
 <tr><td>To change your email or phone number, request a verification code…</td><td>profile update</td><td>Route to the contact-change flow</td></tr>
 <tr><td>Incomplete: &lt;step name&gt; (one entry per missing step)</td><td>onboarding submit</td><td><code>error</code> lists each missing step; highlight them</td></tr>
 <tr><td>The artist has no verified ID proof; verify the identity document first</td><td>admin approve</td><td>Open the KYC panel</td></tr>
-<tr><td>The artist has not paid the registration fee; it must be paid before approval</td><td>admin approve</td><td>Tell the admin the artist still owes the fee</td></tr>
+<tr><td>Complete your registration payment before you can turn bookings on</td><td>bookings switch, accept booking</td><td>Send the artist to the fee screen</td></tr>
+<tr><td>Your profile must be approved by an admin before you can turn bookings on</td><td>bookings switch, accept booking</td><td>Show “waiting for approval”</td></tr>
+<tr><td>Bookings were switched off by an admin; contact support to turn them back on</td><td>bookings switch, accept booking</td><td>Show the message with a support link</td></tr>
+<tr><td>This artist can no longer accept this booking, so it cannot be paid. You can cancel it.</td><td>payment initiate, group payment initiate</td><td>Show the message and offer “Cancel booking” (a request that was never paid costs nothing)</td></tr>
+<tr><td>Turn bookings on before you accept a booking request</td><td>accept booking</td><td>Offer to switch bookings on</td></tr>
+<tr><td>The artist is not approved, so bookings cannot be turned on / The artist has not completed the registration payment, so bookings cannot be turned on</td><td>admin bookings switch</td><td>Show to the admin</td></tr>
 <tr><td>Invalid promo code / This promo code is not valid at this time / You have already used this promo code / This promo code has been fully redeemed</td><td>promo validate, registration initiate</td><td>Show as-is under the code field</td></tr>
 <tr><td>The registration fee does not apply to this account or has already been paid</td><td>registration initiate, promo validate</td><td>Hide the fee screen and refresh the onboarding status</td></tr>
 <tr><td>This payment could not be applied to your registration, so it will be refunded</td><td>registration verify</td><td>Tell the artist the money will be returned; refresh the status</td></tr>
@@ -703,10 +738,10 @@ ERRORS = """
 FLOW_DIAGRAMS = {
     'flow-onboarding': r"""stateDiagram-v2
   [*] --> in_progress: register as artist
-  in_progress --> submitted: all steps done incl. registration fee, submit
+  in_progress --> submitted: all other steps done, submit (fee not required)
   submitted --> approved: admin verifies ID, approves
   submitted --> rejected: admin rejects with a message
-  rejected --> submitted: fee refunded on rejection; artist fixes things, pays again, resubmits
+  rejected --> submitted: fee refunded and bookings off; artist fixes things, resubmits
   approved --> [*]""",
     'flow-booking': r"""flowchart LR
   S["Search artists"] --> D["Artist page\npackages, add-ons, areas"]

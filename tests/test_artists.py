@@ -244,8 +244,9 @@ class ArtistProfileGetTest(TestCase):
 
     def _approve(self, user):
         approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
+        # An approved artist other users can see: bookings on and registration fee settled (waived here).
         ArtistProfile.objects.filter(user_id=user.user_id).update(
-            approval_status=approved, rejection_reason='internal note',
+            approval_status=approved, rejection_reason='internal note', is_accepting_bookings=True, registration_fee_exempt=True,
         )
         return get_artist_profile(user)
 
@@ -1360,6 +1361,7 @@ class ArtistRegistrationFieldsTest(TestCase):
         approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
         profile = get_artist_profile(artist)
         profile.approval_status = approved
+        profile.is_accepting_bookings, profile.registration_fee_exempt = True, True     # visible to customers
         profile.save()
         customer, _ = make_authenticated_client(phone_number='+919000000903', role='customer')
         data = customer.get(self.get_url, {'artist_id': profile.artist_id}).data['data']
@@ -1380,6 +1382,7 @@ class ArtistRegistrationFieldsTest(TestCase):
         approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
         profile = get_artist_profile(artist)
         profile.approval_status = approved
+        profile.is_accepting_bookings, profile.registration_fee_exempt = True, True     # visible to customers
         profile.save()
         customer, _ = make_authenticated_client(phone_number='+919000000905', role='customer')
         data = customer.get('/customers/artists/get/', {'artist_id': profile.artist_id}).data['data']
@@ -1486,7 +1489,7 @@ class WorkSampleTest(TestCase):
         self._post(owner, sub, False)
         profile = get_artist_profile(user)
         approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
-        ArtistProfile.objects.filter(artist_id=profile.artist_id).update(approval_status=approved)
+        ArtistProfile.objects.filter(artist_id=profile.artist_id).update(approval_status=approved, is_accepting_bookings=True, registration_fee_exempt=True)
         other, _ = make_authenticated_client(phone_number='+919000000924', role='customer')
         foreign = other.get('/artists/portfolio/get_all/', {'artist_id': profile.artist_id}).data['data']['data']
         own = owner.get('/artists/portfolio/get_all/').data['data']['data']
@@ -1611,7 +1614,7 @@ class ArtistPhotoTest(TestCase):
         client, user = make_authenticated_client(phone_number='+919000000950')
         client.put(self.upload_url, {'profile_photo': self._png()}, format='multipart')
         approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
-        ArtistProfile.objects.filter(user_id=user.user_id).update(approval_status=approved)
+        ArtistProfile.objects.filter(user_id=user.user_id).update(approval_status=approved, is_accepting_bookings=True, registration_fee_exempt=True)
         customer, _ = make_authenticated_client(phone_number='+919000000951', role='customer')
         data = customer.get(self.get_url, {'artist_id': get_artist_profile(user).artist_id}).data['data']
         self.assertTrue(data['profilePhotoUrl'].startswith('http://testserver/'))
@@ -1732,7 +1735,7 @@ class PackageExtrasTest(TestCase):
         sub = make_sub_category(category=make_category(name='Makeup2'), name='Party')
         self._create(artist, sub, makeup_type='Natural', brands=['Lakme'])
         approved, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
-        ArtistProfile.objects.filter(user_id=user.user_id).update(approval_status=approved)
+        ArtistProfile.objects.filter(user_id=user.user_id).update(approval_status=approved, is_accepting_bookings=True, registration_fee_exempt=True)
         customer, _ = make_authenticated_client(phone_number='+919000001010', role='customer')
         pkg = customer.get('/customers/artists/get/', {'artist_id': get_artist_profile(user).artist_id}).data['data']['packages'][0]
         self.assertEqual((pkg['makeupType'], pkg['brands'], pkg['category']['name']), ('Natural', ['Lakme'], 'Makeup2'))
@@ -1777,6 +1780,7 @@ class ForeignListVisibilityTest(TestCase):
         if approved:
             status, _ = ApprovalStatus.objects.get_or_create(name='approved', defaults={'description': 'Approved'})
             profile.approval_status = status
+            profile.is_accepting_bookings, profile.registration_fee_exempt = True, True     # visible to customers
             profile.save()
         active = PricingPackage.objects.create(artist=profile, sub_category=sub, name='Active', price=1000, duration_minutes=60)
         PricingPackage.objects.create(artist=profile, sub_category=sub, name='Hidden', price=1000, duration_minutes=60, is_active=False)

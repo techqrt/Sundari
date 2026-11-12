@@ -59,7 +59,7 @@ class ArtistProfileView:
         columns = [c for c in params.values.split(',') if c]
         if is_foreign:
             data_dict = ArtistProfile.objects.filter(
-                artist_id=params.artist_id, approval_status__name='approved',
+                ArtistProfile.public_filter(), artist_id=params.artist_id,
             ).values(*self.PUBLIC_PROFILE_FIELDS).first()
             public_names = {
                 ArtistsUtils.MAPS['profile'][field] for field in self.PUBLIC_PROFILE_FIELDS
@@ -72,7 +72,7 @@ class ArtistProfileView:
         if not data_dict:
             raise ValueError(self.data_no_match)
         data_dict = self._photo_urls(dict(data_dict), params.present_url)
-        mapped_columns = [column for column in columns if column != 'specialities']
+        mapped_columns = [column for column in columns if column not in ('specialities', 'registrationEligible')]
         utils = ArtistsUtils(entity='profile', columns_required=mapped_columns)
         data = json.loads(utils.mapper([data_dict]))[0]
         if not columns or 'specialities' in columns:
@@ -80,6 +80,10 @@ class ArtistProfileView:
                 row['sub_category_id'] for row in ArtistSpeciality.get_all(
                     artist_id=data_dict['artist_id'], only_live=is_foreign)
             ]
+        # Own profile only: whether the registration fee is settled (or waived), so the app can tell the artist
+        # why bookings cannot be switched on. Not derived from anything another user could see.
+        if not is_foreign and (not columns or 'registrationEligible' in columns):
+            data['registrationEligible'] = ArtistProfile.is_eligible(data_dict['artist_id'])
         return Response(
             status=status.HTTP_200_OK,
             data=Utils.success_response_data(message=self.data_get, data=data)
@@ -161,6 +165,9 @@ class ArtistProfileView:
             profile = ArtistProfile.objects.filter(user_id=params.user_id).first()
         if not profile:
             raise ValueError(Constants.artist_not_found)
+        # Someone else's data: only an artist customers can see (the owner always sees their own).
+        if profile.user_id != params.user_id and not ArtistProfile.is_public(profile.artist_id):
+            raise ValueError(Constants.artist_not_found)
         raw = ArtistServiceOffering.get_all(artist_id=profile.artist_id)
         utils = ArtistsUtils(entity='service_offering')
         data = json.loads(utils.mapper(raw))
@@ -205,6 +212,9 @@ class ArtistProfileView:
             profile = ArtistProfile.objects.filter(user_id=params.user_id).first()
         if not profile:
             raise ValueError(Constants.artist_not_found)
+        # Someone else's data: only an artist customers can see (the owner always sees their own).
+        if profile.user_id != params.user_id and not ArtistProfile.is_public(profile.artist_id):
+            raise ValueError(Constants.artist_not_found)
         raw = ArtistLocationPreference.get_all(artist_id=profile.artist_id)
         utils = ArtistsUtils(entity='location_preference')
         data = json.loads(utils.mapper(raw))
@@ -240,6 +250,9 @@ class ArtistProfileView:
         else:
             profile = ArtistProfile.objects.filter(user_id=params.user_id).first()
         if not profile:
+            raise ValueError(Constants.artist_not_found)
+        # Someone else's data: only an artist customers can see (the owner always sees their own).
+        if profile.user_id != params.user_id and not ArtistProfile.is_public(profile.artist_id):
             raise ValueError(Constants.artist_not_found)
         data = [
             {'subCategoryId': row['sub_category_id'], 'name': row['sub_category__name']}

@@ -12,6 +12,8 @@ class ArtistProfileSerializer(serializers.Serializer):
     specialities = serializers.ListField(child=serializers.IntegerField(), required=False)
     # Own-profile only (private): never part of the public subset.
     isAcceptingBookings = serializers.BooleanField(required=False)
+    acceptingLockedByAdmin = serializers.BooleanField(required=False)
+    registrationEligible = serializers.BooleanField(required=False)
     publicSlug = serializers.CharField(allow_null=True, allow_blank=True, required=False)
     profileViewCount = serializers.IntegerField(required=False)
     agreementVersion = serializers.CharField(allow_null=True, allow_blank=True, required=False)
