@@ -52,6 +52,11 @@ class BookingFirebaseUtils:
             if not booking:
                 return
             payload = BookingFirebaseUtils._build_payload(booking)
+            # In-Salon bookings carry the salon as saved at booking time (null otherwise), so an app that reads the
+            # Firestore copy sees the same place and coordinates as the REST responses.
+            snapshot = Booking.objects.filter(booking_id=booking_id).values_list('salon_address_snapshot', flat=True).first()
+            from sunndari_apps.customers.booking_extras import BookingExtras
+            payload['salonAddress'] = BookingExtras.salon_from_snapshot(snapshot)
             FirebaseUtils.get_client().collection(BookingFirebaseUtils.COLLECTION).document(
                 str(booking_id)
             ).set(payload, merge=True)

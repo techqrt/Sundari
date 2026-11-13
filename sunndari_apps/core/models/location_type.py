@@ -4,6 +4,11 @@ from django.utils import timezone
 
 
 class LocationType(models.Model):
+    # The seeded booking types (core/management/commands/seed_core.py); the same names are live in production.
+    HOME_VISIT = 'Home Visit'
+    IN_SALON = 'In-Salon'
+    ON_SITE_EVENT = 'On-Site Event'
+
     location_type_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(null=True, blank=True)

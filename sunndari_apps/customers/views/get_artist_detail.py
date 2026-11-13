@@ -10,6 +10,8 @@ from sunndari_apps.artists.models.package_inclusion import PackageInclusion
 from sunndari_apps.artists.models.portfolio import Portfolio
 from sunndari_apps.artists.models.addon import PackageAddOn
 from sunndari_apps.artists.models.service_area import ArtistServiceArea
+from sunndari_apps.artists.models.salon_address import ArtistSalonAddress
+from sunndari_apps.customers.booking_extras import BookingExtras
 from sunndari_apps.artists.models.artist_service_offering import ArtistServiceOffering
 from sunndari_apps.artists.utils import ArtistsUtils
 from sunndari_apps.customers.serializers.response.get.get_artist_detail import ArtistDetailResponseSerializer
@@ -71,6 +73,12 @@ class ArtistDetailView:
             ArtistServiceArea.get_all(artist_id=params.artist_id, only_active=True)
         ))
 
+        # The salons a customer can choose for an In-Salon booking: the artist's active ones, oldest first, in the same
+        # shape a booking later returns them in.
+        salons_data = [
+            BookingExtras.salon_from_snapshot(salon) for salon in ArtistSalonAddress.get_all_active(params.artist_id)
+        ]
+
         ArtistProfile.record_view(artist_id=params.artist_id)
 
         data = {
@@ -80,6 +88,7 @@ class ArtistDetailView:
             'services': services_data,
             'addOns': addons_data,
             'serviceAreas': areas_data,
+            'salonAddresses': salons_data,
         }
         return Response(
             status=status.HTTP_200_OK,

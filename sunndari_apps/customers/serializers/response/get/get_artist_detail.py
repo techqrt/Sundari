@@ -5,6 +5,7 @@ from sunndari_apps.artists.serializers.response.get.get_portfolio import Portfol
 from sunndari_apps.artists.serializers.response.get.service_offering import ServiceOfferingSerializer
 from sunndari_apps.artists.serializers.response.get.get_addon import AddOnSerializer
 from sunndari_apps.artists.serializers.response.get_all.get_all_service_area import ServiceAreaSerializer
+from sunndari_apps.customers.serializers.response.get.get_booking import BookingSalonAddressSerializer
 
 
 class ArtistDetailDataSerializer(serializers.Serializer):
@@ -14,6 +15,8 @@ class ArtistDetailDataSerializer(serializers.Serializer):
     services = serializers.ListField(child=ServiceOfferingSerializer())
     addOns = serializers.ListField(child=AddOnSerializer(), required=False)
     serviceAreas = serializers.ListField(child=ServiceAreaSerializer(), required=False)
+    # The artist's active salons: what the customer chooses from (as salon_address_id) for an In-Salon booking
+    salonAddresses = serializers.ListField(child=BookingSalonAddressSerializer(), required=False)
 
 
 class ArtistDetailResponseSerializer(serializers.Serializer):

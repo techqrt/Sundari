@@ -14,6 +14,7 @@ from sunndari_apps.artists.models.pricing_package import PricingPackage
 from sunndari_apps.artists.models.artist_location_preference import ArtistLocationPreference
 from sunndari_apps.artists.models.addon import PackageAddOn
 from sunndari_apps.artists.models.service_area import ArtistServiceArea
+from sunndari_apps.artists.models.salon_address import ArtistSalonAddress
 from sunndari_apps.core.models.location_type import LocationType
 from sunndari_apps.core.models.booking_status import BookingStatus
 from sunndari_apps.users.models.customer_address import CustomerAddress
@@ -73,10 +74,27 @@ class CreateBookingView:
             ).exists():
                 raise ValueError(Constants.slot_unavailable)
 
-            if params.address_id and not CustomerAddress.objects.filter(
-                address_id=params.address_id, user_id=params.user_id,
-            ).exists():
-                raise ValueError(Constants.data_no_match)
+            location_name = LocationType.objects.filter(
+                location_type_id=params.location_type_id,
+            ).values_list('name', flat=True).first()
+            address_id = params.address_id
+            salon_address = None
+            if location_name == LocationType.IN_SALON:
+                # The customer must pick one of THIS artist's live salons; nothing is chosen for them, and a home
+                # address is not part of an In-Salon booking (anything sent in address_id is ignored).
+                if not params.salon_address_id:
+                    raise ValueError(Constants.salon_address_required)
+                salon_address = ArtistSalonAddress.get_active_owned(params.artist_id, params.salon_address_id)
+                if not salon_address:
+                    raise ValueError(Constants.salon_address_unavailable)
+                address_id = None
+            else:
+                if params.salon_address_id:
+                    raise ValueError(Constants.salon_address_not_allowed)
+                if not address_id:
+                    raise ValueError(Constants.customer_address_required)
+                if not CustomerAddress.objects.filter(address_id=address_id, user_id=params.user_id).exists():
+                    raise ValueError(Constants.data_no_match)
 
             # Add-ons: must be the artist's own, active, and linked to this package.
             requested_addon_ids = set(params.addon_ids or [])
@@ -89,9 +107,6 @@ class CreateBookingView:
             # Travel: only Home Visits, and only once the artist has configured service areas
             # (an artist with none keeps the previous behaviour — no restriction, no charge).
             travel_fee = Decimal('0.00')
-            location_name = LocationType.objects.filter(
-                location_type_id=params.location_type_id,
-            ).values_list('name', flat=True).first()
             if location_name == 'Home Visit' and ArtistServiceArea.has_active(params.artist_id):
                 if not params.address_id:
                     raise ValueError(Constants.service_area_address_required)
@@ -129,7 +144,8 @@ class CreateBookingView:
                 end_time=end_time,
                 status_id=pending_status.status_id,
                 total_amount=total_amount,
-                address_id=params.address_id,
+                address_id=address_id,
+                salon_address=salon_address,
                 notes=params.notes or None,
                 lock_minutes=Configurations.slot_lock_minutes,
                 travel_fee=travel_fee,

@@ -5,7 +5,7 @@ from sunndari_apps.artists.models import (
     Portfolio, PricingPackage, PackageInclusion,
     ArtistAvailabilitySchedule, ArtistAvailabilityBlock,
     ArtistDocument, ArtistPayoutAccount, ArtistSpeciality, ArtistReviewFeedback,
-    PackageAddOn, ArtistServiceArea, ArtistClientNote, BrandRequest,
+    PackageAddOn, ArtistServiceArea, ArtistSalonAddress, ArtistClientNote, BrandRequest,
     PromoCode, PromoRedemption, ArtistRegistrationPayment,
 )
 from sunndari_apps.common.admin_columns import related_column, preview_column
@@ -113,6 +113,15 @@ class ArtistServiceAreaAdmin(ModelAdmin):
     list_display = ('area_id', 'artist_name', 'city', 'travel_charge_type', 'charge_amount', 'is_active')
     list_filter = ('travel_charge_type', 'is_active')
     search_fields = ARTIST_SEARCH + ('city',)
+    list_select_related = ('artist__user',)
+    artist_name = related_column('Artist', 'artist__user__name', 'artist__user__phone_number')
+
+
+@admin.register(ArtistSalonAddress)
+class ArtistSalonAddressAdmin(ModelAdmin):
+    list_display = ('salon_address_id', 'artist_name', 'name', 'city', 'pin_code', 'latitude', 'longitude', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ARTIST_SEARCH + ('name', 'city', 'pin_code')
     list_select_related = ('artist__user',)
     artist_name = related_column('Artist', 'artist__user__name', 'artist__user__phone_number')
 

@@ -6,6 +6,7 @@ from .portfolio import Portfolio
 from .pricing_package import PricingPackage
 from .addon import PackageAddOn
 from .service_area import ArtistServiceArea
+from .salon_address import ArtistSalonAddress
 from .package_inclusion import PackageInclusion
 from .availability_schedule import ArtistAvailabilitySchedule
 from .availability_block import ArtistAvailabilityBlock

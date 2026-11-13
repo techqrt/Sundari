@@ -16,6 +16,17 @@ class BookingAddressSerializer(serializers.Serializer):
     pinCode = serializers.CharField()
 
 
+class BookingSalonAddressSerializer(serializers.Serializer):
+    salonAddressId = serializers.IntegerField()
+    name = serializers.CharField()
+    addressLine1 = serializers.CharField()
+    addressLine2 = serializers.CharField(allow_null=True, allow_blank=True)
+    city = serializers.CharField()
+    pinCode = serializers.CharField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+
+
 class BookingSerializer(serializers.Serializer):
     bookingId = serializers.IntegerField()
     customerId = serializers.IntegerField()
@@ -25,6 +36,8 @@ class BookingSerializer(serializers.Serializer):
     locationTypeId = serializers.IntegerField()
     addressId = serializers.IntegerField(allow_null=True)
     address = BookingAddressSerializer(allow_null=True, required=False)      # full address of the booking
+    # In-Salon only: the artist's salon as saved when the booking was made (null for Home Visit / On-Site Event)
+    salonAddress = BookingSalonAddressSerializer(allow_null=True, required=False)
     bookingDate = serializers.DateField()
     startTime = serializers.TimeField()
     endTime = serializers.TimeField()

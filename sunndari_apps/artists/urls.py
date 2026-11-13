@@ -16,6 +16,7 @@ from sunndari_apps.artists.controllers.client import ArtistClientController
 from sunndari_apps.artists.controllers.insights import ArtistInsightsController
 from sunndari_apps.artists.controllers.brand_request import ArtistBrandRequestController
 from sunndari_apps.artists.controllers.service_area import ServiceAreaController
+from sunndari_apps.artists.controllers.salon_address import SalonAddressController
 
 urlpatterns = [
     # Profile
@@ -66,6 +67,10 @@ urlpatterns = [
     path('service_areas/update/', ServiceAreaController.update_service_area, name='artist_update_service_area'),
     path('service_areas/remove/', ServiceAreaController.remove_service_area, name='artist_remove_service_area'),
     path('service_areas/get_all/', ServiceAreaController.get_all_service_areas, name='artist_get_all_service_areas'),
+    path('salon_addresses/create/', SalonAddressController.create_salon_address, name='artist_create_salon_address'),
+    path('salon_addresses/get_all/', SalonAddressController.get_all_salon_addresses, name='artist_get_all_salon_addresses'),
+    path('salon_addresses/update/', SalonAddressController.update_salon_address, name='artist_update_salon_address'),
+    path('salon_addresses/delete/', SalonAddressController.delete_salon_address, name='artist_delete_salon_address'),
     path('availability/schedule/set/', AvailabilityController.set_schedule, name='artist_set_schedule'),
     path('availability/schedule/remove/', AvailabilityController.remove_schedule, name='artist_remove_schedule'),
     path('availability/schedule/get_all/', AvailabilityController.get_all_schedules, name='artist_get_all_schedules'),

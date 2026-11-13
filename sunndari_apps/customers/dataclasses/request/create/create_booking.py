@@ -10,5 +10,6 @@ class CreateBookingRequest:
     booking_date: date
     start_time: time
     address_id: int = None
+    salon_address_id: int = None
     notes: str = None
     addon_ids: list = None

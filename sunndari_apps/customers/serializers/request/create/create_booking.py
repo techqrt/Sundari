@@ -8,7 +8,10 @@ class CreateBookingSerializer(serializers.Serializer):
     location_type_id = serializers.IntegerField()
     booking_date = serializers.DateField(input_formats=['%d-%m-%y'])
     start_time = serializers.TimeField()
-    address_id = serializers.IntegerField()
+    # Home Visit and On-Site Event need address_id; In-Salon needs salon_address_id instead (checked against the
+    # booking type in the view, which is where the type is known).
+    address_id = serializers.IntegerField(required=False, allow_null=True, default=None)
+    salon_address_id = serializers.IntegerField(required=False, allow_null=True, default=None)
     notes = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
     addon_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list, max_length=10)
 

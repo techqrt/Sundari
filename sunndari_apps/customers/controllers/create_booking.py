@@ -15,7 +15,10 @@ class CreateBookingController:
     @extend_schema(
         description=(
             'Create a booking request for an artist package. Slot is locked for 15 minutes '
-            'pending payment; still-pending bookings auto-cancel after that.'
+            'pending payment; still-pending bookings auto-cancel after that. Home Visit and On-Site Event need '
+            'address_id (your own address) and refuse salon_address_id. In-Salon needs salon_address_id, one of '
+            'the booked artist\'s active salon addresses (listed by the artist page), and ignores address_id; '
+            'no salon is ever picked for you.'
         ),
         request=CreateBookingSerializer,
         responses=SwaggerPage.response(description='Slot locked for 15 minutes pending payment'),

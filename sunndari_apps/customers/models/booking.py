@@ -76,6 +76,19 @@ class Booking(models.Model):
         null=True,
         blank=True,
     )
+    # In-Salon bookings only: the artist's salon the customer chose. The address is kept (switched off, never erased)
+    # even if the artist later deletes it, and salon_address_snapshot is what it said at booking time, so editing or
+    # deleting the address never rewrites a booking. Null for Home Visit / On-Site Event and for older bookings.
+    salon_address = models.ForeignKey(
+        'artists.ArtistSalonAddress',
+        # RESTRICT: a used address cannot be erased on its own (the artist "deletes" it by switching it off), but it
+        # still goes along with the artist when the artist and their bookings are removed together.
+        on_delete=models.RESTRICT,
+        related_name='bookings',
+        null=True,
+        blank=True,
+    )
+    salon_address_snapshot = models.JSONField(null=True, blank=True)
     booking_date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -184,6 +197,7 @@ class Booking(models.Model):
         total_amount,
         address_id: int = None,
         notes: str = None,
+        salon_address=None,
         lock_minutes: int = 15,
         travel_fee=0,
         commission_rate=None,
@@ -198,6 +212,9 @@ class Booking(models.Model):
         self.package_id = package_id
         self.location_type_id = location_type_id
         self.address_id = address_id
+        if salon_address is not None:
+            self.salon_address_id = salon_address.salon_address_id
+            self.salon_address_snapshot = salon_address.booking_snapshot()
         self.booking_date = booking_date
         self.start_time = start_time
         self.end_time = end_time

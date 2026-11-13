@@ -16,7 +16,8 @@ class ArtistDetailController:
     @extend_schema(
         description=(
             'Get full artist detail for customer view: profile, active packages, '
-            'active portfolio items, and active service offerings in one response. '
+            'active portfolio items, active service offerings and the artist\'s active salon addresses '
+            '(salonAddresses, with latitude and longitude; the customer picks one for an In-Salon booking) in one response. '
             'Only approved artists are visible.'
         ),
         parameters=ArtistDetailSerializer.get_parameters(),

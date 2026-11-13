@@ -20,10 +20,11 @@ class BookingExtras:
     }
     ADDONS_COLUMN = 'addOns'
     ADDRESS_COLUMN = 'address'          # the booking's full address, shown to its customer and its artist
+    SALON_COLUMN = 'salonAddress'       # In-Salon bookings: the salon as it was when booked (null for other types)
 
     @classmethod
     def extra_names(cls, for_artist: bool) -> set:
-        return set((cls.ARTIST_COLUMNS if for_artist else cls.CUSTOMER_COLUMNS)) | {cls.ADDONS_COLUMN, cls.ADDRESS_COLUMN}
+        return set((cls.ARTIST_COLUMNS if for_artist else cls.CUSTOMER_COLUMNS)) | {cls.ADDONS_COLUMN, cls.ADDRESS_COLUMN, cls.SALON_COLUMN}
 
     @classmethod
     def split_columns(cls, columns: list, for_artist: bool):
@@ -39,6 +40,19 @@ class BookingExtras:
     def _money(value):
         return None if value is None else f'{value:.2f}'
 
+    @staticmethod
+    def salon_from_snapshot(snapshot):
+        """A salon in the shape customers and artists receive: used for the copy saved on a booking (so a later edit
+        or delete of the address never changes the booking) and for the artist page's list of choosable salons."""
+        if not snapshot:
+            return None
+        return {
+            'salonAddressId': snapshot['salon_address_id'], 'name': snapshot['name'],
+            'addressLine1': snapshot['address_line_1'], 'addressLine2': snapshot['address_line_2'],
+            'city': snapshot['city'], 'pinCode': snapshot['pin_code'],
+            'latitude': snapshot['latitude'], 'longitude': snapshot['longitude'],
+        }
+
     @classmethod
     def attach(cls, raw_rows: list, mapped_rows: list, for_artist: bool, only: list = None) -> list:
         if not raw_rows:
@@ -48,7 +62,9 @@ class BookingExtras:
         booking_ids = [row['booking_id'] for row in raw_rows]
         stored = {
             row['booking_id']: row
-            for row in Booking.objects.filter(booking_id__in=booking_ids).values('booking_id', *columns.values())
+            for row in Booking.objects.filter(booking_id__in=booking_ids).values(
+                'booking_id', 'salon_address_snapshot', *columns.values(),
+            )
         }
         addons = BookingAddOn.get_for_bookings(booking_ids)
         address_ids = {raw['address_id'] for raw in raw_rows if raw.get('address_id')}
@@ -76,4 +92,6 @@ class BookingExtras:
                 ]
             if wanted is None or cls.ADDRESS_COLUMN in wanted:
                 data[cls.ADDRESS_COLUMN] = addresses.get(raw.get('address_id'))
+            if wanted is None or cls.SALON_COLUMN in wanted:
+                data[cls.SALON_COLUMN] = cls.salon_from_snapshot(row.get('salon_address_snapshot'))
         return mapped_rows
